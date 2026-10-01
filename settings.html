@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Settings · Pawsitive Care</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+<link rel="stylesheet" href="style.css">
+<style>
+  /* ============================================================
+     Settings page — scoped styles.
+     style.css is shared across the whole app and wasn't modified,
+     so the layout primitives this page needs (cards, field grids,
+     toggle switches, the feedback banner) are defined here instead,
+     all "set-" prefixed to avoid colliding with any existing class.
+     Buttons reuse the app's existing global .btn / .btn-primary
+     classes rather than introducing new ones. Colors fall back to
+     sensible neutrals via var(--token, fallback) so the page still
+     looks right even where a given CSS variable isn't defined.
+     ============================================================ */
+  .set-page {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    max-width: 880px;
+  }
+
+  .set-card {
+    background: var(--card-bg, #fff);
+    border: 1px solid var(--border, #e5e7eb);
+    border-radius: var(--radius, 12px);
+    box-shadow: var(--shadow-sm, 0 1px 2px rgba(16, 24, 40, 0.05));
+    overflow: hidden;
+  }
+
+  .set-card-header {
+    padding: 18px 22px;
+    border-bottom: 1px solid var(--border, #e5e7eb);
+  }
+
+  .set-card-title {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--ink, #1f2937);
+  }
+
+  .set-card-title i {
+    color: var(--brand, #2f9e6f);
+  }
+
+  .set-card-subtitle {
+    margin: 4px 0 0;
+    font-size: 13px;
+    color: var(--ink-soft, #6b7280);
+  }
+
+  .set-card-body {
+    padding: 20px 22px 22px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .set-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .set-field label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink, #1f2937);
+  }
+
+  .set-field input[type="text"],
+  .set-field input[type="email"],
+  .set-field input[type="tel"],
+  .set-field input[type="number"],
+  .set-field input[type="time"] {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 9px 12px;
+    font-size: 14px;
+    font-family: inherit;
+    border: 1px solid var(--border, #d1d5db);
+    border-radius: 8px;
+    background: var(--input-bg, #fff);
+    color: var(--ink, #1f2937);
+  }
+
+  .set-field input:focus {
+    outline: none;
+    border-color: var(--brand, #2f9e6f);
+    box-shadow: 0 0 0 3px var(--brand-soft, rgba(47, 158, 111, 0.15));
+  }
+
+  .set-field-row {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .set-field-row .set-field {
+    flex: 1 1 220px;
+  }
+
+  .set-hint {
+    font-size: 12px;
+    color: var(--ink-soft, #6b7280);
+    margin-top: -2px;
+  }
+
+  /* toggle rows */
+  .set-toggle-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 4px 0;
+  }
+
+  .set-toggle-row + .set-toggle-row {
+    border-top: 1px solid var(--border, #f0f1f3);
+    padding-top: 14px;
+  }
+
+  .set-toggle-text {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .set-toggle-label {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--ink, #1f2937);
+  }
+
+  .set-toggle-desc {
+    font-size: 12.5px;
+    color: var(--ink-soft, #6b7280);
+    margin-top: 2px;
+  }
+
+  .set-toggle {
+    position: relative;
+    display: inline-block;
+    width: 42px;
+    height: 24px;
+    flex: none;
+  }
+
+  .set-toggle input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+
+  .set-toggle-slider {
+    position: absolute;
+    cursor: pointer;
+    inset: 0;
+    background-color: var(--toggle-off, #d1d5db);
+    border-radius: 999px;
+    transition: background-color 0.15s ease;
+  }
+
+  .set-toggle-slider::before {
+    content: "";
+    position: absolute;
+    height: 18px;
+    width: 18px;
+    left: 3px;
+    top: 3px;
+    background-color: #fff;
+    border-radius: 50%;
+    transition: transform 0.15s ease;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+  }
+
+  .set-toggle input:checked + .set-toggle-slider {
+    background-color: var(--brand, #2f9e6f);
+  }
+
+  .set-toggle input:checked + .set-toggle-slider::before {
+    transform: translateX(18px);
+  }
+
+  .set-toggle input:focus-visible + .set-toggle-slider {
+    outline: 2px solid var(--brand, #2f9e6f);
+    outline-offset: 2px;
+  }
+
+  /* actions bar */
+  .set-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    padding: 4px 2px 0;
+  }
+
+  /* feedback banner */
+  .settings-feedback {
+    display: none;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    border-radius: 8px;
+    font-size: 13.5px;
+    font-weight: 500;
+  }
+
+  .settings-feedback--success {
+    background: var(--success-soft, #ecfdf3);
+    color: var(--success, #067647);
+    border: 1px solid var(--success-border, #abefc6);
+  }
+
+  .settings-feedback--error {
+    background: var(--danger-soft, #fef3f2);
+    color: var(--danger, #b42318);
+    border: 1px solid var(--danger-border, #fecdca);
+  }
+
+  @media (max-width: 640px) {
+    .set-field-row {
+      flex-direction: column;
+    }
+  }
+</style>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-mark"><i class="fa-solid fa-paw"></i></div>
+        <div class="brand-text">
+          <div class="brand-name">Pawsitive Care</div>
+          <div class="brand-role">Administrator</div>
+        </div>
+      </div>
+      <div class="sidebar-divider"></div>
+      <nav class="sidebar-nav">
+      <div class="nav-group">
+        <div class="nav-group-label">MAIN</div>
+        <a href="dashboard.html" class="nav-item" data-page="dashboard.html">
+          <span class="nav-icon"><i class="fa-solid fa-house"></i></span>
+          <span class="nav-label">Dashboard</span>
+        </a>
+        <a href="appointments.html" class="nav-item" data-page="appointments.html">
+          <span class="nav-icon"><i class="fa-solid fa-calendar-days"></i></span>
+          <span class="nav-label">Appointments</span>
+        </a>
+        <a href="queue.html" class="nav-item" data-page="queue.html">
+          <span class="nav-icon"><i class="fa-solid fa-hourglass-half"></i></span>
+          <span class="nav-label">Queue</span>
+        </a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">PATIENT MANAGEMENT</div>
+        <a href="patients.html" class="nav-item" data-page="patients.html">
+          <span class="nav-icon"><i class="fa-solid fa-paw"></i></span>
+          <span class="nav-label">Patients</span>
+        </a>
+        <a href="clients.html" class="nav-item" data-page="clients.html">
+          <span class="nav-icon"><i class="fa-solid fa-user"></i></span>
+          <span class="nav-label">Clients</span>
+        </a>
+        <a href="medical-records.html" class="nav-item" data-page="medical-records.html">
+          <span class="nav-icon"><i class="fa-solid fa-notes-medical"></i></span>
+          <span class="nav-label">Medical Records</span>
+        </a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">CLINIC</div>
+        <a href="services.html" class="nav-item" data-page="services.html">
+          <span class="nav-icon"><i class="fa-solid fa-hospital"></i></span>
+          <span class="nav-label">Services</span>
+        </a>
+        <a href="inventory.html" class="nav-item" data-page="inventory.html">
+          <span class="nav-icon"><i class="fa-solid fa-boxes-stacked"></i></span>
+          <span class="nav-label">Inventory</span>
+        </a>
+        <a href="billing.html" class="nav-item" data-page="billing.html">
+          <span class="nav-icon"><i class="fa-solid fa-credit-card"></i></span>
+          <span class="nav-label">Billing</span>
+        </a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">INSIGHTS</div>
+        <a href="predictive-analytics.html" class="nav-item" data-page="predictive-analytics.html">
+          <span class="nav-icon"><i class="fa-solid fa-chart-line"></i></span>
+          <span class="nav-label">Predictive Analytics</span>
+        </a>
+        <a href="reports.html" class="nav-item" data-page="reports.html">
+          <span class="nav-icon"><i class="fa-solid fa-chart-column"></i></span>
+          <span class="nav-label">Reports</span>
+        </a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">SYSTEM</div>
+        <a href="notifications.html" class="nav-item" data-page="notifications.html">
+          <span class="nav-icon"><i class="fa-solid fa-bell"></i></span>
+          <span class="nav-label">Notifications</span>
+        </a>
+        <a href="staff-users.html" class="nav-item" data-page="staff-users.html">
+          <span class="nav-icon"><i class="fa-solid fa-users"></i></span>
+          <span class="nav-label">Staff & Users</span>
+        </a>
+        <a href="settings.html" class="nav-item" data-page="settings.html">
+          <span class="nav-icon"><i class="fa-solid fa-gear"></i></span>
+          <span class="nav-label">Settings</span>
+        </a>
+      </div>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="footer-avatar">A</div>
+        <div>
+          <div class="footer-name">Admin</div>
+          <div class="footer-role">Administrator</div>
+        </div>
+      </div>
+    </aside>
+
+    <div class="main-content">
+      <header class="topbar">
+        <div class="topbar-left">
+          <button class="menu-toggle" aria-label="Toggle navigation"><i class="fa-solid fa-bars"></i></button>
+          <div>
+            <div class="topbar-title">Settings</div>
+            <div class="topbar-crumb">Pawsitive Care / Settings</div>
+          </div>
+        </div>
+      </header>
+
+      <main class="page-body">
+        <div class="set-page">
+
+          <div id="settings-feedback" class="settings-feedback" role="status" aria-live="polite"></div>
+
+          <form id="settings-form" novalidate>
+
+            <section class="set-card">
+              <div class="set-card-header">
+                <h2 class="set-card-title"><i class="fa-solid fa-hospital"></i> Clinic Information</h2>
+                <p class="set-card-subtitle">Basic details about your clinic, used across the system.</p>
+              </div>
+              <div class="set-card-body">
+                <div class="set-field">
+                  <label for="set-clinic-name">Clinic Name</label>
+                  <input type="text" id="set-clinic-name" placeholder="e.g. Pawsitive Care Veterinary Clinic">
+                </div>
+                <div class="set-field">
+                  <label for="set-clinic-address">Address</label>
+                  <input type="text" id="set-clinic-address" placeholder="Street, City, Province">
+                </div>
+                <div class="set-field-row">
+                  <div class="set-field">
+                    <label for="set-clinic-phone">Phone</label>
+                    <input type="tel" id="set-clinic-phone" placeholder="e.g. 0917 000 0000">
+                  </div>
+                  <div class="set-field">
+                    <label for="set-clinic-email">Email</label>
+                    <input type="email" id="set-clinic-email" placeholder="e.g. info@pawsitivecare.com">
+                  </div>
+                </div>
+                <div class="set-field">
+                  <label for="set-clinic-hours">Clinic Hours</label>
+                  <input type="text" id="set-clinic-hours" placeholder="e.g. Mon&ndash;Sat, 8:00 AM &ndash; 6:00 PM">
+                  <div class="set-hint">Shown to clients — separate from the booking window below.</div>
+                </div>
+              </div>
+            </section>
+
+            <section class="set-card">
+              <div class="set-card-header">
+                <h2 class="set-card-title"><i class="fa-solid fa-calendar-days"></i> Appointment Settings</h2>
+                <p class="set-card-subtitle">Controls used when scheduling and booking appointments.</p>
+              </div>
+              <div class="set-card-body">
+                <div class="set-field-row">
+                  <div class="set-field">
+                    <label for="set-appt-duration">Default Appointment Duration (minutes)</label>
+                    <input type="number" id="set-appt-duration" min="5" max="240" step="5">
+                  </div>
+                </div>
+                <div class="set-field-row">
+                  <div class="set-field">
+                    <label for="set-appt-open">Opening Time</label>
+                    <input type="time" id="set-appt-open">
+                  </div>
+                  <div class="set-field">
+                    <label for="set-appt-close">Closing Time</label>
+                    <input type="time" id="set-appt-close">
+                  </div>
+                </div>
+                <div class="set-toggle-row">
+                  <label class="set-toggle">
+                    <input type="checkbox" id="set-appt-allow-booking">
+                    <span class="set-toggle-slider"></span>
+                  </label>
+                  <div class="set-toggle-text">
+                    <div class="set-toggle-label">Allow Client Booking</div>
+                    <div class="set-toggle-desc">Let clients request appointments themselves through their portal.</div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section class="set-card">
+              <div class="set-card-header">
+                <h2 class="set-card-title"><i class="fa-solid fa-hourglass-half"></i> Queue Settings</h2>
+                <p class="set-card-subtitle">Controls how the waiting-room queue is numbered each day.</p>
+              </div>
+              <div class="set-card-body">
+                <div class="set-field-row">
+                  <div class="set-field">
+                    <label for="set-queue-prefix">Queue Prefix</label>
+                    <input type="text" id="set-queue-prefix" maxlength="3" placeholder="e.g. A">
+                  </div>
+                  <div class="set-field">
+                    <label for="set-queue-start">Starting Queue Number</label>
+                    <input type="number" id="set-queue-start" min="1" step="1">
+                  </div>
+                </div>
+                <div class="set-toggle-row">
+                  <label class="set-toggle">
+                    <input type="checkbox" id="set-queue-autoreset">
+                    <span class="set-toggle-slider"></span>
+                  </label>
+                  <div class="set-toggle-text">
+                    <div class="set-toggle-label">Auto-reset Queue Daily</div>
+                    <div class="set-toggle-desc">Start numbering again from the Starting Queue Number every day.</div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section class="set-card">
+              <div class="set-card-header">
+                <h2 class="set-card-title"><i class="fa-solid fa-bell"></i> Notification Settings</h2>
+                <p class="set-card-subtitle">Choose which alerts the system generates.</p>
+              </div>
+              <div class="set-card-body">
+                <div class="set-toggle-row">
+                  <label class="set-toggle">
+                    <input type="checkbox" id="set-notif-lowstock">
+                    <span class="set-toggle-slider"></span>
+                  </label>
+                  <div class="set-toggle-text">
+                    <div class="set-toggle-label">Low Stock Alerts</div>
+                    <div class="set-toggle-desc">Notify when inventory falls at or below its low-stock threshold.</div>
+                  </div>
+                </div>
+                <div class="set-toggle-row">
+                  <label class="set-toggle">
+                    <input type="checkbox" id="set-notif-expired">
+                    <span class="set-toggle-slider"></span>
+                  </label>
+                  <div class="set-toggle-text">
+                    <div class="set-toggle-label">Expired Medicine Alerts</div>
+                    <div class="set-toggle-desc">Notify when inventory items pass their expiration date.</div>
+                  </div>
+                </div>
+                <div class="set-toggle-row">
+                  <label class="set-toggle">
+                    <input type="checkbox" id="set-notif-vaccination">
+                    <span class="set-toggle-slider"></span>
+                  </label>
+                  <div class="set-toggle-text">
+                    <div class="set-toggle-label">Vaccination Due Alerts</div>
+                    <div class="set-toggle-desc">Notify when a patient's vaccination is coming due or overdue.</div>
+                  </div>
+                </div>
+                <div class="set-toggle-row">
+                  <label class="set-toggle">
+                    <input type="checkbox" id="set-notif-appointment">
+                    <span class="set-toggle-slider"></span>
+                  </label>
+                  <div class="set-toggle-text">
+                    <div class="set-toggle-label">Appointment Alerts</div>
+                    <div class="set-toggle-desc">Notify about upcoming, arrived, or changed appointments.</div>
+                  </div>
+                </div>
+                <div class="set-toggle-row">
+                  <label class="set-toggle">
+                    <input type="checkbox" id="set-notif-predictive">
+                    <span class="set-toggle-slider"></span>
+                  </label>
+                  <div class="set-toggle-text">
+                    <div class="set-toggle-label">Predictive Analytics Alerts</div>
+                    <div class="set-toggle-desc">Notify when Predictive Analytics flags a trend worth reviewing.</div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+          </form>
+
+          <div class="set-actions">
+            <button type="button" id="settings-reset-btn" class="btn">Reset to Defaults</button>
+            <button type="button" id="settings-save-btn" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i> Save Settings</button>
+          </div>
+
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script src="sidebar.js"></script>
+  <script src="settings-data-store.js"></script>
+  <script src="settings.js"></script>
+</body>
+</html>

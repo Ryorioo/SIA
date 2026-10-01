@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reports · Pawsitive Care</title>
+<!-- start fetching the print header branding early; reports.js reuses these same URLs -->
+<link rel="preload" as="image" href="img/LOGO.png">
+<link rel="preload" as="image" href="img/WORDMARK.png">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+<link rel="stylesheet" href="style.css">
+<style>
+  /* Reports page — internal styles only, style.css untouched.
+     Reuses the shared Pawsitive Care components: .page-toolbar / .btn /
+     .btn-sm / .btn-primary for the header action, .sub-tabs / .sub-tab
+     (+ .count) for the category filters, .filter-bar / .search-field for
+     search, and .empty-state for no results. Only the report catalog
+     itself is defined here, using existing CSS custom properties — no
+     hardcoded colors. */
+
+  /* --- header: same treatment as Services / Medical Records ---
+     The page title lives in the toolbar below, so the border-bottom
+     style.css draws under the (now empty) topbar is suppressed. */
+  .topbar { border-bottom: none; }
+  .page-toolbar { margin-top: 22px; }
+  .rpt-page-title { font-size: 20px; font-weight: 800; margin-bottom: 0; }
+
+  .rpt-section-title {
+    margin: 0 0 12px;
+    font-size: 12.6px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    color: var(--teal-800);
+  }
+
+  /* --- search (same treatment as the Services search field) --- */
+  #rpt-search {
+    flex: 1 1 auto;
+    width: 100%;
+    box-sizing: border-box;
+    background: transparent;
+    border: none;
+    outline: none;
+    box-shadow: none;
+    font: inherit;
+    color: var(--ink-900);
+  }
+  .search-field:focus-within { border-color: var(--teal-400); }
+  .filter-bar .search-field { flex: 1 1 auto; min-width: 200px; }
+  .rpt-search-clear {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    margin-left: 6px;
+    border: 1px solid var(--teal-400);
+    border-radius: 50%;
+    background: var(--teal-100);
+    color: var(--teal-800);
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .rpt-search-clear[hidden] { display: none; }
+  .rpt-search-clear:hover { background: var(--surface-sunken); color: var(--ink-900); }
+  .rpt-search-clear:focus-visible { outline: 2px solid var(--teal-400); outline-offset: 1px; }
+
+  /* --- Recent Reports (Phase 4A: UI shell only, no records yet) --- */
+
+  /* --- Phase 4C.6: one Report Library surface holding a responsive grid
+     of report groups. Recent Reports is a peer cell of that grid (last
+     cell = bottom-right on desktop). Column count follows the width of the
+     library itself (container query), not the viewport, so it stays right
+     with or without the sidebar. --- */
+  .rpt-library {
+    container-type: inline-size;
+    background: var(--surface-card);
+    border: 1px solid var(--line-soft);
+    border-radius: var(--r-lg);
+    box-shadow: var(--clay-flat);
+    padding: 20px 20px 22px;
+  }
+  .rpt-lib-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px 16px;
+    margin-bottom: 4px;
+  }
+  .rpt-lib-controls .sub-tabs { flex: 1 1 auto; min-width: 0; margin-bottom: 12px; }
+  .rpt-lib-controls .filter-bar {
+    flex: 0 1 280px;
+    min-width: 0;
+    margin-bottom: 12px;
+    padding: 0;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+  }
+  .rpt-lib-controls .filter-bar .search-field { min-width: 0; }
+
+  .rpt-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+    align-items: stretch;   /* cards in a grid row share the height of the tallest one */
+  }
+  #rpt-catalog { display: contents; }
+  @container (min-width: 600px) { .rpt-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @container (min-width: 860px) { .rpt-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  .rpt-grid #rpt-catalog > .empty-state { grid-column: 1 / -1; }
+
+  /* Category cards keep the existing card treatment from the base
+     .rpt-group / .rpt-group-head rules (surface, border, radius, shadow,
+     sunken header). Only their width/stacking is set here. */
+  .rpt-grid .rpt-group { min-width: 0; margin: 0; background: var(--surface-card-raised); }
+
+  /* compact report rows: title + description left, light Generate right */
+  .rpt-grid .rpt-item {
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 12px;
+    padding: 10px 18px;
+  }
+  .rpt-grid .rpt-item-icon { display: none; }
+  .rpt-grid .rpt-group--cat .rpt-item-meta { display: none; }
+  .rpt-grid .rpt-item-body { flex: 1 1 150px; min-width: 0; overflow-wrap: anywhere; }
+  .rpt-grid .rpt-item-name { font-size: 14px; font-weight: 800; line-height: 1.3; color: var(--ink-900); }
+  .rpt-grid .rpt-item-desc { font-size: 12px; font-weight: 400; line-height: 1.4; margin-top: 4px; color: var(--ink-soft); }
+  .rpt-grid .rpt-item-meta { margin-top: 3px; font-size: 11px; }
+  .rpt-grid .rpt-item-action { flex: 0 0 auto; }
+  .rpt-grid .rpt-item-action .btn {
+    white-space: nowrap;
+    padding: 4px 10px;
+    font-size: 12px;
+    background: transparent;
+    border-color: var(--line-soft);
+    color: var(--teal-700);
+    box-shadow: none;
+  }
+  .rpt-grid .rpt-item-action .btn i { font-size: 10.5px; }
+  .rpt-grid .rpt-item-action .btn:hover { background: var(--teal-50); border-color: var(--teal-400); box-shadow: none; }
+  .rpt-grid .rpt-item-action .btn:disabled { color: var(--ink-faint); background: transparent; cursor: not-allowed; }
+
+  /* Recent Reports cell: same list treatment (shows the newest 4, no inner scroll) */
+  .rpt-recent-msg { margin: 10px 18px 0; font-size: 12.8px; font-weight: 700; color: var(--red-600); }
+  .rpt-recent-msg:empty { display: none; }
+  .rpt-item-when { display: inline-flex; flex-direction: column; line-height: 1.35; }
+  .rpt-item-when span { white-space: nowrap; }
+  .rpt-grid .rpt-group-title, .rpt-grid .rpt-group-count { white-space: nowrap; flex: none; }
+  #rpt-recent-list .rpt-group { border: none; border-radius: 0; box-shadow: none; background: transparent; margin: 0; }
+  #rpt-recent-list .empty-state { border: none; box-shadow: none; background: transparent; padding: 18px; text-align: left; }
+
+  .rpt-count-label {
+    font-size: 11.4px;
+    font-weight: 700;
+    color: var(--ink-faint);
+    margin: 0 2px 10px;
+  }
+
+  /* --- report catalog: grouped list, not a card grid --- */
+  .rpt-group {
+    background: var(--surface-card);
+    border: 1px solid var(--line-soft);
+    border-radius: var(--r-md);
+    box-shadow: var(--clay-flat);
+    margin-bottom: 16px;
+    overflow: hidden;
+  }
+  .rpt-group-head {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 11px 18px;
+    background: var(--surface-sunken);
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .rpt-group-icon { font-size: 12.5px; color: var(--teal-700); }
+  .rpt-group-title {
+    margin: 0;
+    font-size: 11.6px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--teal-800);
+  }
+  .rpt-group-count { margin-left: auto; font-size: 11.4px; font-weight: 700; color: var(--ink-faint); }
+
+  .rpt-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 13px 18px;
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .rpt-item:last-child { border-bottom: none; }
+  .rpt-item:hover { background: var(--surface-sunken); }
+
+  .rpt-item-icon {
+    flex: none;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--r-sm);
+    background: var(--teal-50);
+    border: 1px solid var(--teal-100);
+    color: var(--teal-700);
+    font-size: 14px;
+  }
+  .rpt-item-body { flex: 1; min-width: 0; }
+  .rpt-item-name { font-size: 14px; font-weight: 800; color: var(--ink-900); }
+  .rpt-item-desc { font-size: 12.6px; font-weight: 500; color: var(--ink-soft); margin-top: 2px; }
+  .rpt-item-meta {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin-top: 5px;
+    font-size: 11.2px;
+    font-weight: 700;
+    color: var(--ink-faint);
+  }
+  .rpt-item-meta i { font-size: 10.5px; }
+  .rpt-item-action { flex: none; }
+
+
+  /* ------------------------------------------------------------
+     Preserved for Phase 3 (report output + print). The library does
+     not render these, but the legacy dashboard builders in reports.js
+     still use them. Colors mapped from hardcoded hex to the app's
+     existing design tokens.
+     ------------------------------------------------------------ */
+  .rpt-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 18px; }
+  .rpt-filter-group { display: flex; flex-wrap: wrap; gap: 6px; }
+  .rpt-filter-btn {
+    border: 1px solid var(--line-soft);
+    background: var(--surface-card-raised);
+    border-radius: var(--r-sm);
+    padding: 6px 12px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    color: var(--ink-soft);
+  }
+  .rpt-filter-btn.is-active { background: var(--teal-600); border-color: var(--teal-700); color: var(--ink-on-brand); }
+  .rpt-custom-range { display: flex; align-items: center; gap: 6px; font-size: 0.85rem; }
+  .rpt-print-btn {
+    margin-left: auto;
+    border: 1px solid var(--teal-700);
+    background: var(--teal-600);
+    color: var(--ink-on-brand);
+    border-radius: var(--r-sm);
+    padding: 7px 14px;
+    font-size: 0.85rem;
+    cursor: pointer;
+  }
+
+  .rpt-overview { margin-bottom: 20px; }
+  .rpt-heading { margin: 0 0 10px; }
+  .rpt-subheading { margin: 14px 0 6px; font-size: 0.9rem; color: var(--ink-800); }
+
+  .rpt-report {
+    border: 1px solid var(--line-soft);
+    border-radius: var(--r-md);
+    margin-bottom: 14px;
+    background: var(--surface-card);
+    padding: 0 16px;
+  }
+  .rpt-report-summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 12px 0;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .rpt-report-summary::-webkit-details-marker { display: none; }
+  .rpt-summary-caret { margin-left: auto; font-size: 0.8rem; color: var(--ink-faint); transition: transform 0.15s; }
+  .rpt-report[open] .rpt-summary-caret { transform: rotate(180deg); }
+  .rpt-report-body { padding-bottom: 14px; }
+
+  .rpt-stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; }
+  .rpt-stat-grid--overview { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
+  .rpt-stat-card {
+    border: 1px solid var(--line-soft);
+    border-radius: var(--r-sm);
+    padding: 10px 12px;
+    background: var(--surface-sunken);
+  }
+  .rpt-stat-value { font-size: 1.3rem; font-weight: 700; }
+  .rpt-stat-label { font-size: 0.78rem; color: var(--ink-soft); margin-top: 2px; }
+
+  .rpt-barlist { display: flex; flex-direction: column; gap: 6px; }
+  .rpt-barlist--scroll { max-height: 210px; overflow-y: auto; padding-right: 4px; }
+  .rpt-bar-row { display: flex; align-items: center; gap: 8px; font-size: 0.82rem; }
+  .rpt-bar-label { flex: 0 0 34%; max-width: 34%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-700); }
+  .rpt-bar-track { flex: 1; background: var(--surface-sunken); border-radius: 4px; height: 10px; overflow: hidden; }
+  .rpt-bar-fill { height: 100%; background: var(--teal-600); border-radius: 4px; }
+  .rpt-bar-value { flex: 0 0 auto; min-width: 26px; text-align: right; color: var(--ink-800); font-weight: 600; }
+  .rpt-empty { color: var(--ink-soft); font-size: 0.85rem; }
+
+  @media print {
+    .sidebar, .topbar, .rpt-toolbar, .page-toolbar, .filter-bar, .sub-tabs { display: none !important; }
+    .main-content, .page-body { margin: 0 !important; padding: 0 !important; }
+    .rpt-report { border: none; page-break-inside: avoid; margin-bottom: 10px; }
+    .rpt-summary-caret { display: none; }
+    body { background: var(--surface-card-raised); }
+  }
+
+  /* ------------------------------------------------------------
+     Phase 3 — Generate Report modal (scoped to #rpt-gen-overlay).
+     Same shell as the Inventory / Services modals: fixed header,
+     scrolling body, fixed footer. Design tokens only.
+     ------------------------------------------------------------ */
+  #rpt-gen-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(15, 25, 22, 0.46);
+  }
+  /* Phase 4C.5 — mirrors the Inventory Add/Edit Item modal
+     (#inv-modal-overlay .inv-item-modal in inventory.html): same width,
+     surface, radius, shadow, header, 38px sunken controls with the same
+     chevron and teal focus ring, and the same footer. Header/close/grid/
+     field/label/footer/button styling comes from the shared style.css
+     classes (.modal-head, .modal-title, .modal-close, .form-grid,
+     .form-field, .modal-footer, .btn, .btn-primary); only what those
+     classes don't cover is set here. */
+  #rpt-gen-overlay .rpt-gen-modal {
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    width: min(610px, calc(100vw - 40px));
+    max-width: 100%;
+    max-height: 88vh;
+    max-height: min(88vh, calc(100dvh - 40px));
+    padding: 0;
+    overflow: hidden;
+    background: var(--surface-card-raised);
+    border-radius: var(--r-lg);
+    box-shadow: var(--clay-pop);
+  }
+  #rpt-gen-overlay .modal-head {
+    flex: none;
+    margin: 0;
+    padding: 22px 26px 16px;
+    border-bottom: 1px solid var(--line-soft);
+  }
+  #rpt-gen-overlay .modal-title { margin: 0; }
+  #rpt-gen-overlay .modal-close:focus-visible,
+  #rpt-gen-overlay .btn:focus-visible { outline: 2px solid var(--teal-400); outline-offset: 2px; }
+  #rpt-gen-overlay #rpt-gen-form { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
+  #rpt-gen-overlay .rpt-gen-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
+    padding: 18px 26px;
+  }
+  #rpt-gen-overlay .form-field { min-width: 0; }
+  #rpt-gen-overlay .form-field select,
+  #rpt-gen-overlay .form-field input {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    height: 38px;
+    padding: 0 12px;
+    border: 1px solid var(--line-soft);
+    border-radius: var(--r-sm);
+    background-color: var(--surface-sunken);
+    box-shadow: var(--clay-pressed);
+    color: var(--ink-800);
+    font-family: inherit;
+    font-size: 13.5px;
+    font-weight: 500;
+    transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  #rpt-gen-overlay .form-field select:focus,
+  #rpt-gen-overlay .form-field input:focus {
+    outline: none;
+    border-color: var(--teal-400);
+    background-color: var(--surface-card-raised);
+    box-shadow: 0 0 0 3px var(--teal-100);
+  }
+  #rpt-gen-overlay .form-field select {
+    -webkit-appearance: none; -moz-appearance: none; appearance: none;
+    background-image:
+      linear-gradient(45deg, transparent 50%, var(--ink-faint) 50%),
+      linear-gradient(135deg, var(--ink-faint) 50%, transparent 50%);
+    background-repeat: no-repeat;
+    background-position: calc(100% - 18px) center, calc(100% - 13px) center;
+    background-size: 5px 5px, 5px 5px;
+    padding-right: 30px;
+  }
+  #rpt-gen-overlay .form-field select::-ms-expand { display: none; }
+  #rpt-gen-overlay .rpt-gen-daterow { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 10px; }
+  #rpt-gen-overlay .rpt-gen-dash { color: var(--ink-faint); font-weight: 600; }
+  #rpt-gen-overlay .rpt-gen-subhead { grid-column: 1 / -1; margin-top: 2px; font-size: 12.2px; font-weight: 700; color: var(--ink-soft); }
+  #rpt-gen-overlay .rpt-gen-desc { margin: 0; font-size: 12.6px; font-weight: 500; color: var(--ink-soft); }
+  #rpt-gen-overlay .rpt-gen-desc:empty { display: none; }
+  #rpt-gen-overlay .rpt-gen-hint { grid-column: 1 / -1; margin: 0; font-size: 12.6px; font-weight: 600; color: var(--ink-soft); }
+  #rpt-gen-overlay .rpt-gen-error { flex: none; margin: 0; padding: 0 26px 10px; min-height: 0; font-size: 12.8px; font-weight: 700; color: var(--red-600); }
+  #rpt-gen-overlay .rpt-gen-error:empty { padding: 0; }
+  #rpt-gen-overlay .modal-footer {
+    flex: none;
+    margin: 0;
+    padding: 16px 26px 20px;
+    border-top: 1px solid var(--line-soft);
+  }
+  @media (max-width: 620px) {
+    #rpt-gen-overlay .modal-head,
+    #rpt-gen-overlay .rpt-gen-body,
+    #rpt-gen-overlay .modal-footer,
+    #rpt-gen-overlay .rpt-gen-error { padding-left: 18px; padding-right: 18px; }
+  }
+  @media (max-width: 480px) {
+    #rpt-gen-overlay .rpt-gen-daterow { grid-template-columns: 1fr; gap: 8px; }
+    #rpt-gen-overlay .rpt-gen-dash { display: none; }
+  }
+
+  /* ------------------------------------------------------------
+     Phase 4D — generated report document (#rpt-print-report).
+     Never visible on screen; shown only while printing. Same document
+     language as the Billing print (#bl-print-invoice): the same paper
+     (#f8faf7), logo + wordmark header on a teal rule, small uppercase
+     teal labels, soft-teal table headers, teal footer rule. No surface
+     colours beyond the original palette.
+     ------------------------------------------------------------ */
+  #rpt-print-report { display: none; }
+  #rpt-print-report {
+    --pp-paper:#ffffff; --pp-panel:#e7f2ee; --pp-panel-line:#d3e6df; --pp-strong:#d3e8e1;
+    --pp-ink:#1d3b36; --pp-muted:#4d6d66; --pp-rule:#b7d3ca;
+    background: var(--pp-paper);
+    color: var(--pp-ink);
+    font-family: var(--font-sans);
+    font-size: 12.5px;
+    line-height: 1.4;
+  }
+  #rpt-print-report, #rpt-print-report * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+  /* header: identical to the Billing print (centered logo + wordmark images) */
+  .rpt-doc-header { display: flex; align-items: center; justify-content: center; gap: 4mm; padding-bottom: 4mm; margin-bottom: 4mm; border-bottom: .35mm solid var(--teal-600); }
+  .rpt-doc-logo-box { position: relative; overflow: hidden; flex: none; width: 24mm; height: 24mm; }
+  .rpt-doc-logo { position: absolute; display: block; width: 124.8%; height: auto; left: -13.4%; top: -13.4%; }
+  .rpt-doc-wordmark-box { position: relative; overflow: hidden; flex: none; width: 104mm; height: 22mm; }
+  .rpt-doc-wordmark { position: absolute; display: block; width: 104.4%; height: auto; left: -2.6%; top: -34.1%; }
+
+  /* category kicker + title (as in the original Reports print) */
+  .rpt-doc-titleblock { padding: 0 0 1.5mm; text-align: center; }
+  .rpt-doc-kicker { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .14em; color: var(--pp-muted); }
+  .rpt-doc-title { margin: .4mm 0 0; font-size: 20px; font-weight: 800; letter-spacing: .08em; color: var(--teal-700); }
+
+  /* document details: ONE bordered strip, three balanced columns */
+  .rpt-doc-details { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 3mm 0 0; border: .25mm solid var(--pp-rule); border-radius: 2mm; }
+  .rpt-doc-detail { display: flex; flex-direction: column; gap: .8mm; min-width: 0; padding: 2.2mm 4mm; }
+  .rpt-doc-detail + .rpt-doc-detail { border-left: .25mm solid var(--pp-rule); }
+  .rpt-doc-detail dt { font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: .11em; color: var(--pp-muted); }
+  .rpt-doc-detail dd { margin: 0; font-size: 11.5px; font-weight: 700; line-height: 1.3; color: var(--teal-800); font-variant-numeric: tabular-nums; }
+
+  /* shared labels */
+  .rpt-doc-ico { color: var(--teal-700); text-align: center; flex: none; }
+  .rpt-doc-label { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .11em; color: var(--teal-700); }
+  .rpt-doc-label--sm { font-size: 10px; margin-bottom: 1.5mm; }
+  .rpt-doc-section-head { display: flex; align-items: center; gap: 2.5mm; margin-bottom: 2.5mm; }
+  .rpt-doc-section-head .rpt-doc-ico { font-size: 16px; width: 6mm; }
+
+  /* report scope — one subtle raised panel, on the same paper */
+  .rpt-doc-scope { margin-top: 4mm; padding: 3mm 4mm 3.4mm; background: var(--pp-paper); border: .25mm solid var(--pp-rule); border-radius: 2mm; box-shadow: 0 .3mm .9mm rgba(29, 59, 54, .10); }
+  .rpt-doc-scope-note { margin: 1.6mm 0 0; font-size: 12.5px; font-weight: 700; color: var(--teal-800); }
+  .rpt-doc-scope-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 2.4mm 5mm; margin-top: 2.2mm; }
+  .rpt-doc-scope-note + .rpt-doc-scope-grid { padding-top: 2.4mm; border-top: .25mm solid var(--pp-panel-line); }
+  .rpt-doc-scope-item { display: flex; flex-direction: column; gap: .5mm; min-width: 0; }
+  .rpt-doc-scope-item--wide { grid-column: span 2; }
+  .rpt-doc-scope-item span { font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: .11em; color: var(--pp-muted); }
+  .rpt-doc-scope-item strong { font-size: 11.5px; font-weight: 700; line-height: 1.3; color: var(--pp-ink); overflow-wrap: anywhere; }
+  .rpt-doc-scope-item em { font-style: normal; font-size: 9px; color: var(--pp-muted); }
+
+  /* summary — compact band of small labels + modest bold values */
+  .rpt-doc-summary { margin-top: 4.5mm; }
+  .rpt-doc-summary > .rpt-doc-label { margin-bottom: 1.6mm; }
+  .rpt-doc-stats { display: grid; background: var(--pp-panel); border-top: .3mm solid var(--teal-600); border-bottom: .25mm solid var(--pp-panel-line); }
+  .rpt-doc-stat { padding: 2.4mm 2mm 2.2mm; text-align: center; min-width: 0; }
+  .rpt-doc-stat + .rpt-doc-stat { border-left: .25mm solid var(--pp-rule); }
+  .rpt-doc-stat-value { font-size: 15px; font-weight: 800; line-height: 1.15; color: var(--teal-800); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+  .rpt-doc-stat-label { margin-top: .8mm; font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; line-height: 1.25; color: var(--teal-700); }
+
+  /* sections + breakdowns (thin bordered panels on the paper, no fill) */
+  .rpt-doc-sec { margin-top: 4.5mm; }
+  .rpt-doc-h2 { display: flex; align-items: center; gap: 2.5mm; margin: 0 0 2.5mm; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .11em; color: var(--teal-700); break-after: avoid; page-break-after: avoid; }
+  .rpt-doc-h2 i { font-size: 14px; width: 6mm; text-align: center; letter-spacing: 0; color: var(--teal-700); }
+  .rpt-doc-cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4mm; margin-top: 4.5mm; align-items: stretch; width: 100%; box-sizing: border-box; }
+  .rpt-doc-cols > .rpt-doc-sec { margin-top: 0; min-width: 0; box-sizing: border-box; }
+  .rpt-doc-cols > .rpt-doc-sec:last-child:nth-child(odd) { grid-column: 1 / -1; }
+  .rpt-doc-sec--panel { box-sizing: border-box; min-width: 0; max-width: 100%; padding: 3mm 3.5mm 1.5mm; border: .25mm solid var(--pp-rule); border-radius: 2mm; }
+
+  /* tables — original soft-teal rounded headers, sensible widths, wrap at spaces */
+  .rpt-doc-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 11px; margin-bottom: 1mm; }
+  .rpt-doc-table th { text-align: left; font-size: 8px; font-weight: 800; text-transform: uppercase; letter-spacing: .03em; line-height: 1.25; color: var(--teal-700); background: var(--pp-strong); padding: 2.4mm 2.2mm; vertical-align: bottom; }
+  .rpt-doc-table th:first-child { border-radius: 2.5mm 0 0 2.5mm; }
+  .rpt-doc-table th:last-child { border-radius: 0 2.5mm 2.5mm 0; }
+  .rpt-doc-table td { padding: 2.2mm; border-bottom: .25mm solid var(--pp-rule); color: var(--pp-ink); vertical-align: top; overflow-wrap: break-word; word-break: normal; hyphens: manual; }
+  .rpt-doc-table tfoot td { font-weight: 800; background: var(--pp-panel); color: var(--teal-800); border-bottom: none; }
+  /* Row dividers on the long (paginating) tables sit ABOVE each row instead of
+     below it: same one hairline per row (identical row height), so a divider
+     is only ever drawn between two rows that are both present. The last row on
+     any printed page therefore has nothing hanging beneath it, and the next
+     page starts with its divider under the repeated header. Pure CSS, no JS.
+     Breakdown panels (not paginated) keep their original dividers. */
+  .rpt-doc-sec:not(.rpt-doc-sec--panel) .rpt-doc-table tbody td { border-bottom: none; border-top: .25mm solid var(--pp-rule); }
+  .rpt-doc-sec:not(.rpt-doc-sec--panel) .rpt-doc-table tfoot td { border-top: .25mm solid var(--pp-rule); }
+
+  /* Breakdown panels: the final row ends cleanly. The divider stays between
+     rows; the last row keeps the same border width but transparent, so the
+     panel and row heights are exactly what they were (no padding tweaks). */
+  .rpt-doc-sec--panel .rpt-doc-table tbody tr:last-child td { border-bottom-color: transparent; }
+
+  /* semantic status pills (muted tints from the existing tokens; inline so the
+     line box and row height are unchanged) */
+  .rpt-doc-status { display: inline; padding: .35mm 1.6mm; border-radius: 99px; font-weight: 700; white-space: normal; overflow-wrap: normal; word-break: normal; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+  .rpt-doc-status--green  { background: var(--sage-100); color: #2f6b48; }
+  .rpt-doc-status--blue   { background: #e0ecf2; color: #245368; }
+  .rpt-doc-status--teal   { background: var(--teal-100); color: var(--teal-700); }
+  .rpt-doc-status--strong { background: var(--teal-200); color: var(--teal-800); }
+  .rpt-doc-status--amber  { background: var(--amber-100); color: var(--amber-800); }
+  .rpt-doc-status--red    { background: var(--red-100); color: var(--red-800); }
+  .rpt-doc-status--slate  { background: var(--slate-100); color: var(--slate-800); }
+  .rpt-doc-table .rpt-doc-num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  /* combined date + time: date on line 1, full time (incl. AM/PM) on line 2; neither part can wrap */
+  .rpt-datetime { display: block; }
+  .rpt-datetime-date, .rpt-datetime-time { display: block; white-space: nowrap; }
+  .rpt-doc-table thead { display: table-header-group; }
+  .rpt-doc-table tfoot { display: table-row-group; }
+  .rpt-doc-table tr { break-inside: avoid; page-break-inside: avoid; }
+  .rpt-doc-table--compact { font-size: 10.5px; }
+  .rpt-doc-table--compact td { padding-top: 1.7mm; padding-bottom: 1.7mm; }
+  .rpt-doc-table--fixed { table-layout: fixed; }
+  .rpt-doc-table--fixed th, .rpt-doc-table--fixed td { padding-left: 1.6mm; padding-right: 1.6mm; }
+
+  /* empty report — factual, no numbers */
+  .rpt-doc-emptybox { padding-top: 3.5mm; border-top: .25mm solid var(--pp-rule); }
+  .rpt-doc-empty { margin: 0 0 0 8.5mm; font-size: 12.5px; color: var(--pp-ink); }
+
+  /* notes */
+  .rpt-doc-notes { margin-top: 5mm; padding-top: 2.5mm; border-top: .25mm solid var(--pp-rule); font-size: 9.5px; color: var(--pp-muted); }
+  .rpt-doc-notes p { margin: 0 0 1.2mm; }
+
+  @media print {
+    /* A4 portrait. Real page margins so every page is framed alike; the
+       @page background keeps the paper colour edge to edge (same #f8faf7
+       as before). The footer lives in the bottom margin boxes: teal rule,
+       clinic name + "Internal Use Only" left, actual page number right.
+       No generated time here (it is in Document Details). */
+    @page {
+      size: A4 portrait;
+      margin: 8mm 12mm 20mm;
+      background: #ffffff;
+      @bottom-left {
+        content: "Pawsitive Care Veterinary Clinic\A Internal Use Only";
+        white-space: pre;
+        width: 65%;
+        vertical-align: top;
+        padding-top: 3mm;
+        border-top: .3mm solid #106e5f;
+        font: 500 10px/1.45 'Manrope', -apple-system, 'Segoe UI', sans-serif;
+        color: #0d5c50;
+      }
+      @bottom-right {
+        content: "Page " counter(page);
+        width: 35%;
+        vertical-align: top;
+        text-align: right;
+        padding-top: 3mm;
+        border-top: .3mm solid #106e5f;
+        font: 600 10px/1.45 'Manrope', -apple-system, 'Segoe UI', sans-serif;
+        color: #0d5c50;
+      }
+    }
+    /* Everything on the page is a child of <body> except this container
+       (app shell incl. Report Library + Recent Reports, modal overlay,
+       scripts) — hiding by that relationship guarantees no screen UI can
+       leak into the printout. */
+    body > *:not(#rpt-print-report) { display: none !important; }
+    html, body { background: #ffffff !important; height: auto !important; margin: 0 !important; padding: 0 !important; }
+    #rpt-print-report { display: block !important; width: 100%; padding: 0; box-sizing: border-box; }
+    .rpt-doc-header, .rpt-doc-scope, .rpt-doc-summary, .rpt-doc-cols, .rpt-doc-sec--panel, .rpt-doc-emptybox, .rpt-doc-notes, .rpt-doc-details { break-inside: avoid; page-break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-mark"><i class="fa-solid fa-paw"></i></div>
+        <div class="brand-text">
+          <div class="brand-name">Pawsitive Care</div>
+          <div class="brand-role">Administrator</div>
+        </div>
+      </div>
+      <div class="sidebar-divider"></div>
+      <nav class="sidebar-nav">
+      <div class="nav-group">
+        <div class="nav-group-label">MAIN</div>
+        <a href="dashboard.html" class="nav-item" data-page="dashboard.html">
+          <span class="nav-icon"><i class="fa-solid fa-house"></i></span>
+          <span class="nav-label">Dashboard</span>
+        </a>
+        <a href="appointments.html" class="nav-item" data-page="appointments.html">
+          <span class="nav-icon"><i class="fa-solid fa-calendar-days"></i></span>
+          <span class="nav-label">Appointments</span>
+        </a>
+        <a href="queue.html" class="nav-item" data-page="queue.html">
+          <span class="nav-icon"><i class="fa-solid fa-hourglass-half"></i></span>
+          <span class="nav-label">Queue</span>
+        </a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">PATIENT MANAGEMENT</div>
+        <a href="patients.html" class="nav-item" data-page="patients.html">
+          <span class="nav-icon"><i class="fa-solid fa-paw"></i></span>
+          <span class="nav-label">Patients</span>
+        </a>
+        <a href="clients.html" class="nav-item" data-page="clients.html">
+          <span class="nav-icon"><i class="fa-solid fa-user"></i></span>
+          <span class="nav-label">Clients</span>
+        </a>
+        <a href="medical-records.html" class="nav-item" data-page="medical-records.html">
+          <span class="nav-icon"><i class="fa-solid fa-notes-medical"></i></span>
+          <span class="nav-label">Medical Records</span>
+        </a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">CLINIC</div>
+        <a href="services.html" class="nav-item" data-page="services.html">
+          <span class="nav-icon"><i class="fa-solid fa-hospital"></i></span>
+          <span class="nav-label">Services</span>
+        </a>
+        <a href="inventory.html" class="nav-item" data-page="inventory.html">
+          <span class="nav-icon"><i class="fa-solid fa-boxes-stacked"></i></span>
+          <span class="nav-label">Inventory</span>
+        </a>
+        <a href="billing.html" class="nav-item" data-page="billing.html">
+          <span class="nav-icon"><i class="fa-solid fa-credit-card"></i></span>
+          <span class="nav-label">Billing</span>
+        </a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">INSIGHTS</div>
+        <a href="predictive-analytics.html" class="nav-item" data-page="predictive-analytics.html">
+          <span class="nav-icon"><i class="fa-solid fa-chart-line"></i></span>
+          <span class="nav-label">Predictive Analytics</span>
+        </a>
+        <a href="reports.html" class="nav-item" data-page="reports.html">
+          <span class="nav-icon"><i class="fa-solid fa-chart-column"></i></span>
+          <span class="nav-label">Reports</span>
+        </a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">SYSTEM</div>
+        <a href="notifications.html" class="nav-item" data-page="notifications.html">
+          <span class="nav-icon"><i class="fa-solid fa-bell"></i></span>
+          <span class="nav-label">Notifications</span>
+        </a>
+        <a href="staff-users.html" class="nav-item" data-page="staff-users.html">
+          <span class="nav-icon"><i class="fa-solid fa-users"></i></span>
+          <span class="nav-label">Staff & Users</span>
+        </a>
+        <a href="settings.html" class="nav-item" data-page="settings.html">
+          <span class="nav-icon"><i class="fa-solid fa-gear"></i></span>
+          <span class="nav-label">Settings</span>
+        </a>
+      </div>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="footer-avatar">A</div>
+        <div>
+          <div class="footer-name">Admin</div>
+          <div class="footer-role">Administrator</div>
+        </div>
+      </div>
+    </aside>
+
+    <div class="main-content">
+      <header class="topbar">
+        <div class="topbar-left">
+          <button class="menu-toggle" aria-label="Toggle navigation"><i class="fa-solid fa-bars"></i></button>
+        </div>
+      </header>
+
+      <main class="page-body">
+        <div class="page-toolbar">
+          <div>
+            <div class="rpt-page-title">REPORTS</div>
+          </div>
+          <button type="button" class="btn btn-sm btn-primary" id="btn-generate-report">
+            <i class="fa-solid fa-plus"></i> Generate Report
+          </button>
+        </div>
+
+        <div id="reports-root" class="rpt-root">
+          <section class="rpt-library" aria-labelledby="rpt-library-title">
+            <h2 class="rpt-section-title" id="rpt-library-title">REPORT LIBRARY</h2>
+
+            <div class="rpt-lib-controls">
+              <div class="sub-tabs" id="rpt-category-tabs" role="group" aria-label="Filter reports by category"></div>
+              <div class="filter-bar">
+                <div class="search-field">
+                  <span><i class="fa-solid fa-magnifying-glass"></i></span>
+                  <input type="text" id="rpt-search" placeholder="Search reports..." autocomplete="off" aria-label="Search reports by name">
+                  <button type="button" class="rpt-search-clear" id="rpt-search-clear" aria-label="Clear search" hidden><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+                </div>
+              </div>
+            </div>
+
+            <div class="rpt-count-label" id="rpt-count" aria-live="polite"></div>
+
+            <div class="rpt-grid">
+              <div id="rpt-catalog"><!-- report groups rendered by reports.js from REPORT_DEFINITIONS --></div>
+
+              <!-- Recent Reports: a peer cell of the library grid (last cell). -->
+              <section class="rpt-group rpt-group--recent" aria-labelledby="rpt-recent-title">
+                <div class="rpt-group-head">
+                  <i class="fa-solid fa-clock-rotate-left rpt-group-icon" aria-hidden="true"></i>
+                  <h3 class="rpt-group-title" id="rpt-recent-title">Recent Reports</h3>
+                </div>
+                <div id="rpt-recent-msg" class="rpt-recent-msg" role="alert"></div>
+                <div id="rpt-recent-list">
+                  <div class="empty-state">No recent reports yet. Reports you generate will appear here.</div>
+                </div>
+              </section>
+            </div>
+          </section>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- Phase 3: print-only report document. Populated by reports.js right
+       before window.print() and emptied on afterprint; hidden the rest of
+       the time. A direct child of <body> (sibling of .app-shell and of the
+       Generate Report modal overlay) so the print CSS can hide everything
+       else with one "body > *:not(#rpt-print-report)" rule. -->
+  <div id="rpt-print-report" class="rpt-print" aria-hidden="true"></div>
+
+  <script src="sidebar.js"></script>
+  <script src="data-store.js"></script>
+  <script src="services-data-store.js"></script>
+  <script src="patient-data-store.js"></script>
+  <script src="medical-records-data-store.js"></script>
+  <script src="billing-data-store.js"></script>
+  <script src="reports.js"></script>
+</body>
+</html>

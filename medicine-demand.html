@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Medicine Demand Forecast · Pawsitive Care</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+<link rel="stylesheet" href="style.css">
+<style>
+  /* ============================================================
+     Medicine Demand Forecast — page-scoped styles (Phase 2B).
+     This is the dedicated page for the "View Medicine Demand" tile
+     on the Predictive Analytics Overview. It reuses style.css tokens
+     throughout (status-badge colors, --surface-sunken/--line-soft/
+     --r-md/--clay-flat, .btn, .status-badge) and the same "pa-"
+     structural language predictive-analytics.html already
+     established (pa-badge-nodata, pa-pill, pa-sr-only, the
+     Analysis Controls panel, the side-by-side lower grid) so this
+     reads as the same application, not a new visual system. Only
+     new "md-" prefixed classes are introduced, for structure that
+     has no existing equivalent (page title/back-link, the four-card
+     Demand Summary strip, the Demand Confidence tiles, the Forecast
+     Note banner). Screenshot (MEDICINE DEMAND FORECAST.png) is the
+     PRIMARY reference for section order/composition; the Pawsitive
+     Care project files are the source of truth for colors/typography/
+     spacing/borders/shadows — never the screenshot's own styling.
+     ============================================================ */
+
+  .topbar { border-bottom: none; }
+
+  /* --- Back link + page header --- */
+
+  .md-page-title { margin: 0 0 6px; font-size: 26px; font-weight: 800; letter-spacing: -0.01em; color: var(--ink-900); }
+
+  /* --- Analysis Controls ---
+     Same panel language as predictive-analytics.html's
+     .pa-controls-panel (sunken surface, --line-soft border, --r-md
+     radius, --clay-flat shadow) but without a heading or a refresh
+     action per the screenshot's structure for this dedicated page:
+     just the period selector and the "Last analyzed" readout. The
+     selector is intentionally disabled (see the code comment above
+     ANALYSIS_PERIOD_OPTIONS in medicine-demand.js) rather than
+     implying period-based recalculation the engine doesn't do yet. */
+
+  /* --- Demand Summary --- */
+  .md-summary { margin-bottom: 26px; }
+  .md-summary-heading { margin: 0 0 14px; font-size: 16px; font-weight: 800; line-height: normal; letter-spacing: normal; text-transform: none; color: var(--ink-800); }
+  .md-summary-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+  .md-scard { box-sizing: border-box; min-width: 0; height: 100%; padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; background: var(--surface-sunken); border: 1px solid var(--line-soft); border-radius: var(--r-md); box-shadow: var(--clay-flat); }
+  .md-scard-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .md-scard-icon { flex: none; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: var(--r-sm); background: var(--surface-card); color: var(--ink-soft); font-size: 13px; }
+  .md-scard-trend { flex: none; font-size: 12px; color: var(--ink-soft); }
+  .md-scard-label { font-size: 12.5px; font-weight: 700; color: var(--ink-700); line-height: 1.3; }
+  .md-scard-value { font-size: 26px; font-weight: 800; color: var(--ink-900); line-height: 1.15; }
+  .md-scard-desc { font-size: 12px; font-weight: 500; color: var(--ink-700); line-height: 1.4; }
+  .md-scard-primary { background: var(--teal-700); border-color: var(--teal-700); }
+  .md-scard-primary .md-scard-icon { background: rgba(244, 249, 247, 0.16); color: var(--ink-on-brand); }
+  .md-scard-primary .md-scard-trend { color: rgba(244, 249, 247, 0.85); }
+  .md-scard-primary .md-scard-label, .md-scard-primary .md-scard-desc { color: rgba(244, 249, 247, 0.86); }
+  .md-scard-primary .md-scard-value { color: var(--ink-on-brand); }
+  @media (max-width: 1100px) { .md-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 560px) { .md-summary-grid { grid-template-columns: minmax(0, 1fr); } }
+
+  /* --- shared section heading (Medicine Demand Analysis / Demand
+     Trends / Inventory Pressure / Demand Confidence) --- */
+  .md-section { margin-bottom: 26px; }
+  .md-section-heading { margin: 0 0 14px; font-size: 16px; font-weight: 800; line-height: normal; letter-spacing: normal; text-transform: none; color: var(--ink-800); }
+
+  /* --- shared "no data yet" / badge styles, matching
+     predictive-analytics.html's .pa-badge-nodata / .pa-pill exactly --- */
+  .pa-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+  .pa-badge-nodata { background: transparent; color: var(--ink-700); border: 1px solid var(--line-strong); }
+  .md-empty { padding: 16px 18px; background: var(--surface-sunken); border: 1px solid var(--line-soft); border-radius: var(--r-md); color: var(--ink-700); font-size: 13px; font-weight: 500; }
+
+  /* --- Medicine Demand Analysis table (full width) --- */
+  .md-table-wrap { background: var(--surface-card); border: 1px solid var(--line-soft); border-radius: var(--r-md); box-shadow: var(--clay-flat); overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .md-table { width: 100%; min-width: 900px; border-collapse: collapse; font-size: 13px; }
+  .md-table thead th { text-align: left; padding: 12px 14px; font-size: 10.6px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-700); background: var(--surface-sunken); border-bottom: 1px solid var(--line-soft); white-space: nowrap; }
+  .md-table tbody th, .md-table tbody td { padding: 12px 14px; border-bottom: 1px solid var(--line-soft); vertical-align: top; text-align: left; color: var(--ink-900); line-height: 1.35; }
+  .md-table tbody tr:last-child th, .md-table tbody tr:last-child td { border-bottom: none; }
+  .md-table tbody tr:hover { background: var(--surface-sunken); }
+  .md-name-cell { min-width: 150px; }
+  .md-name { display: block; font-size: 14px; font-weight: 700; color: var(--ink-900); }
+  .md-stock-stack { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-width: 110px; }
+  .md-qty { font-size: 12.5px; font-weight: 600; color: var(--ink-700); }
+  .md-demand-level { font-size: 13px; font-weight: 700; color: var(--ink-900); }
+  .md-support { margin-top: 2px; font-size: 12px; font-weight: 500; line-height: 1.4; color: var(--ink-700); min-width: 140px; }
+  .md-trend { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 700; color: var(--ink-700); white-space: nowrap; }
+  .md-trend i { font-size: 12px; color: var(--ink-soft); }
+  .md-trend-none { color: var(--ink-faint); }
+  .md-rec-cell { min-width: 190px; font-size: 12.5px; font-weight: 500; color: var(--ink-800); }
+  .md-empty-row td { padding: 44px 20px; text-align: center; color: var(--ink-700); font-size: 13.5px; font-weight: 600; }
+
+  /* --- side-by-side: Demand Trends / Inventory Pressure --- */
+  .md-lower-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start; margin-bottom: 26px; }
+  .md-lower-grid > .md-section { margin-bottom: 0; }
+  @media (max-width: 1000px) { .md-lower-grid { grid-template-columns: minmax(0, 1fr); } }
+
+  .md-mini-table-wrap { background: var(--surface-card); border: 1px solid var(--line-soft); border-radius: var(--r-md); box-shadow: var(--clay-flat); overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .md-mini-table { width: 100%; min-width: 460px; border-collapse: collapse; font-size: 12.5px; }
+  .md-mini-table thead th { text-align: left; padding: 11px 14px; font-size: 10.3px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-700); background: var(--surface-sunken); border-bottom: 1px solid var(--line-soft); white-space: nowrap; }
+  .md-mini-table tbody th, .md-mini-table tbody td { padding: 11px 14px; border-bottom: 1px solid var(--line-soft); vertical-align: top; text-align: left; color: var(--ink-900); }
+  .md-mini-table tbody tr:last-child th, .md-mini-table tbody tr:last-child td { border-bottom: none; }
+  .md-mini-table tbody tr:hover { background: var(--surface-sunken); }
+  .md-mini-name { font-weight: 700; color: var(--ink-900); }
+
+  /* --- Demand Confidence --- */
+  .md-conf-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+  .md-conf-card { box-sizing: border-box; min-width: 0; padding: 16px 18px; display: flex; flex-direction: column; gap: 8px; background: var(--surface-card); border: 1px solid var(--line); border-radius: var(--r-md); box-shadow: var(--clay-flat); }
+  .md-conf-head { display: flex; align-items: center; gap: 8px; }
+  .md-conf-dot { flex: none; width: 9px; height: 9px; border-radius: 50%; }
+  .md-conf-dot.high { background: var(--sage-500); }
+  .md-conf-dot.medium { background: var(--amber-600); }
+  .md-conf-dot.low { background: var(--red-600); }
+  .md-conf-dot.none { background: var(--ink-faint); }
+  .md-conf-label { font-size: 11px; font-weight: 800; letter-spacing: 0.03em; color: var(--ink-700); }
+  .md-conf-value { font-size: 24px; font-weight: 800; color: var(--ink-900); }
+  .md-conf-sub { font-size: 12px; font-weight: 500; color: var(--ink-700); }
+  @media (max-width: 900px) { .md-conf-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 480px) { .md-conf-grid { grid-template-columns: minmax(0, 1fr); } }
+
+  /* --- Forecast Note --- */
+  .md-note { display: flex; align-items: flex-start; gap: 12px; padding: 14px 18px; background: var(--surface-sunken); border: 1px solid var(--line-soft); border-radius: var(--r-md); }
+  .md-note i { flex: none; margin-top: 2px; color: var(--teal-700); font-size: 14px; }
+  .md-note-title { margin: 0 0 4px; font-size: 12.5px; font-weight: 800; letter-spacing: 0.03em; color: var(--ink-800); }
+  .md-note-text { margin: 0; font-size: 12.5px; font-weight: 500; line-height: 1.5; color: var(--ink-700); }
+
+  /* --- shared pill (out/low flags), matching .pa-pill --- */
+  .pa-pill { display: inline-flex; align-items: center; width: fit-content; font-size: 10.5px; font-weight: 700; letter-spacing: 0.03em; padding: 3px 8px; border-radius: 999px; white-space: nowrap; line-height: 1.4; }
+
+  /* --- Consistency pass: match the finalized Predictive Analytics landing page --- */
+  /* Page title typography = landing page title. */
+  .md-page-title { margin: 0 0 2px; font-size: 20px; font-weight: 800; line-height: inherit; letter-spacing: normal; color: var(--ink-900); }
+
+  /* --- Consistency pass (part 2): Analysis Controls + Back link, shared with the landing page --- */
+  /* Back to Predictive Analytics — one shared control for all four dedicated pages.
+     Same pill language as the landing page's View buttons (.pa-view-link). The row's
+     22px top margin mirrors the landing page title's offset. */
+  .pa-back-row { margin: 22px 0 12px; }
+  .pa-back-link { display: inline-flex; align-items: center; gap: 8px; box-sizing: border-box; padding: 7px 14px; background: var(--surface-sunken); border: 1px solid var(--line-soft); border-radius: var(--r-pill); color: var(--ink-800); font: inherit; font-size: 12.5px; font-weight: 700; line-height: 1.3; text-decoration: none; white-space: nowrap; cursor: pointer; transition: border-color 0.15s ease, color 0.15s ease; }
+  .pa-back-link:hover { border-color: var(--teal-400); color: var(--teal-700); }
+  .pa-back-link:focus-visible { outline: none; border-color: var(--teal-400); box-shadow: 0 0 0 3px var(--teal-100); }
+  .pa-back-link i { font-size: 11px; }
+
+  /* Analysis Controls — copied from predictive-analytics.html */
+  .pa-controls { margin-bottom: 30px; }
+  .pa-controls-heading { margin: 0 0 18px; font-size: 20px; font-weight: 800; line-height: normal; letter-spacing: normal; color: var(--ink-800); }
+  .pa-controls-panel { box-sizing: border-box; display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px 24px; padding: 16px 18px; background: var(--surface-sunken); border: 1px solid var(--line-soft); border-radius: var(--r-md); box-shadow: var(--clay-flat); }
+  .pa-controls-field, .pa-controls-status { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .pa-controls-label { font-size: 12px; font-weight: 700; color: var(--ink-700); line-height: 1.3; }
+  .pa-controls-select { box-sizing: border-box; height: 38px; min-width: 200px; max-width: 100%; }
+  .pa-controls-actions { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 16px 24px; min-width: 0; }
+  .pa-controls-value { display: flex; align-items: center; min-height: 38px; font-size: 13px; font-weight: 500; color: var(--ink-700); overflow-wrap: anywhere; }
+  @media (max-width: 640px) {
+    .pa-controls-panel { flex-direction: column; align-items: stretch; }
+    .pa-controls-select { width: 100%; min-width: 0; }
+    .pa-controls-actions { flex-direction: column; align-items: stretch; gap: 16px; }
+    .pa-controls-value { min-height: 0; }
+  }
+
+  /* Analysis Period select — interactive control on the sunken panel */
+  .pa-controls-select {
+    -webkit-appearance: none; -moz-appearance: none; appearance: none;
+    padding: 0 38px 0 12px;
+    background-color: var(--surface-card-raised);
+    background-image: linear-gradient(45deg, transparent 50%, var(--ink-soft) 50%), linear-gradient(135deg, var(--ink-soft) 50%, transparent 50%);
+    background-position: calc(100% - 19px) center, calc(100% - 14px) center;
+    background-size: 5px 5px, 5px 5px;
+    background-repeat: no-repeat;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r-sm);
+    box-shadow: var(--clay-flat);
+    color: var(--ink-900);
+    font-weight: 600;
+    cursor: pointer;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  .pa-controls-select:hover { border-color: var(--teal-400); }
+  .pa-controls-select:focus,
+  .pa-controls-select:focus-visible {
+    background-color: var(--surface-card-raised);
+    background-image: linear-gradient(45deg, transparent 50%, var(--teal-600) 50%), linear-gradient(135deg, var(--teal-600) 50%, transparent 50%);
+    background-position: calc(100% - 19px) center, calc(100% - 14px) center;
+    background-size: 5px 5px, 5px 5px;
+    background-repeat: no-repeat;
+    border-color: var(--teal-400);
+    box-shadow: 0 0 0 3px var(--teal-100);
+    outline: none;
+  }
+  .pa-controls-select[disabled] { opacity: 0.7; cursor: not-allowed; }
+  .pa-controls-select[disabled]:hover { border-color: var(--line-strong); }
+</style>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-mark"><i class="fa-solid fa-paw"></i></div>
+        <div class="brand-text">
+          <div class="brand-name">Pawsitive Care</div>
+          <div class="brand-role">Administrator</div>
+        </div>
+      </div>
+      <div class="sidebar-divider"></div>
+      <nav class="sidebar-nav">
+      <div class="nav-group">
+        <div class="nav-group-label">MAIN</div>
+        <a href="dashboard.html" class="nav-item" data-page="dashboard.html">
+          <span class="nav-icon"><i class="fa-solid fa-house"></i></span>
+          <span class="nav-label">Dashboard</span>
+        </a>
+        <a href="appointments.html" class="nav-item" data-page="appointments.html">
+          <span class="nav-icon"><i class="fa-solid fa-calendar-days"></i></span>
+          <span class="nav-label">Appointments</span>
+        </a>
+        <a href="queue.html" class="nav-item" data-page="queue.html">
+          <span class="nav-icon"><i class="fa-solid fa-hourglass-half"></i></span>
+          <span class="nav-label">Queue</span>
+        </a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">PATIENT MANAGEMENT</div>
+        <a href="patients.html" class="nav-item" data-page="patients.html">
+          <span class="nav-icon"><i class="fa-solid fa-paw"></i></span>
+          <span class="nav-label">Patients</span>
+        </a>
+        <a href="clients.html" class="nav-item" data-page="clients.html">
+          <span class="nav-icon"><i class="fa-solid fa-user"></i></span>
+          <span class="nav-label">Clients</span>
+        </a>
+        <a href="medical-records.html" class="nav-item" data-page="medical-records.html">
+          <span class="nav-icon"><i class="fa-solid fa-notes-medical"></i></span>
+          <span class="nav-label">Medical Records</span>
+        </a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">CLINIC</div>
+        <a href="services.html" class="nav-item" data-page="services.html">
+          <span class="nav-icon"><i class="fa-solid fa-hospital"></i></span>
+          <span class="nav-label">Services</span>
+        </a>
+        <a href="inventory.html" class="nav-item" data-page="inventory.html">
+          <span class="nav-icon"><i class="fa-solid fa-boxes-stacked"></i></span>
+          <span class="nav-label">Inventory</span>
+        </a>
+        <a href="billing.html" class="nav-item" data-page="billing.html">
+          <span class="nav-icon"><i class="fa-solid fa-credit-card"></i></span>
+          <span class="nav-label">Billing</span>
+        </a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">INSIGHTS</div>
+        <!-- data-page intentionally targets this dedicated page (rather
+             than predictive-analytics.html) purely so sidebar.js's
+             existing highlightActiveNavItem() keeps "Predictive
+             Analytics" marked active while a visitor is on one of its
+             dedicated sub-pages. sidebar.js itself is untouched; this
+             is just this page's own copy of the nav markup, and the
+             link still navigates back to the Overview as normal. -->
+        <a href="predictive-analytics.html" class="nav-item active" aria-current="page" data-page="medicine-demand.html">
+          <span class="nav-icon"><i class="fa-solid fa-chart-line"></i></span>
+          <span class="nav-label">Predictive Analytics</span>
+        </a>
+        <a href="reports.html" class="nav-item" data-page="reports.html">
+          <span class="nav-icon"><i class="fa-solid fa-chart-column"></i></span>
+          <span class="nav-label">Reports</span>
+        </a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">SYSTEM</div>
+        <a href="notifications.html" class="nav-item" data-page="notifications.html">
+          <span class="nav-icon"><i class="fa-solid fa-bell"></i></span>
+          <span class="nav-label">Notifications</span>
+        </a>
+        <a href="staff-users.html" class="nav-item" data-page="staff-users.html">
+          <span class="nav-icon"><i class="fa-solid fa-users"></i></span>
+          <span class="nav-label">Staff & Users</span>
+        </a>
+        <a href="settings.html" class="nav-item" data-page="settings.html">
+          <span class="nav-icon"><i class="fa-solid fa-gear"></i></span>
+          <span class="nav-label">Settings</span>
+        </a>
+      </div>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="footer-avatar">A</div>
+        <div>
+          <div class="footer-name">Admin</div>
+          <div class="footer-role">Administrator</div>
+        </div>
+      </div>
+    </aside>
+
+    <div class="main-content">
+      <header class="topbar">
+        <div class="topbar-left">
+          <button class="menu-toggle" aria-label="Toggle navigation"><i class="fa-solid fa-bars"></i></button>
+        </div>
+      </header>
+
+      <main class="page-body">
+        <div id="md-root"></div>
+      </main>
+    </div>
+  </div>
+
+  <script src="data-store.js"></script>
+  <script src="patient-data-store.js"></script>
+  <script src="medical-records-data-store.js"></script>
+  <script src="predictive-analytics-data-store.js"></script>
+  <script src="medicine-demand.js"></script>
+  <script src="sidebar.js"></script>
+</body>
+</html>

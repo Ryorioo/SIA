@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Medical Records · Pawsitive Care</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+<link rel="stylesheet" href="style.css">
+<style>
+  /* ============================================================
+     MEDICAL RECORDS PAGE — page-scoped styles only (style.css
+     untouched). Reuses existing design tokens (colors, radii,
+     shadows) and mirrors the class names/patterns already used
+     on the Patients and Clients pages.
+     ============================================================ */
+
+  /* --- header cleanup (Medical Records page) ---
+     Same treatment as Patients/Clients: the page-level title/
+     breadcrumb that used to live in .topbar is removed, so the
+     border-bottom style.css draws for pages that keep that title is
+     suppressed here (scoped to this page only, style.css untouched). */
+  .topbar { border-bottom: none; }
+
+  /* --- header spacing (Medical Records page) ---
+     Nudges the "Medical Records" toolbar block down slightly to fill
+     the space left by the removed title/breadcrumb, page-scoped only.
+     margin-bottom (spacing to the filter bar below) is untouched —
+     inherited from style.css's .page-toolbar as before. */
+  .page-toolbar { margin-top: 22px; }
+
+  .mr-table-wrap {
+    background: var(--surface-card);
+    border: 1px solid var(--line-soft);
+    border-radius: var(--r-lg);
+    box-shadow: var(--clay-flat);
+    overflow-x: auto;
+  }
+
+  .row-actions { display: flex; gap: 6px; flex-wrap: nowrap; align-items: center; }
+
+  .icon-btn {
+    width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center;
+    border-radius: var(--r-sm); border: 1px solid var(--line-soft); background: var(--surface-card-raised);
+    color: var(--ink-soft); cursor: pointer; box-shadow: var(--clay-flat); font-size: 12px;
+    transition: border-color 0.15s ease, color 0.15s ease;
+  }
+  .icon-btn:hover { border-color: var(--teal-400); color: var(--teal-700); }
+
+  .mr-count { font-size: 12.5px; color: var(--ink-faint); font-weight: 600; margin-top: -4px; margin-bottom: 14px; }
+
+  /* --- filter bar: search gets most of the row; filter controls only
+     take the width their contents need; Clear filters sits at the end --- */
+  .filter-bar {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 12px;
+    margin-bottom: 18px;
+  }
+
+  /* search: wide enough to read the full placeholder, grows to fill
+     whatever space the (now-compact) filter controls don't need */
+  .filter-bar .search-field {
+    flex: 2 1 380px; min-width: 300px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .filter-bar .search-field span {
+    display: inline-flex; align-items: center; justify-content: center;
+    color: var(--ink-faint); flex-shrink: 0; font-size: 13px;
+  }
+  .filter-bar .search-field input {
+    flex: 1; min-width: 0; width: 100%;
+    border: none; outline: none; box-shadow: none; background: transparent;
+    padding: 0; margin: 0; font: inherit; color: var(--ink-900);
+  }
+  .filter-bar .search-field input::placeholder { color: var(--ink-faint); }
+  .filter-bar .search-field:focus-within { border-color: var(--teal-400); }
+
+  /* filter controls: fixed, content-appropriate widths instead of
+     stretching to fill the row */
+  .filter-controls {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+    flex: 0 0 auto;
+  }
+  .filter-bar .filter-date { flex: 0 0 138px; min-width: 0; }
+  .filter-bar #filter-vet { flex: 0 0 158px; min-width: 0; }
+  .filter-bar #filter-type { flex: 0 0 144px; min-width: 0; }
+  .filter-bar #filter-status { flex: 0 0 130px; min-width: 0; }
+  .filter-controls #clear-filters { margin-left: 4px; flex-shrink: 0; }
+
+  /* --- Unified select component (identical to Patients/Clients) ---
+     Same .pc-select treatment as the Patients/Clients toolbar filters:
+     warm beige surface, existing border/radius tokens, and one
+     CSS-drawn chevron replacing the browser's native arrow. Applied
+     here to the Veterinarian/Visit Type/Status filters only (the
+     filter-date input is not a <select> and is unaffected). Purely
+     visual — markup stays a plain native <select>; no id, option, or
+     JS hook is touched. Kept here because style.css is off-limits. */
+  .pc-select {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    box-sizing: border-box;
+    background-color: var(--surface-sunken);
+    border: 1px solid var(--line-soft);
+    border-radius: 10px;
+    color: var(--ink-900);
+    font: inherit;
+    max-width: 100%;
+    padding: 0 34px 0 12px;
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    background-image:
+      linear-gradient(45deg, transparent 50%, var(--ink-faint) 50%),
+      linear-gradient(135deg, var(--ink-faint) 50%, transparent 50%);
+    background-position:
+      calc(100% - 18px) center,
+      calc(100% - 13px) center;
+    background-size: 5px 5px, 5px 5px;
+    background-repeat: no-repeat;
+    transition: border-color 0.15s ease;
+  }
+  .pc-select::-ms-expand { display: none; }
+  .pc-select:hover { border-color: var(--line-strong); }
+  .pc-select:focus { outline: none; border-color: var(--teal-400); }
+
+  /* Filter-bar selects sit outside any modal height rule, so they get
+     the same fixed 38px control height directly here, same as
+     Patients/Clients. */
+  .filter-bar .pc-select {
+    height: 38px;
+  }
+  /* Keep the chevron visible while focused. style.css's `select:focus`
+     uses the `background` shorthand, which (at higher specificity than
+     .pc-select) resets background-image and made the chevron vanish on
+     focus. Re-declaring the same chevron longhands here, for both the
+     resting and focused states, keeps it drawn — same gradients, size
+     and position as .pc-select above. background-color is intentionally
+     not set here (only background-color, never the background
+     shorthand, is used for any focus override), so the normal and
+     focused fills are unchanged. */
+  .filter-bar .pc-select,
+  .filter-bar .pc-select:focus {
+    background-image:
+      linear-gradient(45deg, transparent 50%, var(--ink-faint) 50%),
+      linear-gradient(135deg, var(--ink-faint) 50%, transparent 50%);
+    background-position:
+      calc(100% - 18px) center,
+      calc(100% - 13px) center;
+    background-size: 5px 5px, 5px 5px;
+    background-repeat: no-repeat;
+  }
+
+  /* --- Patient context strip (View History / ?patient=<id>) ---
+     Follows the "Today's Appointments" lead card in appointments.html
+     (.summary-metric-primary): same dark-teal surface + border, --r-md
+     radius, --clay-flat depth and 16px 18px padding; muted on-brand text
+     for the label and secondary line (same rgba tokens as
+     .summary-metric-label/-desc) and bold on-brand for the patient
+     name (no leading icon). Its button uses the same on-dark treatment as
+     Queue's Now Serving action (.now-serving-actions .btn-primary in
+     style.css); the close control reuses the on-brand rgba(244,249,247,*)
+     tints of .now-serving-status. */
+  .patient-context-bar {
+    box-sizing: border-box;
+    display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px 14px;
+    background: var(--teal-700); border: 1px solid var(--teal-700);
+    border-radius: var(--r-md); box-shadow: var(--clay-flat);
+    padding: 16px 18px; margin-bottom: 16px;
+  }
+  .patient-context-left { display: flex; align-items: center; gap: 12px; flex: 1 1 260px; min-width: 0; }
+  .patient-context-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+  .patient-context-title { font-size: 14px; font-weight: 600; line-height: 1.3; color: rgba(244, 249, 247, 0.72); overflow-wrap: anywhere; }
+  .patient-context-title b { font-weight: 800; color: var(--ink-on-brand); }
+  .patient-context-sub { font-size: 11px; font-weight: 500; line-height: 1.4; color: rgba(244, 249, 247, 0.72); overflow-wrap: anywhere; }
+  .patient-context-actions { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+  .patient-context-bar .btn { background: var(--surface-card-raised); border-color: var(--surface-card-raised); color: var(--teal-800); }
+  .patient-context-bar .btn:hover { background: var(--teal-50); border-color: var(--teal-50); color: var(--teal-800); }
+  .patient-context-close {
+    flex: none; width: 30px; height: 30px; padding: 0;
+    display: inline-flex; align-items: center; justify-content: center;
+    border-radius: var(--r-sm); border: 1px solid transparent;
+    background: rgba(244, 249, 247, 0.14); color: rgba(244, 249, 247, 0.78);
+    font-size: 12px; cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+  }
+  .patient-context-close:hover { background: rgba(244, 249, 247, 0.24); color: var(--ink-on-brand); }
+  .patient-context-close:focus-visible { outline: 2px solid var(--ink-on-brand); outline-offset: 2px; }
+  @media (max-width: 640px) {
+    .patient-context-actions { flex: 1 1 100%; }
+    .patient-context-actions .btn { flex: 1 1 auto; }
+  }
+
+  .no-results { text-align: center; padding: 46px 20px; color: var(--ink-faint); font-weight: 600; font-size: 13.3px; }
+
+  /* --- section headings (Recent Patients / Medical History) --- */
+  .mr-section-heading {
+    font-size: 11.5px; font-weight: 800; letter-spacing: 0.05em; color: var(--ink-faint);
+    text-transform: uppercase; margin-bottom: 10px; display: flex; align-items: center; gap: 7px;
+  }
+  .mr-section-heading i { color: var(--teal-500); font-size: 11px; }
+
+  /* --- Recent Patients: responsive card grid (no horizontal scroll) ---
+     Same 3/2/1 column steps as patients.html's .patients-grid, at the
+     same breakpoints (1080px / 640px) and the same 18px gap. */
+  .mr-recent-patients { margin-bottom: 22px; }
+  .mr-patient-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
+
+  /* Card shell — identical tokens to patients.html's .patient-card:
+     warm sunken-beige surface, existing border/radius/shadow tokens,
+     same padding and vertical rhythm, same hover treatment. */
+  .mr-patient-card {
+    background: var(--surface-sunken);
+    border: 1px solid var(--line-soft);
+    border-radius: var(--r-lg);
+    box-shadow: var(--clay-flat);
+    padding: 18px 20px;
+    display: flex; flex-direction: column; gap: 14px;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  .mr-patient-card:hover { border-color: var(--teal-400); box-shadow: var(--clay-raised); }
+
+  /* 1. Identity — small neutral ID badge, dark-teal pet name as the
+     strongest text, breed underneath. Same ppid/pname pattern as
+     patients.html's .patient-identity-text. */
+  .mr-pc-identity-row { display: flex; align-items: center; gap: 12px; }
+  /* Circular avatar — same sizing/border/background tokens as
+     patients.html's .patient-photo-placeholder (48px circle,
+     var(--surface-card) fill, var(--line-strong) border). Left
+     empty (no glyph) when there's no photo, per this card's
+     "no camera icon, no decorative graphics" requirement — a plain
+     neutral circle rather than that page's camera-icon placeholder. */
+  .mr-pc-avatar {
+    width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0;
+    background: var(--surface-card);
+    border: 1px solid var(--line-strong);
+    overflow: hidden;
+  }
+  .mr-pc-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .mr-pc-identity { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .mr-pc-id {
+    align-self: flex-start;
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--teal-700);
+    background: var(--surface-card);
+    border: 1px solid var(--line-soft);
+    padding: 2px 7px;
+    border-radius: 6px;
+    line-height: 1.4;
+  }
+  .mr-pc-name { font-weight: 800; color: var(--teal-700); font-size: 16px; line-height: 1.25; }
+  .mr-pc-breed { font-size: 11.5px; color: var(--ink-700); font-weight: 600; }
+
+  /* 2 & 4. Dividers — same thin-rule treatment as patients.html's
+     .patient-card-hr (bumped to --line-strong rather than --line-soft
+     since this card's beige --surface-sunken background would make a
+     --line-soft rule nearly invisible, same reasoning as that page). */
+  .mr-pc-hr { border: none; border-top: 1px solid var(--line-strong); margin: 0; }
+
+  /* 3. Two-column metadata (Last Visit / Owner) with a subtle vertical
+     divider between them — identical structure to patients.html's
+     .patient-card-ownervisit / .pcov-col pattern. */
+  .mr-pc-meta { display: grid; grid-template-columns: 1fr 1fr; }
+  .mr-pc-meta .mr-pc-col { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+  .mr-pc-meta .mr-pc-col + .mr-pc-col {
+    border-left: 1px solid var(--line-strong);
+    padding-left: 14px;
+    margin-left: 14px;
+  }
+  .mr-pc-label { display: flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; color: var(--ink-soft); }
+  .mr-pc-label i { font-size: 11.5px; color: var(--ink-soft); flex-shrink: 0; }
+  .mr-pc-value { font-size: 12.8px; font-weight: 600; color: var(--ink-800); overflow-wrap: anywhere; }
+
+  /* 5. Action row — muted history icon + emphasized record count on the
+     left, primary View History button on the right. Same layout as
+     patients.html's .patient-card-footer. */
+  .mr-pc-action { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: auto; }
+  .mr-pc-count { display: flex; align-items: center; gap: 6px; font-size: 12.2px; color: var(--ink-soft); font-weight: 600; }
+  .mr-pc-count i { font-size: 14px; color: var(--ink-soft); flex-shrink: 0; }
+  .mr-pc-count b { color: var(--ink-800); font-weight: 800; }
+
+  @media (max-width: 1080px) {
+    .mr-patient-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (max-width: 640px) {
+    .mr-patient-cards { grid-template-columns: 1fr; }
+  }
+
+  /* --- Medical History: chronological timeline (replaces the old table) --- */
+  .mr-timeline-item { display: flex; gap: 14px; padding: 13px 0; }
+  .mr-timeline-item:not(:last-child) { border-bottom: 1px solid var(--line-soft); }
+
+  .mr-timeline-date-col { flex: 0 0 76px; text-align: right; display: flex; flex-direction: column; justify-content: center; }
+  .mr-timeline-date-col .mtd-day { font-size: 19px; font-weight: 800; color: var(--ink-900); line-height: 1.1; }
+  .mr-timeline-date-col .mtd-month { font-size: 10.8px; font-weight: 700; color: var(--ink-faint); text-transform: uppercase; letter-spacing: 0.02em; }
+
+  /* Rail: dot sits at the card's vertical centre (level with the centred date);
+     the line runs the item's full height behind it. Size/colour unchanged. */
+  .mr-timeline-rail { flex: 0 0 auto; position: relative; width: 10px; }
+  .mr-timeline-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--teal-500); position: absolute; left: 0; top: 50%; margin-top: -5px; z-index: 1; }
+  .mr-timeline-item:not(:last-child) .mr-timeline-rail { flex: 0 0 auto; }
+  .mr-timeline-line { position: absolute; left: 4px; top: 0; bottom: 0; width: 2px; background: var(--line-soft); }
+  .mr-timeline-item:last-child .mr-timeline-line { display: none; }
+
+  .mr-timeline-content {
+    flex: 1; min-width: 0;
+    background: var(--surface-card); border: 1px solid var(--line-soft); border-radius: var(--r-md);
+    padding: 0; box-shadow: var(--clay-flat);
+    /* Lets the card switch layouts on its OWN width (the date column,
+       rail and page sidebar all eat into it) rather than the viewport's. */
+    container-type: inline-size; container-name: mh-record;
+  }
+  /* --- Medical History card: patient | visit | clinical ---
+     Sits inside the existing white .mr-timeline-content card, to the
+     right of the date column and timeline rail. Compact by design (~160px
+     tall on desktop): tight padding, no forced stretching of content.
+     Short, inset dividers (pseudo-elements, not full-height borders)
+     separate only the three major areas. */
+  .mh-card {
+    display: grid;
+    grid-template-columns: minmax(220px, 0.8fr) minmax(170px, 0.75fr) minmax(0, 1.9fr);
+  }
+  .mh-area { position: relative; min-width: 0; padding: 12px 18px; }
+  /* Divider: starts 16px below the top and stops 30px above the bottom, so
+     it's shorter than the card and sits slightly toward the upper part. */
+  .mh-area + .mh-area::before {
+    content: ''; position: absolute; left: 0; top: 16px; bottom: 30px;
+    width: 1px; background: var(--line);
+  }
+
+  /* Patient — one cohesive block:
+     [circle]  PT-001 (small) / Name (strongest) / Cat · 3 yrs · 3.9 kg.
+     Empty state is plain warm beige (no glyph); a real photo fills the
+     same circle. Patient + Visit content is centred in the area, but the
+     area's extra bottom padding (36px vs 12px on top) lifts it ~12px above
+     the card's exact centre. */
+  .mh-patient { display: flex; align-items: center; gap: 14px; padding-bottom: 36px; }
+  .mh-avatar {
+    width: 48px; height: 48px; border-radius: 50%; flex-shrink: 0;
+    background: var(--surface-sunken);
+    border: 1px solid var(--line-strong);
+    overflow: hidden;
+  }
+  .mh-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .mh-patient-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .mh-pname { font-weight: 800; color: var(--teal-700); font-size: 16px; line-height: 1.25; overflow-wrap: anywhere; }
+  .mh-pid { font-size: 11.5px; font-weight: 700; letter-spacing: 0.03em; color: var(--ink-700); }
+  .mh-pmeta { font-size: 12px; font-weight: 600; color: var(--ink-soft); }
+
+  /* Visit — type is the stronger line, vet secondary, date (with calendar
+     icon) smallest/muted. Lifted ~12px above centre like the patient block. */
+  .mh-visit { display: flex; flex-direction: column; justify-content: center; gap: 3px; padding-bottom: 36px; }
+  .mh-visit-type {
+    font-size: 13.5px; font-weight: 800; color: var(--ink-900); line-height: 1.3;
+    text-transform: uppercase; letter-spacing: 0.02em; overflow-wrap: anywhere;
+  }
+  /* Vet + date: two matching metadata rows (same icon size/colour, text
+     size/colour and icon-to-text gap). The icon sits in a fixed 1em box so
+     both rows' icons AND text share the exact same left edges. */
+  .mh-visit-vet, .mh-visit-date { display: flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 500; color: var(--ink-soft); }
+  .mh-visit-vet i, .mh-visit-date i { width: 1em; text-align: center; font-size: 11px; color: var(--ink-faint); flex-shrink: 0; }
+
+  /* Clinical — widest area. Status top-right, Diagnosis/Treatment grouped
+     tightly beneath it, actions anchored bottom-right. Reuses the shared
+     .profile-field/.pf-* base styles; only spacing + uppercase labels are
+     scoped here. */
+  .mh-clinical { display: flex; flex-direction: column; gap: 3px; }
+  .mh-status { display: flex; justify-content: flex-end; }
+  .mh-clinical-fields { display: flex; flex-direction: column; gap: 12px; }
+  .mh-clinical-fields .profile-field { gap: 1px; }
+  .mh-clinical-fields .pf-label { text-transform: uppercase; letter-spacing: 0.03em; line-height: 1.3; }
+  .mh-clinical-fields .pf-value { overflow-wrap: anywhere; line-height: 1.35; }
+  .mh-actions { margin-top: auto; display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+
+  /* Narrower card: patient + visit share the top row; clinical drops
+     full-width beneath, and — since it now has the width — tucks the
+     status (top-right) and actions (bottom-right) into a right-hand rail
+     beside Diagnosis/Treatment so the card stays short. */
+  @container mh-record (max-width: 719px) {
+    .mh-card { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+    .mh-patient, .mh-visit { padding-bottom: 12px; }
+    .mh-card .mh-visit::before { top: 14px; bottom: 14px; }
+    .mh-card .mh-clinical::before { left: 18px; right: 18px; top: 0; bottom: auto; width: auto; height: 1px; }
+    .mh-card .mh-clinical {
+      grid-column: 1 / -1;
+      display: grid; grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-areas: "fields status" "fields actions";
+      column-gap: 16px; row-gap: 6px;
+    }
+    .mh-clinical .mh-clinical-fields { grid-area: fields; }
+    .mh-clinical .mh-status { grid-area: status; align-self: start; }
+    .mh-clinical .mh-actions { grid-area: actions; align-self: end; margin-top: 0; }
+  }
+  /* Phones: everything stacks; dividers turn into short inset horizontal rules. */
+  @container mh-record (max-width: 459px) {
+    .mh-card { grid-template-columns: minmax(0, 1fr); }
+    .mh-card .mh-area + .mh-area::before { left: 18px; right: 18px; top: 0; bottom: auto; width: auto; height: 1px; }
+    .mh-card .mh-clinical { display: flex; flex-direction: column; gap: 3px; }
+    /* cancel the grid rail's align-self (it would act horizontally in a flex column) */
+    .mh-clinical .mh-status, .mh-clinical .mh-actions { align-self: stretch; }
+    .mh-clinical .mh-actions { margin-top: auto; padding-top: 5px; }
+  }
+
+  @media (max-width: 620px) {
+    .mr-timeline-date-col { flex-basis: 54px; }
+  }
+
+  /* --- large view modal (reuses .modal-overlay / .modal-box tokens) --- */
+  .view-modal .modal-box { max-width: 760px; }
+
+  /* --- Add/Edit modal: subtle section dividers grouping the existing
+     fields (Patient & Visit / Clinical Assessment / Medications &
+     Vaccination / Follow-Up & Notes). No boxes, just a label + a
+     thin top rule, matching the section-heading pattern used
+     elsewhere on the page. --- */
+  .form-section-title {
+    grid-column: 1 / -1;
+    font-size: 11.5px; font-weight: 800; letter-spacing: 0.05em;
+    color: var(--ink-faint); text-transform: uppercase;
+    border-top: 1px solid var(--line-soft);
+    margin-top: 4px; padding-top: 12px;
+  }
+  .form-section-title.first { border-top: none; margin-top: 0; padding-top: 0; }
+
+  /* --- Add/Edit modal selects: same height/border/radius/background/
+     typography as the rest of the form fields (untouched, inherited
+     from style.css) — only the native arrow is replaced, with the same
+     chevron the Medical Records filter dropdowns (.filter-bar
+     .pc-select) draw: same gradients, size, color and position. --- */
+  #modal-overlay .form-field select {
+    -webkit-appearance: none; -moz-appearance: none; appearance: none;
+    background-image:
+      linear-gradient(45deg, transparent 50%, var(--ink-faint) 50%),
+      linear-gradient(135deg, var(--ink-faint) 50%, transparent 50%);
+    background-repeat: no-repeat;
+    background-position:
+      calc(100% - 18px) center,
+      calc(100% - 13px) center;
+    background-size: 5px 5px, 5px 5px;
+    padding-right: 30px;
+  }
+  #modal-overlay .form-field select::-ms-expand { display: none; }
+
+  /* Same shared 38px control height as Add Patient / Add Client's
+     inputs and dropdowns, so no field in this modal reads larger or
+     smaller than its neighbours. Textareas are intentionally excluded,
+     same as those modals' #f-notes. */
+  #modal-overlay .form-field input:not([type="hidden"]),
+  #modal-overlay .form-field select {
+    height: 38px;
+    box-sizing: border-box;
+  }
+
+  /* --- Add/Edit Medical Record modal: fixed header + footer, scrolling
+     body --- same shell as Add Patient / Add Client: the modal box stays
+     inside the viewport and only the form between the header and the
+     action buttons scrolls, so the title, close button, Cancel and Save
+     Record are always visible. Values are Patients'/Clients' own: same
+     88vh cap, limited to the dynamic viewport where supported so mobile
+     browser toolbars can't push the footer off screen; same spacing
+     (22px top, 26px sides, 20px bottom, 16px above the footer rule);
+     same header bottom divider. Scoped to #modal-overlay — the View
+     Record modal keeps the stock .modal-box behavior. */
+  #modal-overlay .modal-box {
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    overflow: hidden;
+    max-height: 88vh;
+    max-height: min(88vh, calc(100dvh - 40px));
+  }
+  #modal-overlay .modal-head {
+    flex: none;
+    margin: 0;
+    padding: 22px 26px 16px;
+    border-bottom: 1px solid var(--line-soft);
+  }
+  #modal-overlay .form-grid {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 18px 26px;
+  }
+  #modal-overlay .modal-footer {
+    flex: none;
+    margin: 0;
+    padding: 16px 26px 20px;
+  }
+
+  .profile-head { display: flex; align-items: center; gap: 14px; margin-bottom: 4px; }
+  .profile-avatar {
+    width: 56px; height: 56px; border-radius: var(--r-md);
+    background: var(--teal-600); color: var(--ink-on-brand);
+    display: flex; align-items: center; justify-content: center; font-size: 22px;
+    box-shadow: var(--clay-raised); flex-shrink: 0;
+  }
+  .profile-name { font-size: 19px; font-weight: 800; color: var(--ink-900); }
+  .profile-sub { font-size: 12.5px; color: var(--ink-soft); font-weight: 600; margin-top: 2px; }
+
+  .profile-section {
+    background: var(--surface-card);
+    border: 1px solid var(--line-soft);
+    border-radius: var(--r-md);
+    padding: 14px 16px;
+    margin-top: 14px;
+  }
+  .profile-section-title {
+    font-size: 11.5px; font-weight: 800; letter-spacing: 0.05em; color: var(--ink-faint);
+    text-transform: uppercase; margin-bottom: 10px; display: flex; align-items: center; gap: 7px;
+  }
+  .profile-section-title i { color: var(--teal-500); font-size: 11px; }
+
+  .profile-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 20px; }
+  .profile-field { display: flex; flex-direction: column; gap: 2px; }
+  .profile-field .pf-label { font-size: 11px; font-weight: 700; color: var(--ink-faint); }
+  .profile-field .pf-value { font-size: 13px; font-weight: 600; color: var(--ink-800); white-space: pre-wrap; }
+
+  @media (max-width: 620px) {
+    .profile-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-mark"><i class="fa-solid fa-paw"></i></div>
+        <div class="brand-text">
+          <div class="brand-name">Pawsitive Care</div>
+          <div class="brand-role">Administrator</div>
+        </div>
+      </div>
+      <div class="sidebar-divider"></div>
+      <nav class="sidebar-nav">
+      <div class="nav-group">
+        <div class="nav-group-label">MAIN</div>
+        <a href="dashboard.html" class="nav-item" data-page="dashboard.html">
+          <span class="nav-icon"><i class="fa-solid fa-house"></i></span>
+          <span class="nav-label">Dashboard</span>
+        </a>
+        <a href="appointments.html" class="nav-item" data-page="appointments.html">
+          <span class="nav-icon"><i class="fa-solid fa-calendar-days"></i></span>
+          <span class="nav-label">Appointments</span>
+        </a>
+        <a href="queue.html" class="nav-item" data-page="queue.html">
+          <span class="nav-icon"><i class="fa-solid fa-hourglass-half"></i></span>
+          <span class="nav-label">Queue</span>
+        </a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">PATIENT MANAGEMENT</div>
+        <a href="patients.html" class="nav-item" data-page="patients.html">
+          <span class="nav-icon"><i class="fa-solid fa-paw"></i></span>
+          <span class="nav-label">Patients</span>
+        </a>
+        <a href="clients.html" class="nav-item" data-page="clients.html">
+          <span class="nav-icon"><i class="fa-solid fa-user"></i></span>
+          <span class="nav-label">Clients</span>
+        </a>
+        <a href="medical-records.html" class="nav-item" data-page="medical-records.html">
+          <span class="nav-icon"><i class="fa-solid fa-notes-medical"></i></span>
+          <span class="nav-label">Medical Records</span>
+        </a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">CLINIC</div>
+        <a href="services.html" class="nav-item" data-page="services.html">
+          <span class="nav-icon"><i class="fa-solid fa-hospital"></i></span>
+          <span class="nav-label">Services</span>
+        </a>
+        <a href="inventory.html" class="nav-item" data-page="inventory.html">
+          <span class="nav-icon"><i class="fa-solid fa-boxes-stacked"></i></span>
+          <span class="nav-label">Inventory</span>
+        </a>
+        <a href="billing.html" class="nav-item" data-page="billing.html">
+          <span class="nav-icon"><i class="fa-solid fa-credit-card"></i></span>
+          <span class="nav-label">Billing</span>
+        </a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">INSIGHTS</div>
+        <a href="predictive-analytics.html" class="nav-item" data-page="predictive-analytics.html">
+          <span class="nav-icon"><i class="fa-solid fa-chart-line"></i></span>
+          <span class="nav-label">Predictive Analytics</span>
+        </a>
+        <a href="reports.html" class="nav-item" data-page="reports.html">
+          <span class="nav-icon"><i class="fa-solid fa-chart-column"></i></span>
+          <span class="nav-label">Reports</span>
+        </a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">SYSTEM</div>
+        <a href="notifications.html" class="nav-item" data-page="notifications.html">
+          <span class="nav-icon"><i class="fa-solid fa-bell"></i></span>
+          <span class="nav-label">Notifications</span>
+        </a>
+        <a href="staff-users.html" class="nav-item" data-page="staff-users.html">
+          <span class="nav-icon"><i class="fa-solid fa-users"></i></span>
+          <span class="nav-label">Staff & Users</span>
+        </a>
+        <a href="settings.html" class="nav-item" data-page="settings.html">
+          <span class="nav-icon"><i class="fa-solid fa-gear"></i></span>
+          <span class="nav-label">Settings</span>
+        </a>
+      </div>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="footer-avatar">A</div>
+        <div>
+          <div class="footer-name">Admin</div>
+          <div class="footer-role">Administrator</div>
+        </div>
+      </div>
+    </aside>
+
+    <div class="main-content">
+      <header class="topbar">
+        <div class="topbar-left">
+          <button class="menu-toggle" aria-label="Toggle navigation"><i class="fa-solid fa-bars"></i></button>
+        </div>
+      </header>
+
+      <main class="page-body">
+
+        <div class="page-toolbar">
+          <div>
+            <div style="font-size:20px; font-weight:800; margin-bottom:2px;">MEDICAL RECORDS</div>
+          </div>
+          <button class="btn btn-primary" id="add-record-btn"><i class="fa-solid fa-plus"></i> Add Medical Record</button>
+        </div>
+
+        <div class="filter-bar">
+          <div class="search-field">
+            <span><i class="fa-solid fa-magnifying-glass"></i></span>
+            <input type="text" id="search-input" placeholder="Search by patient, owner, diagnosis, or treatment...">
+          </div>
+          <div class="filter-controls">
+            <input type="date" class="filter-select filter-date" id="filter-date" title="Filter by record date">
+            <select class="filter-select pc-select" id="filter-vet">
+              <option value="">All veterinarians</option>
+            </select>
+            <select class="filter-select pc-select" id="filter-type">
+              <option value="">All visit types</option>
+            </select>
+            <select class="filter-select pc-select" id="filter-status">
+              <option value="">All statuses</option>
+            </select>
+            <button class="btn btn-sm" id="clear-filters">Clear filters</button>
+          </div>
+        </div>
+
+        <div id="patient-context"></div>
+
+        <div id="recent-patients"></div>
+
+        <div class="mr-section-heading"><i class="fa-solid fa-notes-medical"></i> Medical History</div>
+        <div class="mr-count" id="mr-count"></div>
+
+        <div id="view-root"></div>
+
+      </main>
+    </div>
+  </div>
+
+  <!-- Add / Edit Medical Record modal -->
+  <div class="modal-overlay" id="modal-overlay">
+    <div class="modal-box">
+      <div class="modal-head">
+        <div class="modal-title" id="modal-title">Add Medical Record</div>
+        <button class="modal-close" id="modal-close"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="form-grid">
+
+        <div class="form-section-title first">Patient & Visit</div>
+        <div class="form-field">
+          <label>Pet / Patient *</label>
+          <select id="f-patient"></select>
+        </div>
+        <div class="form-field">
+          <label>Owner</label>
+          <input type="text" id="f-owner" readonly>
+        </div>
+        <div class="form-field">
+          <label>Date *</label>
+          <input type="date" id="f-date">
+        </div>
+        <div class="form-field">
+          <label>Veterinarian</label>
+          <select id="f-vet"></select>
+        </div>
+        <div class="form-field">
+          <label>Visit type / service *</label>
+          <input type="text" id="f-type" list="type-suggestions" placeholder="e.g. Vaccination">
+          <datalist id="type-suggestions"></datalist>
+        </div>
+        <div class="form-field">
+          <label>Status</label>
+          <select id="f-status"></select>
+        </div>
+
+        <div class="form-section-title">Clinical Assessment</div>
+        <div class="form-field full">
+          <label>Chief complaint</label>
+          <input type="text" id="f-complaint" placeholder="Reason for the visit">
+        </div>
+        <div class="form-field full">
+          <label>Symptoms</label>
+          <textarea id="f-symptoms" placeholder="Observed symptoms..."></textarea>
+        </div>
+        <div class="form-field full">
+          <label>Examination findings</label>
+          <textarea id="f-exam" placeholder="Physical exam findings..."></textarea>
+        </div>
+        <div class="form-field full">
+          <label>Diagnosis</label>
+          <input type="text" id="f-diagnosis" placeholder="e.g. Skin allergy">
+        </div>
+        <div class="form-field full">
+          <label>Treatment</label>
+          <textarea id="f-treatment" placeholder="Treatment given..."></textarea>
+        </div>
+
+        <div class="form-section-title">Medications & Vaccination</div>
+        <div class="form-field full">
+          <label>Prescription / medications</label>
+          <textarea id="f-prescription" placeholder="Medications and dosage..."></textarea>
+        </div>
+        <div class="form-field">
+          <label>Vaccination given</label>
+          <input type="text" id="f-vaccination" placeholder="e.g. None">
+        </div>
+        <div class="form-field">
+          <label>Weight (kg)</label>
+          <input type="text" id="f-weight" placeholder="e.g. 4.1">
+        </div>
+
+        <div class="form-section-title">Follow-Up & Notes</div>
+        <div class="form-field">
+          <label>Follow-up date</label>
+          <input type="date" id="f-followup">
+        </div>
+        <div class="form-field full">
+          <label>Veterinarian notes</label>
+          <textarea id="f-notes" placeholder="Additional notes..."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" id="modal-cancel">Cancel</button>
+        <button class="btn btn-primary" id="modal-save">Save Record</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- View Medical Record modal -->
+  <div class="modal-overlay view-modal" id="view-overlay">
+    <div class="modal-box" id="view-box"></div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="sidebar.js"></script>
+  <script src="data-store.js"></script>
+  <script src="patient-data-store.js"></script>
+  <script src="medical-records-data-store.js"></script>
+  <script src="medical-records.js"></script>
+</body>
+</html>

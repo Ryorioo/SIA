@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Disease Risk Predictions · Pawsitive Care</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+<link rel="stylesheet" href="style.css">
+<style>
+  /* Disease Risk Analysis — page-scoped styles (dr- prefix).
+     Structure follows the Disease Risk screenshot; every color, border,
+     shadow, radius and typography value uses the existing style.css
+     tokens so the page matches the rest of Pawsitive Care. */
+
+  .dr-title { margin: 0 0 4px; font-size: 22px; font-weight: 800; letter-spacing: 0.01em; color: var(--ink-900); }
+  .dr-section { margin-bottom: 24px; }
+  .dr-section-heading { margin: 0 0 14px; font-size: 16px; font-weight: 800; line-height: normal; letter-spacing: normal; text-transform: none; color: var(--ink-800); }
+  .dr-weather-note { display: flex; align-items: center; gap: 6px; margin: -4px 0 12px; font-size: 12px; font-weight: 500; color: var(--ink-700); }
+  .dr-sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .dr-empty-panel { padding: 16px 18px; background: var(--surface-sunken); border: 1px solid var(--line-soft); border-radius: var(--r-md); font-size: 13px; color: var(--ink-700); }
+
+  /* Analysis controls: one panel, divider between period and last-analyzed */
+
+  /* Risk summary */
+  .dr-summary-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+  .dr-summary-card { box-sizing: border-box; min-width: 0; padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; background: var(--surface-sunken); border: 1px solid var(--line-soft); border-radius: var(--r-md); box-shadow: var(--clay-flat); }
+  .dr-summary-head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+  .dr-summary-icon { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 26px; height: 26px; border-radius: var(--r-xs); background: var(--surface-card); color: var(--teal-700); font-size: 12px; }
+  .dr-summary-label { font-size: 12px; font-weight: 700; color: var(--ink-700); line-height: 1.3; min-width: 0; }
+  .dr-summary-corner { margin-left: auto; font-size: 12px; color: var(--ink-soft); }
+  .dr-summary-value { font-size: 26px; font-weight: 800; color: var(--ink-900); line-height: 1.15; overflow-wrap: anywhere; }
+  .dr-summary-desc { font-size: 12px; font-weight: 500; line-height: 1.4; color: var(--ink-700); }
+  .dr-summary-card-primary { background: var(--teal-700); border-color: var(--teal-700); }
+  .dr-summary-card-primary .dr-summary-icon { background: rgba(244, 249, 247, 0.16); color: var(--ink-on-brand); }
+  .dr-summary-card-primary .dr-summary-label,
+  .dr-summary-card-primary .dr-summary-desc { color: rgba(244, 249, 247, 0.86); }
+  .dr-summary-card-primary .dr-summary-value { color: var(--ink-on-brand); }
+  .dr-summary-card-primary .dr-summary-corner { color: rgba(244, 249, 247, 0.85); }
+
+  /* Disease cards: two-column grid, "Other" full width */
+  .dr-card-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .dr-card { box-sizing: border-box; min-width: 0; padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; background: var(--surface-card); border: 1px solid var(--line); border-radius: var(--r-md); box-shadow: var(--clay-flat); }
+  .dr-card-wide { grid-column: 1 / -1; }
+  .dr-card-nodata { background: var(--surface-sunken); }
+  .dr-card-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; }
+  .dr-card-id { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; }
+  .dr-card-icon { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 30px; height: 30px; border-radius: var(--r-xs); background: var(--surface-sunken); color: var(--teal-700); font-size: 14px; }
+  .dr-card-title { margin: 0; font-size: 14px; font-weight: 800; line-height: 1.3; color: var(--ink-900); overflow-wrap: anywhere; }
+  .dr-card-side { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin-left: auto; }
+  .dr-trend { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: var(--ink-700); }
+  .dr-trend i { font-size: 12px; color: var(--ink-soft); }
+  .dr-records { font-size: 11.5px; font-weight: 500; color: var(--ink-700); }
+  .dr-badge-nodata { display: inline-flex; align-items: center; padding: 2px 8px; font-size: 10.5px; font-weight: 700; letter-spacing: 0.04em; color: var(--ink-700); background: transparent; border: 1px solid var(--line-strong); border-radius: var(--r-xs); white-space: nowrap; }
+  .dr-nodata-pill { display: inline-flex; padding: 2px 8px; font-size: 11px; font-weight: 600; color: var(--ink-700); background: var(--surface-sunken); border: 1px solid var(--line-soft); border-radius: var(--r-xs); }
+  .dr-none { color: var(--ink-soft); font-weight: 600; }
+
+  /* Card body: metrics (left) + explanation/environment (right) */
+  .dr-card-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 16px; align-items: stretch; }
+  .dr-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; margin: 0; padding: 0; }
+  .dr-metric { display: flex; flex-direction: column; gap: 6px; min-width: 0; padding: 0 12px; border-left: 1px solid var(--line-soft); }
+  .dr-metric:first-child { padding-left: 0; border-left: none; }
+  .dr-metric dt { font-size: 11.5px; font-weight: 700; color: var(--ink-700); }
+  .dr-metric dd { margin: 0; display: flex; flex-direction: column; gap: 2px; font-size: 13px; font-weight: 700; color: var(--ink-800); }
+  .dr-metric-value { font-size: 15px; font-weight: 800; color: var(--ink-900); overflow-wrap: anywhere; }
+  .dr-metric-sub { font-size: 11px; font-weight: 500; color: var(--ink-700); }
+  .dr-card-detail { display: flex; flex-direction: column; justify-content: space-between; gap: 10px; min-width: 0; padding-left: 16px; border-left: 1px solid var(--line-soft); }
+  .dr-card-reason { margin: 0; font-size: 12.5px; font-weight: 500; line-height: 1.5; color: var(--ink-800); }
+  .dr-env { padding: 8px 10px; background: var(--surface-sunken); border-radius: var(--r-xs); }
+  .dr-env-label { font-size: 10.5px; font-weight: 700; letter-spacing: 0.04em; color: var(--ink-700); margin-bottom: 3px; }
+  .dr-env p { margin: 0; font-size: 12px; font-weight: 500; line-height: 1.45; color: var(--ink-700); }
+
+  /* Bottom row: trend comparison + data confidence side by side */
+  .dr-bottom-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-bottom: 24px; }
+  .dr-panel { box-sizing: border-box; min-width: 0; padding: 16px 18px; background: var(--surface-card); border: 1px solid var(--line); border-radius: var(--r-md); box-shadow: var(--clay-flat); }
+  .dr-panel-heading { margin: 0 0 14px; font-size: 16px; font-weight: 800; line-height: normal; letter-spacing: normal; text-transform: none; color: var(--ink-800); }
+  .dr-panel-foot { margin: 12px 0 0; font-size: 11.5px; font-weight: 500; color: var(--ink-700); }
+  .dr-table-wrap { overflow-x: auto; border: 1px solid var(--line-soft); border-radius: var(--r-xs); }
+  .dr-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  .dr-table th, .dr-table td { padding: 9px 12px; text-align: left; border-bottom: 1px solid var(--line-soft); white-space: nowrap; }
+  .dr-table th { font-size: 11.5px; font-weight: 700; color: var(--ink-700); background: var(--surface-sunken); }
+  .dr-table td { font-weight: 600; color: var(--ink-800); }
+  .dr-table tbody tr:last-child td { border-bottom: none; }
+  .dr-table .dr-trend { font-size: 12px; }
+  .dr-conf-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+  .dr-conf-tile { box-sizing: border-box; min-width: 0; padding: 12px; display: flex; flex-direction: column; gap: 2px; background: var(--surface-sunken); border: 1px solid var(--line-soft); border-radius: var(--r-xs); }
+  .dr-conf-top { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+  .dr-conf-label { font-size: 11px; font-weight: 700; letter-spacing: 0.03em; color: var(--ink-800); overflow-wrap: anywhere; }
+  .dr-conf-sub { font-size: 11px; font-weight: 500; color: var(--ink-700); }
+  .dr-conf-value { margin-top: 8px; font-size: 22px; font-weight: 800; color: var(--ink-900); line-height: 1.1; }
+  .dr-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; }
+  .dr-dot-high { background: var(--teal-700); }
+  .dr-dot-medium { background: #d99a2b; }
+  .dr-dot-low { background: #d0574b; }
+  .dr-dot-none { background: transparent; border: 1.5px solid var(--ink-soft); }
+
+  /* Analysis note */
+  .dr-note { padding: 14px 18px; background: var(--surface-sunken); border: 1px solid var(--line-soft); border-radius: var(--r-md); }
+  .dr-note-heading { margin: 0 0 4px; font-size: 12px; font-weight: 800; letter-spacing: 0.02em; color: var(--ink-800); }
+  .dr-note-heading i { color: var(--teal-700); margin-right: 4px; }
+  .dr-note p { margin: 0; font-size: 12.5px; font-weight: 500; line-height: 1.55; color: var(--ink-700); }
+
+  /* Responsive */
+  @media (max-width: 1100px) {
+    .dr-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .dr-bottom-grid { grid-template-columns: minmax(0, 1fr); }
+  }
+  @media (max-width: 820px) {
+    .dr-card-grid { grid-template-columns: minmax(0, 1fr); }
+    .dr-card-body { grid-template-columns: minmax(0, 1fr); }
+    .dr-card-detail { padding-left: 0; border-left: none; }
+    .dr-card-side { margin-left: 0; }
+  }
+  @media (max-width: 640px) {
+    .dr-summary-grid { grid-template-columns: minmax(0, 1fr); }
+    .dr-conf-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .dr-title { font-size: 19px; }
+    .dr-metrics { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+    .dr-metric, .dr-metric:first-child { padding: 0; border-left: none; }
+  }
+
+  /* --- Consistency pass: match the finalized Predictive Analytics landing page --- */
+  /* Removes the straight divider under the shared topbar (same override as the landing page). */
+  .topbar { border-bottom: none; }
+  /* Page title typography = landing page title. */
+  .dr-title { margin: 0 0 2px; font-size: 20px; font-weight: 800; line-height: inherit; letter-spacing: normal; color: var(--ink-900); }
+  @media (max-width: 640px) { .dr-title { font-size: 20px; } }
+
+  /* --- Consistency pass (part 2): Analysis Controls + Back link, shared with the landing page --- */
+  /* Back to Predictive Analytics — one shared control for all four dedicated pages.
+     Same pill language as the landing page's View buttons (.pa-view-link). The row's
+     22px top margin mirrors the landing page title's offset. */
+  .pa-back-row { margin: 22px 0 12px; }
+  .pa-back-link { display: inline-flex; align-items: center; gap: 8px; box-sizing: border-box; padding: 7px 14px; background: var(--surface-sunken); border: 1px solid var(--line-soft); border-radius: var(--r-pill); color: var(--ink-800); font: inherit; font-size: 12.5px; font-weight: 700; line-height: 1.3; text-decoration: none; white-space: nowrap; cursor: pointer; transition: border-color 0.15s ease, color 0.15s ease; }
+  .pa-back-link:hover { border-color: var(--teal-400); color: var(--teal-700); }
+  .pa-back-link:focus-visible { outline: none; border-color: var(--teal-400); box-shadow: 0 0 0 3px var(--teal-100); }
+  .pa-back-link i { font-size: 11px; }
+
+  /* Analysis Controls — copied from predictive-analytics.html */
+  .pa-controls { margin-bottom: 30px; }
+  .pa-controls-heading { margin: 0 0 18px; font-size: 20px; font-weight: 800; line-height: normal; letter-spacing: normal; color: var(--ink-800); }
+  .pa-controls-panel { box-sizing: border-box; display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px 24px; padding: 16px 18px; background: var(--surface-sunken); border: 1px solid var(--line-soft); border-radius: var(--r-md); box-shadow: var(--clay-flat); }
+  .pa-controls-field, .pa-controls-status { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .pa-controls-label { font-size: 12px; font-weight: 700; color: var(--ink-700); line-height: 1.3; }
+  .pa-controls-select { box-sizing: border-box; height: 38px; min-width: 200px; max-width: 100%; }
+  .pa-controls-actions { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 16px 24px; min-width: 0; }
+  .pa-controls-value { display: flex; align-items: center; min-height: 38px; font-size: 13px; font-weight: 500; color: var(--ink-700); overflow-wrap: anywhere; }
+  @media (max-width: 640px) {
+    .pa-controls-panel { flex-direction: column; align-items: stretch; }
+    .pa-controls-select { width: 100%; min-width: 0; }
+    .pa-controls-actions { flex-direction: column; align-items: stretch; gap: 16px; }
+    .pa-controls-value { min-height: 0; }
+  }
+
+  /* Analysis Period select — interactive control on the sunken panel */
+  .pa-controls-select {
+    -webkit-appearance: none; -moz-appearance: none; appearance: none;
+    padding: 0 38px 0 12px;
+    background-color: var(--surface-card-raised);
+    background-image: linear-gradient(45deg, transparent 50%, var(--ink-soft) 50%), linear-gradient(135deg, var(--ink-soft) 50%, transparent 50%);
+    background-position: calc(100% - 19px) center, calc(100% - 14px) center;
+    background-size: 5px 5px, 5px 5px;
+    background-repeat: no-repeat;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r-sm);
+    box-shadow: var(--clay-flat);
+    color: var(--ink-900);
+    font-weight: 600;
+    cursor: pointer;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  .pa-controls-select:hover { border-color: var(--teal-400); }
+  .pa-controls-select:focus,
+  .pa-controls-select:focus-visible {
+    background-color: var(--surface-card-raised);
+    background-image: linear-gradient(45deg, transparent 50%, var(--teal-600) 50%), linear-gradient(135deg, var(--teal-600) 50%, transparent 50%);
+    background-position: calc(100% - 19px) center, calc(100% - 14px) center;
+    background-size: 5px 5px, 5px 5px;
+    background-repeat: no-repeat;
+    border-color: var(--teal-400);
+    box-shadow: 0 0 0 3px var(--teal-100);
+    outline: none;
+  }
+  .pa-controls-select[disabled] { opacity: 0.7; cursor: not-allowed; }
+  .pa-controls-select[disabled]:hover { border-color: var(--line-strong); }
+</style>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-mark"><i class="fa-solid fa-paw"></i></div>
+        <div class="brand-text">
+          <div class="brand-name">Pawsitive Care</div>
+          <div class="brand-role">Administrator</div>
+        </div>
+      </div>
+      <div class="sidebar-divider"></div>
+      <nav class="sidebar-nav">
+      <div class="nav-group">
+        <div class="nav-group-label">MAIN</div>
+        <a href="dashboard.html" class="nav-item" data-page="dashboard.html">
+          <span class="nav-icon"><i class="fa-solid fa-house"></i></span>
+          <span class="nav-label">Dashboard</span>
+        </a>
+        <a href="appointments.html" class="nav-item" data-page="appointments.html">
+          <span class="nav-icon"><i class="fa-solid fa-calendar-days"></i></span>
+          <span class="nav-label">Appointments</span>
+        </a>
+        <a href="queue.html" class="nav-item" data-page="queue.html">
+          <span class="nav-icon"><i class="fa-solid fa-hourglass-half"></i></span>
+          <span class="nav-label">Queue</span>
+        </a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">PATIENT MANAGEMENT</div>
+        <a href="patients.html" class="nav-item" data-page="patients.html">
+          <span class="nav-icon"><i class="fa-solid fa-paw"></i></span>
+          <span class="nav-label">Patients</span>
+        </a>
+        <a href="clients.html" class="nav-item" data-page="clients.html">
+          <span class="nav-icon"><i class="fa-solid fa-user"></i></span>
+          <span class="nav-label">Clients</span>
+        </a>
+        <a href="medical-records.html" class="nav-item" data-page="medical-records.html">
+          <span class="nav-icon"><i class="fa-solid fa-notes-medical"></i></span>
+          <span class="nav-label">Medical Records</span>
+        </a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">CLINIC</div>
+        <a href="services.html" class="nav-item" data-page="services.html">
+          <span class="nav-icon"><i class="fa-solid fa-hospital"></i></span>
+          <span class="nav-label">Services</span>
+        </a>
+        <a href="inventory.html" class="nav-item" data-page="inventory.html">
+          <span class="nav-icon"><i class="fa-solid fa-boxes-stacked"></i></span>
+          <span class="nav-label">Inventory</span>
+        </a>
+        <a href="billing.html" class="nav-item" data-page="billing.html">
+          <span class="nav-icon"><i class="fa-solid fa-credit-card"></i></span>
+          <span class="nav-label">Billing</span>
+        </a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">INSIGHTS</div>
+        <a href="predictive-analytics.html" class="nav-item" data-page="disease-risk.html">
+          <span class="nav-icon"><i class="fa-solid fa-chart-line"></i></span>
+          <span class="nav-label">Predictive Analytics</span>
+        </a>
+        <a href="reports.html" class="nav-item" data-page="reports.html">
+          <span class="nav-icon"><i class="fa-solid fa-chart-column"></i></span>
+          <span class="nav-label">Reports</span>
+        </a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">SYSTEM</div>
+        <a href="notifications.html" class="nav-item" data-page="notifications.html">
+          <span class="nav-icon"><i class="fa-solid fa-bell"></i></span>
+          <span class="nav-label">Notifications</span>
+        </a>
+        <a href="staff-users.html" class="nav-item" data-page="staff-users.html">
+          <span class="nav-icon"><i class="fa-solid fa-users"></i></span>
+          <span class="nav-label">Staff & Users</span>
+        </a>
+        <a href="settings.html" class="nav-item" data-page="settings.html">
+          <span class="nav-icon"><i class="fa-solid fa-gear"></i></span>
+          <span class="nav-label">Settings</span>
+        </a>
+      </div>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="footer-avatar">A</div>
+        <div>
+          <div class="footer-name">Admin</div>
+          <div class="footer-role">Administrator</div>
+        </div>
+      </div>
+    </aside>
+
+    <div class="main-content">
+      <header class="topbar">
+        <div class="topbar-left">
+          <button class="menu-toggle" aria-label="Toggle navigation"><i class="fa-solid fa-bars"></i></button>
+        </div>
+      </header>
+
+      <main class="page-body">
+        <div id="dr-root"></div>
+      </main>
+    </div>
+  </div>
+
+  <script src="data-store.js"></script>
+  <script src="patient-data-store.js"></script>
+  <script src="medical-records-data-store.js"></script>
+  <script src="predictive-analytics-data-store.js"></script>
+  <script src="sidebar.js"></script>
+  <script src="disease-risk.js"></script>
+</body>
+</html>

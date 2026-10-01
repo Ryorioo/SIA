@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard — Pawsitive Care</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+<link rel="stylesheet" href="style.css">
+<style>
+  /* ============================================================
+     CLIENT DASHBOARD — page-scoped styles only (style.css untouched)
+     Reuses existing design tokens from style.css (same approach as
+     clients.html / patients.html) since dashboard-specific card/row
+     layouts aren't defined globally.
+     ============================================================ */
+
+  .dash-welcome { margin-bottom: 18px; }
+  .welcome-title { font-size: 22px; font-weight: 800; color: var(--ink-900); margin-bottom: 4px; }
+  .welcome-sub { font-size: 13.5px; color: var(--ink-soft); font-weight: 600; }
+
+  .dash-grid {
+    display: grid;
+    grid-template-columns: 1.3fr 1fr;
+    gap: 18px;
+    margin-bottom: 18px;
+    align-items: start;
+  }
+
+  .dash-card {
+    background: var(--surface-card);
+    border: 1px solid var(--line-soft);
+    border-radius: var(--r-lg);
+    box-shadow: var(--clay-flat);
+    padding: 16px 18px;
+  }
+  .dash-card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+  .dash-card-title { font-size: 13.2px; font-weight: 800; color: var(--ink-900); display: flex; align-items: center; gap: 8px; }
+  .dash-card-title i { color: var(--teal-500); font-size: 12px; }
+
+  .pet-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--line-soft); }
+  .pet-row:last-child { border-bottom: none; }
+  .pet-row-main { display: flex; align-items: center; gap: 10px; }
+  .pet-row-avatar {
+    width: 32px; height: 32px; border-radius: var(--r-sm);
+    background: var(--teal-50); color: var(--teal-700);
+    display: flex; align-items: center; justify-content: center; font-size: 13px; flex-shrink: 0;
+  }
+  .pet-row-name { font-weight: 800; color: var(--ink-900); font-size: 12.8px; }
+  .pet-row-meta { font-size: 11.2px; color: var(--ink-faint); font-weight: 600; }
+
+  .empty-note { padding: 14px 0; color: var(--ink-faint); font-weight: 600; font-size: 12.6px; }
+
+  .appt-highlight, .queue-highlight { display: flex; flex-direction: column; gap: 6px; }
+  .appt-date { font-size: 14.5px; font-weight: 800; color: var(--ink-900); }
+  .appt-pet { font-size: 13px; font-weight: 700; color: var(--ink-800); }
+  .appt-meta { font-size: 12px; color: var(--ink-faint); font-weight: 600; }
+  .appt-highlight .status-badge, .queue-highlight .status-badge { align-self: flex-start; margin-top: 2px; }
+
+  .queue-code { font-size: 26px; font-weight: 800; color: var(--teal-700); line-height: 1; }
+  .queue-pet { font-size: 13px; font-weight: 700; color: var(--ink-800); }
+  .queue-status-label { font-size: 12.5px; font-weight: 800; color: var(--teal-700); }
+
+  .notif-row { padding: 9px 0; border-bottom: 1px solid var(--line-soft); font-size: 12.6px; color: var(--ink-800); font-weight: 600; }
+  .notif-row:last-child { border-bottom: none; }
+
+  .dash-quick { margin-bottom: 18px; }
+  .quick-actions-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+  .quick-action {
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+    padding: 18px 12px; border-radius: var(--r-md); border: 1px solid var(--line-soft);
+    background: var(--surface-card-raised); color: var(--ink-800); text-decoration: none;
+    font-size: 12.5px; font-weight: 700; box-shadow: var(--clay-flat);
+    transition: border-color 0.15s ease, color 0.15s ease;
+  }
+  .quick-action i { font-size: 18px; color: var(--teal-600); }
+  .quick-action:hover { border-color: var(--teal-400); color: var(--teal-700); }
+
+  @media (max-width: 900px) {
+    .dash-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-mark"><i class="fa-solid fa-paw"></i></div>
+        <div class="brand-text">
+          <div class="brand-name">Pawsitive Care</div>
+          <div class="brand-role">Pet Owner</div>
+        </div>
+      </div>
+      <div class="sidebar-divider"></div>
+      <nav class="sidebar-nav">
+        <div class="nav-group">
+          <div class="nav-group-label">MAIN</div>
+          <a href="client-dashboard.html" class="nav-item active" data-page="client-dashboard.html">
+            <span class="nav-icon"><i class="fa-solid fa-house"></i></span>
+            <span class="nav-label">Dashboard</span>
+          </a>
+          <a href="client-appointments.html" class="nav-item" data-page="client-appointments.html">
+            <span class="nav-icon"><i class="fa-solid fa-calendar-days"></i></span>
+            <span class="nav-label">Appointments</span>
+          </a>
+          <a href="client-queue.html" class="nav-item" data-page="client-queue.html">
+            <span class="nav-icon"><i class="fa-solid fa-hourglass-half"></i></span>
+            <span class="nav-label">Queue</span>
+          </a>
+        </div>
+        <div class="nav-group">
+          <div class="nav-group-label">MY PETS</div>
+          <a href="client-pets.html" class="nav-item" data-page="client-pets.html">
+            <span class="nav-icon"><i class="fa-solid fa-paw"></i></span>
+            <span class="nav-label">My Pets</span>
+          </a>
+        </div>
+        <div class="nav-group">
+          <div class="nav-group-label">MEDICAL</div>
+          <a href="client-medical-records.html" class="nav-item" data-page="client-medical-records.html">
+            <span class="nav-icon"><i class="fa-solid fa-notes-medical"></i></span>
+            <span class="nav-label">Medical Records</span>
+          </a>
+          <a href="client-vaccinations.html" class="nav-item" data-page="client-vaccinations.html">
+            <span class="nav-icon"><i class="fa-solid fa-syringe"></i></span>
+            <span class="nav-label">Vaccinations</span>
+          </a>
+        </div>
+        <div class="nav-group">
+          <div class="nav-group-label">ACCOUNT</div>
+          <a href="client-notifications.html" class="nav-item" data-page="client-notifications.html">
+            <span class="nav-icon"><i class="fa-solid fa-bell"></i></span>
+            <span class="nav-label">Notifications</span>
+          </a>
+          <a href="client-billing.html" class="nav-item" data-page="client-billing.html">
+            <span class="nav-icon"><i class="fa-solid fa-credit-card"></i></span>
+            <span class="nav-label">Billing</span>
+          </a>
+          <a href="client-profile.html" class="nav-item" data-page="client-profile.html">
+            <span class="nav-icon"><i class="fa-solid fa-user"></i></span>
+            <span class="nav-label">Profile</span>
+          </a>
+          <a href="#" class="nav-item" id="logout-btn">
+            <span class="nav-icon"><i class="fa-solid fa-right-from-bracket"></i></span>
+            <span class="nav-label">Logout</span>
+          </a>
+        </div>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="footer-avatar" id="footer-avatar">?</div>
+        <div>
+          <div class="footer-name" id="footer-name">—</div>
+          <div class="footer-role">Pet Owner</div>
+        </div>
+      </div>
+    </aside>
+
+    <div class="main-content">
+      <header class="topbar">
+        <div class="topbar-left">
+          <button class="menu-toggle" aria-label="Toggle navigation"><i class="fa-solid fa-bars"></i></button>
+          <div>
+            <div class="topbar-title">Dashboard</div>
+            <div class="topbar-crumb">Pawsitive Care / Dashboard</div>
+          </div>
+        </div>
+      </header>
+
+      <main class="page-body">
+
+        <div class="dash-welcome" id="dash-welcome"></div>
+
+        <div class="dash-grid">
+          <section class="dash-card">
+            <div class="dash-card-head">
+              <div class="dash-card-title"><i class="fa-solid fa-paw"></i> My Pets</div>
+              <a href="client-pets.html" class="btn btn-sm">View all</a>
+            </div>
+            <div id="pets-list"></div>
+          </section>
+
+          <section class="dash-card">
+            <div class="dash-card-head">
+              <div class="dash-card-title"><i class="fa-solid fa-calendar-days"></i> Upcoming Appointment</div>
+              <a href="client-appointments.html" class="btn btn-sm">View all</a>
+            </div>
+            <div id="appt-box"></div>
+          </section>
+
+          <section class="dash-card">
+            <div class="dash-card-head">
+              <div class="dash-card-title"><i class="fa-solid fa-hourglass-half"></i> Queue Status</div>
+              <a href="client-queue.html" class="btn btn-sm">View queue</a>
+            </div>
+            <div id="queue-box"></div>
+          </section>
+
+          <section class="dash-card">
+            <div class="dash-card-head">
+              <div class="dash-card-title"><i class="fa-solid fa-bell"></i> Recent Notifications</div>
+              <a href="client-notifications.html" class="btn btn-sm">View all</a>
+            </div>
+            <div id="notifs-list"></div>
+          </section>
+        </div>
+
+        <section class="dash-card dash-quick">
+          <div class="dash-card-head">
+            <div class="dash-card-title"><i class="fa-solid fa-bolt"></i> Quick Actions</div>
+          </div>
+          <div class="quick-actions-grid" id="quick-actions"></div>
+        </section>
+
+      </main>
+    </div>
+  </div>
+
+  <!-- data-store.js first (owns PCData), then patient-data-store.js
+       (owns getPatients/getPatientsForClient's pet lookups and
+       getAppointmentsForPatient — required for My Pets / Upcoming
+       Appointment / Queue Status to resolve real data), then the
+       client session helper, then this page's own DOM wiring. -->
+  <script src="data-store.js"></script>
+  <script src="patient-data-store.js"></script>
+  <script src="client-session.js"></script>
+  <script src="client-dashboard.js"></script>
+</body>
+</html>

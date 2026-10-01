@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard · Pawsitive Care</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+<link rel="stylesheet" href="style.css">
+<style>
+  /* ============================================================
+     ADMINISTRATOR DASHBOARD — page-scoped styles only (style.css
+     untouched). Adapted directly from client-dashboard.html's own
+     page-scoped styles so both dashboards share one visual
+     language: the same design tokens (--ink-*, --surface-card,
+     --line-soft, --r-*, --clay-flat, --teal-*) and the same
+     card/button conventions (.dash-card, .btn.btn-sm). Color
+     tokens outside the confirmed teal/ink/surface set (amber, rose,
+     sky, slate) aren't visible from the reference file, so they're
+     requested via var() with a hand-picked fallback — themes
+     automatically if those tokens exist in style.css, degrades
+     gracefully to the fallback color if not.
+     ============================================================ */
+
+  /* ---- welcome area ----
+     No card: no background fill, no border, no shadow — the
+     transparent Cat&Dog illustration sits directly on the page
+     background so it reads as part of the composition rather than
+     boxed content. Pets are large (bottom-anchored, taller than the
+     text block so they extend down toward the row's lower edge)
+     with the greeting set beside them on the right. Page title/
+     breadcrumb above this area were removed, so this is now the
+     first thing in .page-body. */
+  .dash-welcome {
+    display: flex;
+    align-items: flex-end;
+    gap: 20px;
+    margin-bottom: 16px;
+  }
+  .dash-welcome-img {
+    height: 168px;
+    width: auto;
+    flex-shrink: 0;
+    display: block;
+  }
+  .dash-welcome-text { min-width: 0; padding-bottom: 30px; }
+  .welcome-title { font-size: 26px; font-weight: 800; color: var(--teal-700, #1f3b26); margin-bottom: 6px; }
+  .welcome-sub { font-size: 14px; color: var(--ink-soft); font-weight: 600; }
+  @media (max-width: 560px) {
+    .dash-welcome { align-items: center; gap: 12px; }
+    .dash-welcome-img { height: 96px; }
+    .welcome-title { font-size: 19px; margin-bottom: 4px; }
+    .welcome-sub { font-size: 12.5px; }
+  }
+
+  /* ---- top line fix ----
+     With the page title/breadcrumb removed, .topbar (styled in
+     style.css with a border-bottom for visually separating it from
+     the title below it) now sits as a bare strip and reads as a
+     stray dark line across the very top of the page. Only that one
+     border is overridden here — every other border in the app
+     (sidebar, cards, rows) is untouched. */
+  .topbar { border-bottom: none; }
+
+  /* ---- balanced two-column sections ----
+     Rows now stretch to equal height (align-items: stretch, the
+     grid default) so Today's Appointments/Queue Status and
+     Inventory Alerts/Recent Activity each read as one matched pair
+     instead of two mismatched card heights. .dash-card is a flex
+     column so the stretched height actually gets used by its
+     content (see ".dash-card-head + *" below) instead of just
+     leaving blank space under a card that's shorter on content. */
+  /* Today's Queue and Today's Appointments now stack as full-width
+     rows (queue first) instead of sitting side-by-side, so they no
+     longer need a two-column grid — just the same row spacing a grid
+     row would have given them. */
+  .dash-full-row { margin-bottom: 16px; }
+  .secondary-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+    margin-bottom: 16px; align-items: stretch;
+  }
+  @media (max-width: 900px) {
+    .secondary-grid { grid-template-columns: 1fr; }
+  }
+
+  /* ---- card shell ----
+     Flex column so a card stretched taller by its grid row (see
+     .secondary-grid) actually distributes that height to its content
+     instead of leaving it as blank space below a shorter card. Today's
+     Queue and Today's Appointments are now full-width stacked rows
+     (not grid siblings) so they simply size to their own content. The
+     head stays a fixed size; the one content block that follows it
+     (list wrapper or empty state) grows to fill whatever's left. */
+  .dash-card {
+    background: var(--surface-card); border: 1px solid var(--line-soft);
+    border-radius: var(--r-md); box-shadow: var(--clay-flat);
+    padding: 16px 18px;
+    display: flex; flex-direction: column;
+  }
+  .dash-card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; flex: 0 0 auto; }
+  .dash-card-title { font-size: 13.2px; font-weight: 800; color: var(--ink-900); display: flex; align-items: center; gap: 8px; }
+  .dash-card-title i { color: var(--teal-500, #2f5233); font-size: 12px; }
+
+  /* ---- card head actions (title stays first child; a live status
+     pill + the existing action link sit together as the second
+     child) so .dash-card-head keeps its two-child space-between
+     layout everywhere else in the dashboard. ---- */
+  .dash-card-head-actions { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+  .queue-live-pill {
+    font-size: 10.2px; font-weight: 800; text-transform: capitalize;
+    padding: 4px 10px; border-radius: 999px; white-space: nowrap;
+    background: var(--amber-50, #fdf1d8); color: var(--amber-700, #92640c);
+  }
+  .queue-live-pill.is-clear { background: var(--teal-50, #dfeee0); color: var(--teal-700, #2f5233); }
+
+  .dash-card:not(.dash-quick) > .dash-card-head + * {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .empty-note { padding: 14px 0; color: var(--ink-faint); font-weight: 600; font-size: 12.6px; }
+
+  /* ---- shared intentional empty state ----
+     One consistent pattern (icon + message, optional sub-line) used
+     by every card's empty state. flex:1 + justify-content:center
+     means it fills whatever height the (now equal-height) card
+     actually has and centers within it, rather than sitting pinned
+     to the top with dead space below. */
+  .empty-state {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; gap: 8px; flex: 1 1 auto; padding: 12px;
+  }
+  .empty-state-icon {
+    width: 34px; height: 34px; border-radius: 50%;
+    background: var(--teal-50, #eaf3ee); color: var(--teal-600, #2f5233);
+    display: flex; align-items: center; justify-content: center; font-size: 13px; flex-shrink: 0;
+  }
+  .empty-state-text { font-weight: 700; font-size: 12.6px; color: var(--ink-800); }
+  .empty-state-sub { font-size: 11.2px; font-weight: 600; color: var(--ink-faint); }
+  /* Today's Queue and Today's Appointments use a small custom
+     illustration instead of the icon-circle treatment (still inside
+     the same .empty-state wrapper, so spacing/centering is shared).
+     Capped width keeps it a supporting visual rather than a dominant
+     graphic — comparable footprint to the empty-state icon circle
+     plus its message, not a full-card illustration. */
+  /* Today's Queue and Today's Appointments use a small custom
+     illustration instead of the icon-circle treatment (still inside
+     the same .empty-state wrapper, so spacing/centering is shared).
+     Capped width keeps it a supporting visual rather than a dominant
+     graphic — comparable footprint to the empty-state icon circle
+     plus its message, not a full-card illustration. */
+  .empty-state-illustration {
+    display: block; width: 100%; max-width: 168px; height: auto;
+    object-fit: contain; flex-shrink: 0; margin-bottom: 4px;
+  }
+
+  /* ---- generic list row (appointments / queue / inventory) ---- */
+  .appt-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    padding: 10px 0; border-bottom: 1px solid var(--line-soft);
+  }
+  .appt-row:last-child { border-bottom: none; }
+  .appt-row-main { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .appt-row-icon {
+    width: 32px; height: 32px; border-radius: 50%;
+    background: var(--teal-50, #eaf3ee); color: var(--teal-700, #1f3b26);
+    display: flex; align-items: center; justify-content: center; font-size: 13px; flex-shrink: 0;
+  }
+  .appt-row-text { min-width: 0; }
+  .appt-row-name { font-weight: 800; color: var(--ink-900); font-size: 12.8px; }
+  .appt-row-name span { font-weight: 500; color: var(--ink-faint); }
+  .appt-row-meta {
+    font-size: 11.2px; color: var(--ink-faint); font-weight: 600; margin-top: 1px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .appt-row-time { font-size: 11.5px; font-weight: 800; color: var(--ink-800); flex-shrink: 0; white-space: nowrap; }
+
+  .dash-badge {
+    font-size: 10.2px; font-weight: 800; text-transform: capitalize;
+    padding: 4px 10px; border-radius: 999px; white-space: nowrap; flex-shrink: 0;
+  }
+  .dash-badge-pending { background: var(--amber-100); color: var(--amber-800); }
+  .dash-badge-confirmed { background: var(--sage-100); color: var(--sage-600); }
+  .dash-badge-arrived { background: var(--teal-100); color: var(--teal-700); }
+  .dash-badge-completed { background: var(--slate-100); color: var(--slate-800); }
+  .dash-badge-cancelled { background: var(--red-100); color: var(--red-800); }
+
+  /* ---- Today's Appointments: visual hierarchy ----
+     Scoped to #dash-appointments-list only, so none of this touches
+     the shared .appt-row-name/.appt-row-meta/.appt-row-time rules
+     used by Today's Queue's waiting list or Inventory Alerts. Reading
+     order stays time -> pet name -> service/reason -> owner/vet ->
+     status: the time and pet name get the strongest size/weight/
+     color, the reason+vet meta line stays quiet supporting text, and
+     the status badge is left exactly as prominent as it is everywhere
+     else in the dashboard. */
+  #dash-appointments-list .appt-row { padding: 11px 0; }
+  #dash-appointments-list .appt-row-name { font-size: 13.4px; }
+  #dash-appointments-list .appt-row-meta {
+    font-size: 11px;
+    /* Long reason/vet text wraps instead of truncating with an
+       ellipsis, per "avoid unnecessary truncation" — worth the
+       occasional extra line since rows stay compact otherwise. */
+    white-space: normal; overflow: visible; text-overflow: clip;
+  }
+  #dash-appointments-list .appt-row-time {
+    font-size: 13.6px; font-weight: 800; color: var(--teal-700, #1f3b26);
+    min-width: 58px; text-align: right;
+  }
+
+  /* ---- Today's Appointments: small-screen safety ----
+     Below 480px, letting the icon, name, time and badge wrap onto
+     their own line (instead of shrinking or truncating further)
+     keeps every value fully readable with no horizontal overflow.
+     Scoped to the appointments list only. */
+  @media (max-width: 480px) {
+    #dash-appointments-list .appt-row { flex-wrap: wrap; row-gap: 6px; }
+    #dash-appointments-list .appt-row-time { margin-left: auto; text-align: left; }
+  }
+
+  /* ---- queue status card ----
+     #dash-queue-body is the flexed content block (matched by
+     ".dash-card-head + *" above). Now that Today's Queue is its own
+     full-width row above Today's Appointments, it sizes to its own
+     content rather than height-matching a grid sibling. When the
+     queue is fully empty, renderQueueStatus() adds .is-empty so the
+     single remaining section (Now Serving, repurposed for the
+     combined empty message) still centers in that space instead of
+     sitting at the top. */
+  #dash-queue-body.is-empty { justify-content: center; }
+  .queue-section-label {
+    font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em;
+    color: var(--ink-faint); margin: 10px 0 6px;
+  }
+  .queue-section-label:first-of-type { margin-top: 0; }
+  .queue-now-card {
+    display: flex; align-items: center; justify-content: space-between; gap: 14px;
+    background: var(--teal-50, #f4f8f3); border: 1px solid var(--teal-100, #dfeadf);
+    border-radius: var(--r-md); padding: 12px 14px;
+  }
+  .queue-now-main { display: flex; align-items: center; gap: 14px; min-width: 0; }
+  .queue-code { font-size: 24px; font-weight: 800; color: var(--teal-700, #2f5233); line-height: 1; flex-shrink: 0; }
+
+  /* ---- waiting-list position marker ----
+     Small numbered circle ahead of the species icon so the waiting
+     list reads as an ordered line, not just a stack of rows. The
+     first patient (next to be called) is filled solid for emphasis;
+     the rest stay as quiet outlined numbers. */
+  .queue-pos {
+    width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10.5px; font-weight: 800; line-height: 1;
+    background: var(--surface-card-raised, #f4f5f2); color: var(--ink-faint);
+    border: 1px solid var(--line-soft);
+  }
+  .queue-pos.is-next {
+    background: var(--teal-600, #2f5233); color: #fff; border-color: var(--teal-600, #2f5233);
+  }
+
+  /* ---- Today's Queue: Now Serving hierarchy ----
+     Scoped to .queue-now-card so none of this touches the shared
+     .appt-row-name/.appt-row-meta/.dash-badge rules used by Today's
+     Appointments or Inventory Alerts. Now Serving is the single most
+     important line in the queue, so the queue number and pet name
+     get more visual weight purely via size/spacing/color; the vet
+     name and check-in suffix stay quieter and smaller so they read
+     as supporting detail, and the status badge stays exactly as
+     prominent as it is everywhere else in the dashboard. */
+  .queue-now-card .queue-code { font-size: 30px; letter-spacing: -0.3px; }
+  .queue-now-card .appt-row-name { font-size: 14.5px; }
+  .queue-now-card .appt-row-meta { font-size: 11px; margin-top: 3px; }
+
+  /* ---- Today's Queue: waiting list hierarchy ----
+     Scoped to #dash-queue-waiting so Today's Appointments/Inventory
+     rows (built from the same .appt-row markup) are unaffected. The
+     scan order stays position number -> pet name -> supporting info
+     (vet, check-in, wait estimate) -> status, achieved by keeping the
+     pet name the strongest text on the row and quieting the queue
+     code next to the badge so it doesn't compete with it. */
+  #dash-queue-waiting .appt-row { padding: 11px 0; }
+  #dash-queue-waiting .appt-row-time {
+    font-size: 10.5px; font-weight: 700; color: var(--ink-faint);
+  }
+
+  /* ---- Today's Queue: small-screen safety ----
+     Below 480px, Now Serving's number/name and a waiting row's
+     trailing code/badge can run out of horizontal room together.
+     Letting each wrap onto its own line (instead of shrinking or
+     truncating) keeps every value fully readable with no horizontal
+     overflow. Scoped to the queue card only. */
+  @media (max-width: 480px) {
+    .queue-now-card { flex-wrap: wrap; row-gap: 10px; }
+    .queue-now-card .queue-code { font-size: 26px; }
+    .queue-now-card > .dash-badge { margin-left: auto; }
+    #dash-queue-waiting .appt-row { flex-wrap: wrap; row-gap: 6px; }
+    #dash-queue-waiting .appt-row-time { margin-left: auto; }
+  }
+
+  /* ---- Inventory Alerts: severity hierarchy ----
+     Scan order is item name -> urgency/status -> supporting stock info
+     -> action (the card header's "Manage inventory" link). The status
+     badge already carries the urgency color (rose = expired, amber =
+     low stock — the same pairing as .dash-badge-cancelled/.dash-badge-
+     pending elsewhere in the dashboard); the row icon now picks up
+     that same color so the most urgent rows read at a glance before
+     any text is read, with no new colors introduced. Expired items —
+     the single most urgent case — also tint the item name itself,
+     the same "one accent, used sparingly" treatment the Now Serving
+     queue card already uses, rather than a colorful full-row wash. */
+  #dash-inventory-list .appt-row.is-expired .appt-row-icon {
+    background: var(--rose-50, #fbe1e1); color: var(--rose-700, #a13636);
+  }
+  #dash-inventory-list .appt-row.is-expired .appt-row-name {
+    color: var(--rose-700, #a13636);
+  }
+  #dash-inventory-list .appt-row.is-low .appt-row-icon {
+    background: var(--amber-50, #fdf1d8); color: var(--amber-700, #92640c);
+  }
+
+  /* ---- recent activity card ----
+     Description carries the most weight (darker ink, bolder) and the
+     timestamp stays the quietest line (smaller, lighter weight, a
+     touch more space above it) so the two read at clearly different
+     levels without any extra containers or dividers beyond the
+     existing row border. Row padding and icon size are matched to
+     Inventory Alerts' .appt-row/.appt-row-icon so the two cards in
+     this row feel equally weighted. */
+  .activity-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--line-soft); }
+  .activity-row:last-child { border-bottom: none; }
+  .activity-icon {
+    width: 32px; height: 32px; border-radius: 50%; background: var(--teal-50, #eaf3ee);
+    color: var(--teal-700, #1f3b26); display: flex; align-items: center; justify-content: center;
+    font-size: 12px; flex-shrink: 0;
+  }
+  .activity-body { min-width: 0; }
+  .activity-text { font-size: 12.8px; color: var(--ink-900); font-weight: 700; }
+  .activity-time { font-size: 10.8px; color: var(--ink-faint); font-weight: 500; margin-top: 3px; }
+</style>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-mark"><i class="fa-solid fa-paw"></i></div>
+        <div class="brand-text">
+          <div class="brand-name">Pawsitive Care</div>
+          <div class="brand-role">Administrator</div>
+        </div>
+      </div>
+      <div class="sidebar-divider"></div>
+      <nav class="sidebar-nav">
+      <div class="nav-group">
+        <div class="nav-group-label">MAIN</div>
+        <a href="dashboard.html" class="nav-item" data-page="dashboard.html">
+          <span class="nav-icon"><i class="fa-solid fa-house"></i></span>
+          <span class="nav-label">Dashboard</span>
+        </a>
+        <a href="appointments.html" class="nav-item" data-page="appointments.html">
+          <span class="nav-icon"><i class="fa-solid fa-calendar-days"></i></span>
+          <span class="nav-label">Appointments</span>
+        </a>
+        <a href="queue.html" class="nav-item" data-page="queue.html">
+          <span class="nav-icon"><i class="fa-solid fa-hourglass-half"></i></span>
+          <span class="nav-label">Queue</span>
+        </a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">PATIENT MANAGEMENT</div>
+        <a href="patients.html" class="nav-item" data-page="patients.html">
+          <span class="nav-icon"><i class="fa-solid fa-paw"></i></span>
+          <span class="nav-label">Patients</span>
+        </a>
+        <a href="clients.html" class="nav-item" data-page="clients.html">
+          <span class="nav-icon"><i class="fa-solid fa-user"></i></span>
+          <span class="nav-label">Clients</span>
+        </a>
+        <a href="medical-records.html" class="nav-item" data-page="medical-records.html">
+          <span class="nav-icon"><i class="fa-solid fa-notes-medical"></i></span>
+          <span class="nav-label">Medical Records</span>
+        </a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">CLINIC</div>
+        <a href="services.html" class="nav-item" data-page="services.html">
+          <span class="nav-icon"><i class="fa-solid fa-hospital"></i></span>
+          <span class="nav-label">Services</span>
+        </a>
+        <a href="inventory.html" class="nav-item" data-page="inventory.html">
+          <span class="nav-icon"><i class="fa-solid fa-boxes-stacked"></i></span>
+          <span class="nav-label">Inventory</span>
+        </a>
+        <a href="billing.html" class="nav-item" data-page="billing.html">
+          <span class="nav-icon"><i class="fa-solid fa-credit-card"></i></span>
+          <span class="nav-label">Billing</span>
+        </a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">INSIGHTS</div>
+        <a href="predictive-analytics.html" class="nav-item" data-page="predictive-analytics.html">
+          <span class="nav-icon"><i class="fa-solid fa-chart-line"></i></span>
+          <span class="nav-label">Predictive Analytics</span>
+        </a>
+        <a href="reports.html" class="nav-item" data-page="reports.html">
+          <span class="nav-icon"><i class="fa-solid fa-chart-column"></i></span>
+          <span class="nav-label">Reports</span>
+        </a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">SYSTEM</div>
+        <a href="notifications.html" class="nav-item" data-page="notifications.html">
+          <span class="nav-icon"><i class="fa-solid fa-bell"></i></span>
+          <span class="nav-label">Notifications</span>
+        </a>
+        <a href="staff-users.html" class="nav-item" data-page="staff-users.html">
+          <span class="nav-icon"><i class="fa-solid fa-users"></i></span>
+          <span class="nav-label">Staff & Users</span>
+        </a>
+        <a href="settings.html" class="nav-item" data-page="settings.html">
+          <span class="nav-icon"><i class="fa-solid fa-gear"></i></span>
+          <span class="nav-label">Settings</span>
+        </a>
+        <a href="#" class="nav-item" id="logout-btn">
+          <span class="nav-icon"><i class="fa-solid fa-right-from-bracket"></i></span>
+          <span class="nav-label">Logout</span>
+        </a>
+      </div>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="footer-avatar">A</div>
+        <div>
+          <div class="footer-name">Admin</div>
+          <div class="footer-role">Administrator</div>
+        </div>
+      </div>
+    </aside>
+
+    <div class="main-content">
+      <header class="topbar">
+        <div class="topbar-left">
+          <button class="menu-toggle" aria-label="Toggle navigation"><i class="fa-solid fa-bars"></i></button>
+        </div>
+      </header>
+
+      <main class="page-body">
+
+        <div class="dash-welcome">
+          <img class="dash-welcome-img" src="img/Cat&Dog.png" alt="Illustration of a happy dog and cat">
+          <div class="dash-welcome-text">
+            <div class="welcome-title">Welcome back, Admin!</div>
+            <div class="welcome-sub" id="dash-welcome-sub">Here's what's happening at the clinic today.</div>
+          </div>
+        </div>
+
+        <section class="dash-card dash-full-row">
+          <div class="dash-card-head">
+            <div class="dash-card-title"><i class="fa-solid fa-hourglass-half"></i> Today's Queue</div>
+            <div class="dash-card-head-actions">
+              <span class="queue-live-pill" id="dash-queue-live-pill" style="display:none;"></span>
+              <a href="queue.html" class="btn btn-sm">Open queue</a>
+            </div>
+          </div>
+          <div id="dash-queue-body">
+            <div id="dash-queue-now-section">
+              <div class="queue-section-label" id="dash-queue-now-label">Now Serving</div>
+              <div id="dash-queue-now"></div>
+            </div>
+            <div id="dash-queue-waiting-section">
+              <div class="queue-section-label">Waiting</div>
+              <div id="dash-queue-waiting"></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="dash-card dash-full-row">
+          <div class="dash-card-head">
+            <div class="dash-card-title"><i class="fa-solid fa-calendar-day"></i> Today's Appointments</div>
+            <a href="appointments.html" class="btn btn-sm">View all</a>
+          </div>
+          <div id="dash-appointments-list"></div>
+        </section>
+
+        <div class="secondary-grid">
+          <section class="dash-card">
+            <div class="dash-card-head">
+              <div class="dash-card-title"><i class="fa-solid fa-boxes-stacked"></i> Inventory Alerts</div>
+              <a href="inventory.html" class="btn btn-sm">Manage inventory</a>
+            </div>
+            <div id="dash-inventory-list"></div>
+          </section>
+
+          <section class="dash-card">
+            <div class="dash-card-head">
+              <div class="dash-card-title"><i class="fa-solid fa-clock-rotate-left"></i> Recent Activity</div>
+            </div>
+            <div id="dash-activity-list"></div>
+          </section>
+        </div>
+
+      </main>
+    </div>
+  </div>
+
+  <script src="data-store.js"></script>
+  <!-- Attaches PCData.getPatients()/getPatientById() for the Total Patients
+       card. data-store.js itself calls these directly (see
+       getPatientForAppointment / getPatientsForClient), so their existence
+       is confirmed — and client-dashboard.html confirms this is the real
+       filename/load position used elsewhere in the app. If this script is
+       ever missing, the dashboard degrades gracefully (Total Patients
+       shows "—" instead of throwing). -->
+  <script src="patient-data-store.js"></script>
+  <script src="client-session.js"></script>
+  <script src="sidebar.js"></script>
+  <script src="dashboard-data-store.js"></script>
+  <script src="dashboard.js"></script>
+  <script>
+    // AUTHENTICATION TEMPORARILY DISABLED
+    // This frontend prototype does not have a backend yet.
+    // Administrator/Client authentication will be implemented later
+    // after the PHP + MySQL backend is completed.
+    //
+    // Original guarded logic (restore once the backend exists):
+    //
+    // document.addEventListener('DOMContentLoaded', function () {
+    //   var admin = window.PCClientAuth.requireAdminLogin('client-login.html');
+    //   if (!admin) return;
+    //
+    //   var logoutBtn = document.getElementById('logout-btn');
+    //   if (logoutBtn) {
+    //     logoutBtn.addEventListener('click', function (e) {
+    //       e.preventDefault();
+    //       e.stopPropagation();
+    //       window.PCClientAuth.clearSession();
+    //       window.location.href = 'client-login.html';
+    //     });
+    //   }
+    // });
+  </script>
+</body>
+</html>

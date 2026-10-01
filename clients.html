@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Clients · Pawsitive Care</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+<link rel="stylesheet" href="style.css">
+<style>
+  /* ============================================================
+     CLIENTS PAGE — page-scoped styles only (style.css untouched)
+     Reuses existing design tokens (colors, radii, shadows) from
+     style.css so it matches the rest of the app. Mirrors the
+     class names/patterns already used on the Patients page.
+     ============================================================ */
+
+  /* --- header cleanup (Clients page) ---
+     Same treatment as Patients: the page-level title/breadcrumb that
+     used to live in .topbar is removed (see the <header> markup
+     below — it now only holds the menu-toggle button), so the
+     border-bottom style.css draws for pages that keep that title is
+     suppressed here (scoped to this page only, style.css untouched),
+     identical to patients.html's own .topbar rule. */
+  .topbar { border-bottom: none; }
+
+  /* --- header spacing (Clients page) ---
+     Nudges the "CLIENTS" toolbar block down slightly to fill the
+     space left by the removed title/breadcrumb, page-scoped only —
+     identical value to patients.html's own .page-toolbar rule, so
+     the section heading sits with the same top spacing as Patients'
+     "PATIENT RECORDS" heading. margin-bottom (spacing to the filter
+     bar below) is untouched — inherited from style.css's
+     .page-toolbar as before. */
+  .page-toolbar { margin-top: 22px; }
+
+  /* --- clients search field: fix nested-box appearance ---
+     Same fix already applied to the Services/Appointments/Patients
+     search fields: .search-field (from style.css) already renders
+     the field's single background/border, but the plain <input>
+     inside it still carried the browser's own input chrome, making
+     it look like a box inside a box. Making the input transparent/
+     borderless and moving focus styling to the outer wrapper via
+     :focus-within (same teal token used for this fix elsewhere)
+     collapses it back to one visible field. Purely visual — no
+     markup, JS, or functional change. */
+  .filter-bar .search-field input {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    outline: none;
+    flex: 1;
+    width: 100%;
+  }
+  .filter-bar .search-field:focus-within {
+    border-color: var(--teal-400);
+  }
+
+  /* --- Add Client modal: Email input styling ---
+     Copied directly from style.css's real rule for the other
+     standard fields — `input[type="text"], input[type="date"],
+     input[type="time"], select, textarea` (line 643) and its
+     `:focus` counterpart (line 654). That selector list never
+     included input[type="email"], so #f-email was falling back to
+     the browser's default input chrome. This reproduces those two
+     rules verbatim, scoped to #f-email, instead of guessing a
+     token. (Earlier attempts guessed var(--surface-card) and
+     var(--surface-card-raised) for the background — both wrong;
+     the real base background is var(--surface-sunken).) */
+  #f-email {
+    border: 1px solid var(--line-soft);
+    background: var(--surface-sunken);
+    border-radius: var(--r-sm);
+    padding: 9px 12px;
+    color: var(--ink-800);
+    font-weight: 500;
+    box-shadow: var(--clay-pressed);
+    transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+  }
+  #f-email:focus {
+    border-color: var(--teal-400);
+    background: var(--surface-card-raised);
+    box-shadow: 0 0 0 3px var(--teal-100);
+    outline: none;
+  }
+
+  /* ============================================================
+     Client Directory card — SAME card family as the finalized
+     Patients cards (.patient-card in patients.html): same warm
+     beige surface, border/radius/shadow, padding/gap, dark-teal
+     identity treatment, ID-badge style, hr dividers, muted icon
+     style, and footer/action treatment. Only the information
+     inside differs (Clients vs. Patients records). patients.html/
+     patients.js are untouched — these rules are scoped to this
+     page only, mirroring the same page-scoped-CSS pattern already
+     used there. Grid layout (3/2/1 columns) unchanged from before.
+     ============================================================ */
+  .clients-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+  }
+
+  /* Card surface — identical tokens to .patient-card. */
+  .client-card {
+    background: var(--surface-sunken);
+    border: 1px solid var(--line-soft);
+    border-radius: var(--r-lg);
+    box-shadow: var(--clay-flat);
+    padding: 18px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    min-width: 0;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  .client-card:hover { border-color: var(--teal-400); box-shadow: var(--clay-raised); }
+
+  /* Identity row — avatar left, name/ID center, status badge right.
+     Same flex/gap treatment as .patient-card-identity. */
+  .cc-top { display: flex; align-items: flex-start; gap: 24px; }
+
+  /* Circular initials avatar — kept as the Clients equivalent of the
+     Patients photo-placeholder circle (48px, same size), just filled
+     with initials instead of a camera glyph since a client isn't a
+     photographable record the same way a pet is. */
+  .client-avatar {
+    width: 48px; height: 48px; border-radius: 50%; flex-shrink: 0;
+    background: var(--teal-50); color: var(--teal-700);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 15px; font-weight: 800;
+  }
+
+  .cc-id { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+  /* Client ID badge — same treatment as Patients' .ppid (soft neutral
+     pill, dark-teal text, quieter than the status badge). */
+  .cc-id .cc-clientid {
+    align-self: flex-start;
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--teal-700);
+    background: var(--surface-card);
+    border: 1px solid var(--line-soft);
+    padding: 2px 7px;
+    border-radius: 6px;
+    line-height: 1.4;
+  }
+  /* Client name — same dark-teal identity treatment as .pname. No
+     "PET OWNER" role label (removed per the finalized card design). */
+  .cc-name {
+    font-weight: 800; color: var(--teal-700); font-size: 16px; line-height: 1.25;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .cc-top .status-badge { flex-shrink: 0; margin-left: auto; }
+
+  /* Contact info — muted icons, same tone/weight as Patients' quick-info
+     row (.pqi-item i / --ink-soft) rather than a separate style. */
+  .cc-contact { display: flex; flex-direction: column; gap: 8px; }
+  .cc-row {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 12.8px; font-weight: 600; color: var(--ink-800);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .cc-row i { color: var(--ink-soft); font-size: 12px; width: 14px; text-align: center; flex-shrink: 0; }
+
+  /* Divider — identical rule to .patient-card-hr. */
+  .client-card-hr { border: none; border-top: 1px solid var(--line-strong); margin: 0; }
+
+  /* --- Pets / Last visit — two-column row on the same line, same
+     grid/divider pattern as Patients' .patient-card-ownervisit
+     (Owner | Last Visit columns), just carrying Pets/Last-visit
+     content instead. --- */
+  .cc-petsvisit {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+  .cc-petsvisit .ccpv-col {
+    display: flex; flex-direction: column; gap: 6px; min-width: 0;
+  }
+  .cc-petsvisit .ccpv-col + .ccpv-col {
+    border-left: 1px solid var(--line-strong);
+    padding-left: 14px;
+    margin-left: 14px;
+  }
+  .ccpv-label {
+    font-size: 11px; font-weight: 600; color: var(--ink-soft);
+  }
+  .cc-pets-row { display: flex; align-items: center; gap: 10px; }
+  .cc-pet {
+    display: flex; align-items: center; gap: 6px;
+    min-width: 0; max-width: 100%;
+  }
+  /* Small circular placeholder — same visual style as Patients'
+     .patient-photo-placeholder, scaled down to fit inline. No photo
+     persistence exists yet, so this fallback is what always renders
+     today; a persisted photo field (if added later) plugs in here. */
+  .cc-pet-photo {
+    width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0;
+    background: var(--surface-card);
+    border: 1px solid var(--line-strong);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--ink-faint); font-size: 11px;
+    background-size: cover; background-position: center;
+  }
+  .cc-pet-name {
+    font-size: 11.8px; font-weight: 600; color: var(--ink-800);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%;
+  }
+  /* "+N" indicator — same circle treatment as the photo placeholder so
+     it reads as part of the same row, not a separate badge style. */
+  .cc-pet-more .cc-pet-photo {
+    background: var(--surface-card); color: var(--ink-soft); font-weight: 800; font-size: 10.5px;
+  }
+  .cc-pets-empty { font-size: 12.6px; font-weight: 600; color: var(--ink-faint); }
+
+  /* --- Last visit value/sub-line — same two-tier pattern as Patients'
+     .pf-value / .pf-sub under the Last Visit column. --- */
+  .ccpv-value { font-size: 12.8px; font-weight: 600; color: var(--ink-800); }
+  .ccpv-sub { font-size: 11.2px; font-weight: 600; color: var(--ink-faint); overflow-wrap: anywhere; }
+
+  /* Footer — identical layout/spacing to .patient-card-footer;
+     View Profile (left, primary) + edit icon (far right) reuses the
+     existing .btn / .icon-btn components as-is. */
+  .cc-actions {
+    margin-top: auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .clients-empty {
+    background: var(--surface-card);
+    border: 1px solid var(--line-soft);
+    border-radius: var(--r-lg);
+    box-shadow: var(--clay-flat);
+  }
+
+  @media (max-width: 980px) {
+    .clients-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 640px) {
+    .clients-grid { grid-template-columns: 1fr; }
+  }
+
+  .icon-btn {
+    width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center;
+    border-radius: var(--r-sm); border: 1px solid var(--line-soft); background: var(--surface-card-raised);
+    color: var(--ink-soft); cursor: pointer; box-shadow: var(--clay-flat); font-size: 12px;
+    transition: border-color 0.15s ease, color 0.15s ease;
+  }
+  .icon-btn:hover { border-color: var(--teal-400); color: var(--teal-700); }
+
+  .status-active   { background: var(--sage-100); color: var(--sage-600); }
+  .status-inactive { background: var(--slate-100); color: var(--slate-800); }
+
+  .clients-count { font-size: 13px; color: var(--ink-soft); font-weight: 600; margin-bottom: 12px; }
+
+  /* --- large profile modal (reuses .modal-overlay / .modal-box tokens) --- */
+  .profile-modal .modal-box { max-width: 780px; }
+
+  .profile-head { display: flex; align-items: center; gap: 14px; margin-bottom: 4px; }
+  .profile-avatar {
+    width: 56px; height: 56px; border-radius: 50%;
+    background: var(--teal-600); color: var(--ink-on-brand);
+    display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 800;
+    box-shadow: var(--clay-raised); flex-shrink: 0;
+  }
+  .profile-name { font-size: 19px; font-weight: 800; color: var(--ink-900); }
+  .profile-sub { font-size: 12.5px; color: var(--ink-soft); font-weight: 600; margin-top: 2px; }
+
+  .profile-links { display: flex; gap: 8px; flex-wrap: wrap; margin: 16px 0 4px; }
+
+  .profile-section {
+    background: var(--surface-card);
+    border: 1px solid var(--line-soft);
+    border-radius: var(--r-md);
+    padding: 14px 16px;
+    margin-top: 14px;
+  }
+  .profile-section-title {
+    font-size: 11.5px; font-weight: 800; letter-spacing: 0.05em; color: var(--ink-faint);
+    text-transform: uppercase; margin-bottom: 10px; display: flex; align-items: center; gap: 7px;
+  }
+  .profile-section-title i { color: var(--teal-500); font-size: 11px; }
+
+  .profile-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 20px; }
+  .profile-field { display: flex; flex-direction: column; gap: 2px; }
+  .profile-field .pf-label { font-size: 11px; font-weight: 700; color: var(--ink-faint); }
+  .profile-field .pf-value { font-size: 13px; font-weight: 600; color: var(--ink-800); }
+
+  .history-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    padding: 9px 0; border-bottom: 1px solid var(--line-soft); font-size: 12.6px;
+  }
+  .history-row:last-child { border-bottom: none; }
+  .history-main { display: flex; flex-direction: column; gap: 2px; }
+  .history-main .h-reason { font-weight: 700; color: var(--ink-900); }
+  .history-main .h-meta { font-size: 11.2px; color: var(--ink-faint); font-weight: 600; }
+
+  .pet-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    padding: 10px 0; border-bottom: 1px solid var(--line-soft);
+  }
+  .pet-row:last-child { border-bottom: none; }
+  .pet-row-main { display: flex; align-items: center; gap: 10px; }
+  .pet-row-avatar {
+    width: 32px; height: 32px; border-radius: var(--r-sm);
+    background: var(--teal-50); color: var(--teal-700);
+    display: flex; align-items: center; justify-content: center; font-size: 13px; flex-shrink: 0;
+  }
+  .pet-row-name { font-weight: 800; color: var(--ink-900); font-size: 12.8px; }
+  .pet-row-meta { font-size: 11.2px; color: var(--ink-faint); font-weight: 600; }
+  .pet-row-actions { display: flex; align-items: center; gap: 8px; }
+
+  .no-results { text-align: center; padding: 46px 20px; color: var(--ink-faint); font-weight: 600; font-size: 13.3px; }
+  .empty-note { padding: 16px 0; color: var(--ink-faint); font-weight: 600; font-size: 12.6px; }
+
+  /* --- Add Client: client-info / pet-info form sections --- */
+  .form-section-title {
+    font-size: 11.5px; font-weight: 800; letter-spacing: 0.05em; color: var(--ink-faint);
+    text-transform: uppercase; margin: 18px 0 10px; display: flex; align-items: center; gap: 7px;
+  }
+  .form-section-title:first-child { margin-top: 0; }
+  .form-section-title i { color: var(--teal-500); font-size: 11px; }
+  .form-section-sub { font-size: 11.5px; color: var(--ink-faint); font-weight: 600; margin: -6px 0 12px; }
+
+  .pet-section { border-top: 1px dashed var(--line-soft); margin-top: 18px; padding-top: 4px; }
+
+  .pet-block {
+    background: var(--surface-sunken);
+    border: 1px solid var(--line-soft);
+    border-radius: var(--r-md);
+    padding: 14px 16px;
+    margin-bottom: 14px;
+  }
+  .pet-block-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .pet-block-title { font-size: 12.3px; font-weight: 800; color: var(--ink-800); }
+  .pet-block .form-grid { gap: 14px; }
+
+  /* --- Pet Information inputs: match Full Name's fill color ---
+     .pet-block sits on a var(--surface-sunken) panel background,
+     and its inputs may include field types (e.g. number/date) that
+     fall outside style.css's shared text-input background rule —
+     the same kind of gap already fixed for the Email input above.
+     This pins every control inside a pet block to the same
+     var(--surface-card) token Full Name already uses, without
+     touching border, radius, padding, or focus styling. */
+  .pet-block input,
+  .pet-block select,
+  .pet-block textarea {
+    /* background-color (not the `background` shorthand) so the
+       .pc-select chevron, which is a background-image, isn't reset. */
+    background-color: var(--surface-card);
+  }
+
+  /* --- Pet Information: white focus state for selects + textarea ---
+     The rule above (.pet-block select / .pet-block textarea, specificity
+     0,1,1) ties with style.css's `select:focus` / `textarea:focus` and
+     comes later in the cascade, so it pinned the beige fill even while
+     focused. Pet text/date inputs already turn white because
+     `input[type="text"]:focus` (0,2,1) outranks it. This restores the
+     same focus fill style.css uses (var(--surface-card-raised), also
+     used by #f-email:focus above) for the remaining pet controls.
+     background-color only, so the .pc-select chevron (a background-image)
+     is untouched; border, shadow, height and radius are not set here. */
+  .pet-block select:focus,
+  .pet-block textarea:focus {
+    background-color: var(--surface-card-raised);
+  }
+
+  /* ============================================================
+     Pet blocks mirror the finalized Add Patient form
+     (patients.html). Everything from here to the end of this
+     section is the Patients page's own CSS for that form, copied
+     over so Pet 1..N look and behave identically: the shared
+     .pc-select dropdown, the 38px control height, the section
+     labels, and the circular pet-photo picker. Class names are
+     kept the same as Patients on purpose. Only the selector
+     scoping (and the surface tokens, since these sit on the beige
+     .pet-block panel) differ where noted.
+     ============================================================ */
+
+  /* Unified select component — identical to patients.html. */
+  .pc-select {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    box-sizing: border-box;
+    background-color: var(--surface-sunken);
+    border: 1px solid var(--line-soft);
+    border-radius: 10px;
+    color: var(--ink-900);
+    font: inherit;
+    max-width: 100%;
+    padding: 0 34px 0 12px;
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    background-image:
+      linear-gradient(45deg, transparent 50%, var(--ink-faint) 50%),
+      linear-gradient(135deg, var(--ink-faint) 50%, transparent 50%);
+    background-position:
+      calc(100% - 18px) center,
+      calc(100% - 13px) center;
+    background-size: 5px 5px, 5px 5px;
+    background-repeat: no-repeat;
+    transition: border-color 0.15s ease;
+  }
+  .pc-select::-ms-expand { display: none; }
+  .pc-select:hover { border-color: var(--line-strong); }
+  .pc-select:focus { outline: none; border-color: var(--teal-400); }
+
+  /* One shared 38px control height for every input/dropdown in the
+     modal, same rule Add Patient uses (there it is scoped to its own
+     #modal-overlay, which is this modal's id here too). */
+  #modal-overlay .form-field input:not([type="hidden"]):not([type="file"]),
+  #modal-overlay .form-field select {
+    height: 38px;
+    box-sizing: border-box;
+  }
+
+  /* --- Clients toolbar "All statuses" select ---
+     Uses the same .pc-select component as the modal Status select (and
+     as patients.html's toolbar filters). Toolbar selects sit outside
+     #modal-overlay's height rule, so they get the same 38px directly,
+     exactly as patients.html does. Width still comes from .filter-select. */
+  .filter-bar .pc-select {
+    height: 38px;
+  }
+  /* Keep the chevron visible while focused. style.css's `select:focus`
+     uses the `background` shorthand, which (at higher specificity than
+     .pc-select) resets background-image and made the chevron vanish on
+     focus. Re-declaring the same chevron longhands here, for both the
+     resting and focused states, keeps it drawn. Same gradients, size and
+     position as .pc-select above; background-color is not set, so the
+     normal and focused fills are unchanged. */
+  .filter-bar .pc-select,
+  .filter-bar .pc-select:focus {
+    background-image:
+      linear-gradient(45deg, transparent 50%, var(--ink-faint) 50%),
+      linear-gradient(135deg, var(--ink-faint) 50%, transparent 50%);
+    background-position:
+      calc(100% - 18px) center,
+      calc(100% - 13px) center;
+    background-size: 5px 5px, 5px 5px;
+    background-repeat: no-repeat;
+  }
+
+  /* --- Add/Edit Client modal: fixed header + footer, scrolling body ---
+     Same shell as patients.html's Add/Edit Patient modal: the modal box
+     stays inside the viewport and only the body between the header and
+     the action buttons scrolls, so the title, close button, Cancel and
+     Save Client are always visible (including with several pets).
+     Values are Patients' own: same 88vh cap, limited to the dynamic
+     viewport where supported so mobile browser toolbars can't push the
+     footer off screen; same spacing (22px top, 26px sides, 20px bottom,
+     16px above the footer rule); same header bottom divider.
+     Difference in selector only: Patients' single .form-grid is its
+     scroller, but this modal has several .form-grids (client fields and
+     one per pet), so the scroller is one .modal-body wrapper around
+     them. Scoped to #modal-overlay — the client profile modal keeps the
+     stock .modal-box behavior. */
+  #modal-overlay .modal-box {
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    overflow: hidden;
+    max-height: 88vh;
+    max-height: min(88vh, calc(100dvh - 40px));
+  }
+  #modal-overlay .modal-head {
+    flex: none;
+    margin: 0;
+    padding: 22px 26px 16px;
+    border-bottom: 1px solid var(--line-soft);
+  }
+  #modal-overlay .modal-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 18px 26px;
+  }
+  #modal-overlay .modal-footer {
+    flex: none;
+    margin: 0;
+    padding: 16px 26px 20px;
+  }
+
+  /* Section labels inside a pet block (Patient Information / Medical
+     Information / Pet Notes) — Add Patient's treatment: plain small
+     uppercase label with a hairline divider above, no icon. The
+     client-level .form-section-title above is flex/iconed, so the
+     grid-item behavior is restored here for pet blocks only. */
+  .pet-block .form-grid .form-section-title {
+    display: block;
+    grid-column: 1 / -1;
+    margin: 4px 0 0;
+    padding-top: 12px;
+    border-top: 1px solid var(--line-soft);
+  }
+  .pet-block .form-grid .form-section-title:first-child {
+    border-top: none; padding-top: 0; margin-top: 0;
+  }
+
+  /* Pet Notes textarea — same bounded height as Add Patient's Notes. */
+  .pet-block textarea { min-height: 72px; resize: vertical; }
+
+  /* Patient Information layout: [photo] [field] [field] on the first
+     two rows — same grid as Add Patient's .patient-identity-row. */
+  .patient-identity-row {
+    --pet-photo-size: 110px;
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: var(--pet-photo-size) minmax(0, 1fr) minmax(0, 1fr);
+    gap: 14px;
+    align-items: start;
+  }
+
+  .pet-photo-field {
+    position: relative;
+    grid-column: 1;
+    grid-row: 1 / span 2;
+    align-self: center;
+    width: var(--pet-photo-size);
+    height: var(--pet-photo-size);
+  }
+  .pet-photo-field [hidden] { display: none !important; }
+
+  .pet-photo-wrap { position: relative; width: 100%; height: 100%; }
+
+  /* Same circular drop well as Add Patient. Only difference: the
+     resting fill is --surface-card instead of --surface-sunken,
+     because here it sits on the beige .pet-block panel (same reason
+     the inputs above are pinned to --surface-card). */
+  .pet-photo-drop {
+    position: relative;
+    width: 100%; height: 100%;
+    padding: 0; margin: 0;
+    border-radius: 50%;
+    border: 1.5px dashed var(--line-strong);
+    background: var(--surface-card);
+    box-shadow: var(--clay-pressed);
+    color: var(--ink-soft);
+    font: inherit;
+    cursor: pointer;
+    overflow: hidden;
+    display: flex; align-items: center; justify-content: center;
+    transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+  }
+  .pet-photo-drop:hover { border-color: var(--teal-400); color: var(--teal-700); }
+  .pet-photo-drop.has-photo { border: 1px solid var(--line-strong); }
+  .pet-photo-drop.has-photo:hover { border-color: var(--teal-400); }
+
+  .pet-photo-empty { font-size: 12px; font-weight: 700; line-height: 1.2; }
+
+  .pet-photo-img {
+    display: block;
+    width: 100%; height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+  }
+
+  .pet-photo-remove {
+    position: absolute; top: 6px; right: 2px;
+    width: 22px; height: 22px; padding: 0;
+    border-radius: 50%;
+    border: 1px solid var(--line-strong);
+    background: var(--surface-card-raised);
+    color: var(--ink-soft);
+    font-size: 10px;
+    display: inline-flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    box-shadow: var(--clay-flat);
+    transition: border-color 0.15s ease, color 0.15s ease;
+  }
+  .pet-photo-remove:hover { border-color: var(--red-600); color: var(--red-600); }
+
+  .pet-photo-change {
+    position: absolute; top: calc(100% + 3px); left: 50%;
+    transform: translateX(-50%);
+    white-space: nowrap;
+    padding: 0; border: none; background: none;
+    font: inherit; font-size: 11.5px; font-weight: 700;
+    color: var(--teal-600);
+    cursor: pointer;
+  }
+  .pet-photo-change:hover { color: var(--teal-700); text-decoration: underline; }
+
+  /* Mobile: photo centers above the fields; Change link goes back into
+     normal flow so it can't overlap the next field. */
+  @media (max-width: 620px) {
+    .patient-identity-row { grid-template-columns: 1fr; }
+    .pet-photo-field {
+      grid-row: auto; align-self: auto; justify-self: center;
+      height: auto;
+      display: flex; flex-direction: column; align-items: center; gap: 6px;
+    }
+    .pet-photo-wrap { width: var(--pet-photo-size); height: var(--pet-photo-size); }
+    .pet-photo-change { position: static; transform: none; }
+  }
+
+  @media (max-width: 620px) {
+    .profile-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-mark"><i class="fa-solid fa-paw"></i></div>
+        <div class="brand-text">
+          <div class="brand-name">Pawsitive Care</div>
+          <div class="brand-role">Administrator</div>
+        </div>
+      </div>
+      <div class="sidebar-divider"></div>
+      <nav class="sidebar-nav">
+      <div class="nav-group">
+        <div class="nav-group-label">MAIN</div>
+        <a href="dashboard.html" class="nav-item" data-page="dashboard.html">
+          <span class="nav-icon"><i class="fa-solid fa-house"></i></span>
+          <span class="nav-label">Dashboard</span>
+        </a>
+        <a href="appointments.html" class="nav-item" data-page="appointments.html">
+          <span class="nav-icon"><i class="fa-solid fa-calendar-days"></i></span>
+          <span class="nav-label">Appointments</span>
+        </a>
+        <a href="queue.html" class="nav-item" data-page="queue.html">
+          <span class="nav-icon"><i class="fa-solid fa-hourglass-half"></i></span>
+          <span class="nav-label">Queue</span>
+        </a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">PATIENT MANAGEMENT</div>
+        <a href="patients.html" class="nav-item" data-page="patients.html">
+          <span class="nav-icon"><i class="fa-solid fa-paw"></i></span>
+          <span class="nav-label">Patients</span>
+        </a>
+        <a href="clients.html" class="nav-item" data-page="clients.html">
+          <span class="nav-icon"><i class="fa-solid fa-user"></i></span>
+          <span class="nav-label">Clients</span>
+        </a>
+        <a href="medical-records.html" class="nav-item" data-page="medical-records.html">
+          <span class="nav-icon"><i class="fa-solid fa-notes-medical"></i></span>
+          <span class="nav-label">Medical Records</span>
+        </a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">CLINIC</div>
+        <a href="services.html" class="nav-item" data-page="services.html">
+          <span class="nav-icon"><i class="fa-solid fa-hospital"></i></span>
+          <span class="nav-label">Services</span>
+        </a>
+        <a href="inventory.html" class="nav-item" data-page="inventory.html">
+          <span class="nav-icon"><i class="fa-solid fa-boxes-stacked"></i></span>
+          <span class="nav-label">Inventory</span>
+        </a>
+        <a href="billing.html" class="nav-item" data-page="billing.html">
+          <span class="nav-icon"><i class="fa-solid fa-credit-card"></i></span>
+          <span class="nav-label">Billing</span>
+        </a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">INSIGHTS</div>
+        <a href="predictive-analytics.html" class="nav-item" data-page="predictive-analytics.html">
+          <span class="nav-icon"><i class="fa-solid fa-chart-line"></i></span>
+          <span class="nav-label">Predictive Analytics</span>
+        </a>
+        <a href="reports.html" class="nav-item" data-page="reports.html">
+          <span class="nav-icon"><i class="fa-solid fa-chart-column"></i></span>
+          <span class="nav-label">Reports</span>
+        </a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">SYSTEM</div>
+        <a href="notifications.html" class="nav-item" data-page="notifications.html">
+          <span class="nav-icon"><i class="fa-solid fa-bell"></i></span>
+          <span class="nav-label">Notifications</span>
+        </a>
+        <a href="staff-users.html" class="nav-item" data-page="staff-users.html">
+          <span class="nav-icon"><i class="fa-solid fa-users"></i></span>
+          <span class="nav-label">Staff & Users</span>
+        </a>
+        <a href="settings.html" class="nav-item" data-page="settings.html">
+          <span class="nav-icon"><i class="fa-solid fa-gear"></i></span>
+          <span class="nav-label">Settings</span>
+        </a>
+      </div>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="footer-avatar">A</div>
+        <div>
+          <div class="footer-name">Admin</div>
+          <div class="footer-role">Administrator</div>
+        </div>
+      </div>
+    </aside>
+
+    <div class="main-content">
+      <header class="topbar">
+        <div class="topbar-left">
+          <button class="menu-toggle" aria-label="Toggle navigation"><i class="fa-solid fa-bars"></i></button>
+        </div>
+      </header>
+
+      <main class="page-body">
+
+        <div class="page-toolbar">
+          <div>
+            <div style="font-size:20px; font-weight:800; margin-bottom:2px;">CLIENTS</div>
+          </div>
+          <button class="btn btn-primary" id="add-client-btn"><i class="fa-solid fa-plus"></i> Add Client</button>
+        </div>
+
+        <div class="filter-bar">
+          <div class="search-field">
+            <span><i class="fa-solid fa-magnifying-glass"></i></span>
+            <input type="text" id="search-input" placeholder="Search client name, contact number, or email...">
+          </div>
+          <select class="filter-select pc-select" id="filter-status">
+            <option value="">All statuses</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </select>
+          <button class="btn btn-sm" id="clear-filters">Clear filters</button>
+        </div>
+
+        <div class="clients-count" id="clients-count"></div>
+
+        <div id="view-root"></div>
+
+      </main>
+    </div>
+  </div>
+
+  <!-- Add / Edit Client modal -->
+  <div class="modal-overlay" id="modal-overlay">
+    <div class="modal-box">
+      <div class="modal-head">
+        <div class="modal-title" id="modal-title">Add Client</div>
+        <button class="modal-close" id="modal-close"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+      <div class="form-section-title">Client information</div>
+      <div class="form-grid">
+        <div class="form-field">
+          <label><i class="fa-solid fa-user"></i> Full name</label>
+          <input type="text" id="f-name" placeholder="e.g. Ana Marasigan">
+        </div>
+        <div class="form-field">
+          <label>Contact number</label>
+          <input type="text" id="f-phone" placeholder="09xx xxx xxxx">
+        </div>
+        <div class="form-field">
+          <label><i class="fa-solid fa-envelope"></i> Email</label>
+          <input type="email" id="f-email" placeholder="name@example.com">
+        </div>
+        <div class="form-field">
+          <label>Status</label>
+          <select id="f-status" class="pc-select">
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </select>
+        </div>
+        <div class="form-field full">
+          <label><i class="fa-solid fa-location-dot"></i> Address</label>
+          <input type="text" id="f-address" placeholder="House/Unit no., Street, City, Province">
+        </div>
+        <div class="form-field full">
+          <label><i class="fa-solid fa-phone-volume"></i> Emergency contact</label>
+          <input type="text" id="f-emergency" placeholder="e.g. 0917 xxx xxxx · Relationship">
+        </div>
+        <div class="form-field full">
+          <label>Client notes</label>
+          <textarea id="f-notes" placeholder="Optional notes about this client..."></textarea>
+        </div>
+      </div>
+
+      <!-- Pet Information — only shown when adding a brand-new client;
+           editing an existing client keeps the original client-only form. -->
+      <div class="pet-section" id="pet-section">
+        <div class="form-section-title">Pet information — required</div>
+        <div class="form-section-sub">At least one pet must be registered to create this client.</div>
+        <div id="pets-container"></div>
+        <button type="button" class="btn btn-primary" id="add-pet-btn"><i class="fa-solid fa-plus"></i> Add another pet</button>
+      </div>
+      </div><!-- /.modal-body -->
+
+      <div class="modal-footer">
+        <button class="btn" id="modal-cancel">Cancel</button>
+        <button class="btn btn-primary" id="modal-save">Save Client</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Client profile modal -->
+  <div class="modal-overlay profile-modal" id="profile-overlay">
+    <div class="modal-box" id="profile-box"></div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="sidebar.js"></script>
+  <script src="data-store.js"></script>
+  <script src="patient-data-store.js"></script>
+  <script src="clients.js"></script>
+</body>
+</html>

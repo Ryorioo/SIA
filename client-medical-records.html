@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Medical Records — Pawsitive Care</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+<link rel="stylesheet" href="style.css">
+<style>
+  /* ============================================================
+     CLIENT MEDICAL RECORDS — page-scoped styles only (style.css
+     untouched). Reuses the same design tokens as client-dashboard.html
+     / client-queue.html, plus the exact .profile-head / .profile-avatar
+     / .profile-section / .profile-grid / .pf-label / .pf-value /
+     .no-results rules already defined on the Administrator Medical
+     Records page (medical-records.html), copied here verbatim so the
+     read-only record view matches that page's look exactly — those
+     rules live in that page's own <style> block rather than the
+     shared style.css, so they're repeated here rather than assumed
+     global (same pattern client-dashboard.html already follows for
+     its own page-scoped classes).
+     ============================================================ */
+
+  .mr-page-title { font-size: 20px; font-weight: 800; margin-bottom: 2px; color: var(--ink-900); }
+  .mr-page-sub { font-size: 13px; color: var(--ink-soft); font-weight: 600; }
+
+  .pet-filter-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0; }
+  .pet-filter-pill {
+    display: flex; align-items: center; gap: 7px;
+    padding: 8px 14px; border-radius: 999px; border: 1px solid var(--line-soft);
+    background: var(--surface-card-raised); color: var(--ink-800); font-size: 12.6px; font-weight: 700;
+    cursor: pointer; box-shadow: var(--clay-flat); transition: border-color .15s ease, color .15s ease, background .15s ease;
+  }
+  .pet-filter-pill i { font-size: 11px; color: var(--teal-600); }
+  .pet-filter-pill:hover { border-color: var(--teal-400); color: var(--teal-700); }
+  .pet-filter-pill.active { background: var(--teal-600); border-color: var(--teal-600); color: var(--ink-on-brand, #fff); }
+  .pet-filter-pill.active i { color: inherit; }
+
+  .mr-count { font-size: 13px; color: var(--ink-soft); font-weight: 600; margin-bottom: 12px; }
+
+  .record-card {
+    background: var(--surface-card); border: 1px solid var(--line-soft);
+    border-radius: var(--r-lg); box-shadow: var(--clay-flat);
+    padding: 16px 18px; margin-bottom: 14px;
+  }
+  .record-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 10px; flex-wrap: wrap; }
+  .record-card-left { display: flex; align-items: center; gap: 10px; }
+  .record-pet-avatar {
+    width: 34px; height: 34px; border-radius: var(--r-sm);
+    background: var(--teal-50); color: var(--teal-700);
+    display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0;
+  }
+  .record-pet-name { font-weight: 800; color: var(--ink-900); font-size: 13.6px; }
+  .record-meta { font-size: 11.6px; color: var(--ink-faint); font-weight: 600; }
+  .record-preview { font-size: 12.6px; color: var(--ink-800); font-weight: 500; margin-bottom: 10px; }
+  .record-preview b { color: var(--ink-900); font-weight: 700; }
+  .record-card-actions { display: flex; justify-content: flex-end; }
+
+  .no-results { text-align: center; padding: 46px 20px; color: var(--ink-faint); font-weight: 600; font-size: 13.3px; }
+  .empty-note { padding: 14px 0; color: var(--ink-faint); font-weight: 600; font-size: 12.6px; }
+
+  /* --- view modal, copied from medical-records.html --- */
+  .view-modal .modal-box { max-width: 760px; }
+
+  .profile-head { display: flex; align-items: center; gap: 14px; margin-bottom: 4px; }
+  .profile-avatar {
+    width: 56px; height: 56px; border-radius: var(--r-md);
+    background: var(--teal-600); color: var(--ink-on-brand, #fff);
+    display: flex; align-items: center; justify-content: center; font-size: 22px;
+    box-shadow: var(--clay-raised); flex-shrink: 0;
+  }
+  .profile-name { font-size: 19px; font-weight: 800; color: var(--ink-900); }
+  .profile-sub { font-size: 12.5px; color: var(--ink-soft); font-weight: 600; margin-top: 2px; }
+
+  .profile-section {
+    background: var(--surface-card);
+    border: 1px solid var(--line-soft);
+    border-radius: var(--r-md);
+    padding: 14px 16px;
+    margin-top: 14px;
+  }
+  .profile-section-title {
+    font-size: 11.5px; font-weight: 800; letter-spacing: 0.05em; color: var(--ink-faint);
+    text-transform: uppercase; margin-bottom: 10px; display: flex; align-items: center; gap: 7px;
+  }
+  .profile-section-title i { color: var(--teal-500); font-size: 11px; }
+
+  .profile-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 20px; }
+  .profile-field { display: flex; flex-direction: column; gap: 2px; }
+  .profile-field .pf-label { font-size: 11px; font-weight: 700; color: var(--ink-faint); }
+  .profile-field .pf-value { font-size: 13px; font-weight: 600; color: var(--ink-800); white-space: pre-wrap; }
+
+  @media (max-width: 620px) {
+    .profile-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-mark"><i class="fa-solid fa-paw"></i></div>
+        <div class="brand-text">
+          <div class="brand-name">Pawsitive Care</div>
+          <div class="brand-role">Pet Owner</div>
+        </div>
+      </div>
+      <div class="sidebar-divider"></div>
+      <nav class="sidebar-nav">
+        <div class="nav-group">
+          <div class="nav-group-label">MAIN</div>
+          <a href="client-dashboard.html" class="nav-item" data-page="client-dashboard.html">
+            <span class="nav-icon"><i class="fa-solid fa-house"></i></span>
+            <span class="nav-label">Dashboard</span>
+          </a>
+          <a href="client-appointments.html" class="nav-item" data-page="client-appointments.html">
+            <span class="nav-icon"><i class="fa-solid fa-calendar-days"></i></span>
+            <span class="nav-label">Appointments</span>
+          </a>
+          <a href="client-queue.html" class="nav-item" data-page="client-queue.html">
+            <span class="nav-icon"><i class="fa-solid fa-hourglass-half"></i></span>
+            <span class="nav-label">Queue</span>
+          </a>
+        </div>
+        <div class="nav-group">
+          <div class="nav-group-label">MY PETS</div>
+          <a href="client-pets.html" class="nav-item" data-page="client-pets.html">
+            <span class="nav-icon"><i class="fa-solid fa-paw"></i></span>
+            <span class="nav-label">My Pets</span>
+          </a>
+        </div>
+        <div class="nav-group">
+          <div class="nav-group-label">MEDICAL</div>
+          <a href="client-medical-records.html" class="nav-item active" data-page="client-medical-records.html">
+            <span class="nav-icon"><i class="fa-solid fa-notes-medical"></i></span>
+            <span class="nav-label">Medical Records</span>
+          </a>
+          <a href="client-vaccinations.html" class="nav-item" data-page="client-vaccinations.html">
+            <span class="nav-icon"><i class="fa-solid fa-syringe"></i></span>
+            <span class="nav-label">Vaccinations</span>
+          </a>
+        </div>
+        <div class="nav-group">
+          <div class="nav-group-label">ACCOUNT</div>
+          <a href="client-notifications.html" class="nav-item" data-page="client-notifications.html">
+            <span class="nav-icon"><i class="fa-solid fa-bell"></i></span>
+            <span class="nav-label">Notifications</span>
+          </a>
+          <a href="client-billing.html" class="nav-item" data-page="client-billing.html">
+            <span class="nav-icon"><i class="fa-solid fa-credit-card"></i></span>
+            <span class="nav-label">Billing</span>
+          </a>
+          <a href="client-profile.html" class="nav-item" data-page="client-profile.html">
+            <span class="nav-icon"><i class="fa-solid fa-user"></i></span>
+            <span class="nav-label">Profile</span>
+          </a>
+          <a href="#" class="nav-item" id="logout-btn">
+            <span class="nav-icon"><i class="fa-solid fa-right-from-bracket"></i></span>
+            <span class="nav-label">Logout</span>
+          </a>
+        </div>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="footer-avatar" id="footer-avatar">?</div>
+        <div>
+          <div class="footer-name" id="footer-name">—</div>
+          <div class="footer-role">Pet Owner</div>
+        </div>
+      </div>
+    </aside>
+
+    <div class="main-content">
+      <header class="topbar">
+        <div class="topbar-left">
+          <button class="menu-toggle" aria-label="Toggle navigation"><i class="fa-solid fa-bars"></i></button>
+          <div>
+            <div class="topbar-title">Medical Records</div>
+            <div class="topbar-crumb">Pawsitive Care / Medical Records</div>
+          </div>
+        </div>
+      </header>
+
+      <main class="page-body">
+
+        <div class="page-toolbar">
+          <div>
+            <div class="mr-page-title">Medical Records</div>
+            <div class="mr-page-sub">Visit history, diagnoses and treatments for your pets</div>
+          </div>
+        </div>
+
+        <div class="live-banner"><span class="live-dot"></span> Live — updates automatically when the clinic adds or updates a record</div>
+
+        <div id="pet-filter-row"></div>
+
+        <div class="mr-count" id="mr-count"></div>
+
+        <div id="records-list"></div>
+
+      </main>
+    </div>
+  </div>
+
+  <!-- View Medical Record modal — read-only, reuses the same
+       .modal-overlay/.modal-box tokens the Administrator Medical
+       Records page uses; no edit/delete controls exist here. -->
+  <div class="modal-overlay view-modal" id="view-overlay">
+    <div class="modal-box" id="view-box"></div>
+  </div>
+
+  <!-- data-store.js first (owns PCData), then patient-data-store.js
+       (owns getPatients/getPatientsForClient), then
+       medical-records-data-store.js (owns the real medical record
+       schema + getMedicalRecordsForPatientId — must load after both
+       of the above), then the client session helper, then this
+       page's own DOM wiring. This page is READ-ONLY: it never calls
+       addMedicalRecord/updateMedicalRecord. -->
+  <script src="data-store.js"></script>
+  <script src="patient-data-store.js"></script>
+  <script src="medical-records-data-store.js"></script>
+  <script src="client-session.js"></script>
+  <script src="client-medical-records.js"></script>
+</body>
+</html>

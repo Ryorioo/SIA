@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Staff & Users · Pawsitive Care</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+<link rel="stylesheet" href="style.css">
+
+<!--
+  Page-scoped styles only — style.css is untouched. Colors reuse the
+  same CSS variables (with the same fallbacks) as client-login.html,
+  so this looks consistent with the rest of the app even if a
+  variable name differs from what style.css actually defines.
+-->
+<style>
+  .su-page { padding: 4px 2px 32px; }
+
+  .su-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .su-title { margin: 0 0 6px; font-size: 24px; font-weight: 800; color: #1a2b23; }
+  .su-subtitle { margin: 0; max-width: 560px; color: #6b7280; font-size: 14px; line-height: 1.5; }
+
+  .su-btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 10px 16px; border-radius: 10px; border: none;
+    font-weight: 700; font-size: 13.5px; cursor: pointer; white-space: nowrap;
+  }
+  .su-btn-primary { background: var(--teal-600, #1f6d57); color: #fff; }
+  .su-btn-primary:hover { filter: brightness(1.08); }
+  .su-btn-ghost { background: #f1efe6; color: #33403a; }
+  .su-btn-ghost:hover { background: #e7e2d5; }
+
+  .su-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+  .su-card {
+    background: #fff;
+    border: 1px solid #e7e2d5;
+    border-radius: 14px;
+    padding: 18px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .su-card-icon {
+    width: 42px; height: 42px; border-radius: 10px;
+    background: rgba(31, 109, 87, 0.1);
+    color: var(--teal-600, #1f6d57);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 17px; flex-shrink: 0;
+  }
+  .su-card-value { font-size: 22px; font-weight: 800; color: #1a2b23; line-height: 1.1; }
+  .su-card-label { font-size: 12.5px; color: #6b7280; margin-top: 2px; }
+
+  .su-toolbar {
+    display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap;
+  }
+  .su-search-wrap {
+    position: relative; flex: 1 1 260px; min-width: 220px;
+  }
+  .su-search-wrap i {
+    position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
+    color: #9a9484; font-size: 13px;
+  }
+  .su-search-wrap input {
+    width: 100%; padding: 10px 14px 10px 38px;
+    border: 1px solid #d8d2c4; border-radius: 10px;
+    font-size: 13.5px; background: #fbf9f4; color: #1a2b23;
+  }
+  .su-select {
+    padding: 10px 14px; border: 1px solid #d8d2c4; border-radius: 10px;
+    font-size: 13.5px; background: #fbf9f4; color: #1a2b23; min-width: 150px;
+  }
+
+  .su-table-card {
+    background: #fff; border: 1px solid #e7e2d5; border-radius: 14px;
+    overflow: hidden;
+  }
+  .su-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  .su-table th {
+    text-align: left; padding: 12px 16px; font-size: 11.5px;
+    text-transform: uppercase; letter-spacing: 0.04em; color: #8a8474;
+    border-bottom: 1px solid #e7e2d5; background: #fbf9f4;
+  }
+  .su-table td { padding: 12px 16px; border-bottom: 1px solid #f0ede3; color: #33403a; }
+  .su-table tr:last-child td { border-bottom: none; }
+
+  .su-tag {
+    font-size: 10.5px; font-weight: 700; color: #6b7280;
+    background: #f1efe6; padding: 2px 7px; border-radius: 6px; margin-left: 4px;
+  }
+  .su-badge { padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+  .su-badge-active { background: #e6f4ee; color: #1f6d57; }
+  .su-badge-inactive { background: #fdecec; color: #b3261e; }
+
+  .su-actions { white-space: nowrap; }
+  .su-link-btn {
+    background: none; border: none; color: var(--teal-600, #1f6d57);
+    font-weight: 700; font-size: 12.5px; cursor: pointer; padding: 0; margin-right: 14px;
+  }
+  .su-link-btn:hover { text-decoration: underline; }
+  .su-link-danger { color: #b3261e; }
+
+  .su-empty { padding: 32px; text-align: center; color: #9a9484; font-size: 13.5px; }
+
+  .su-modal-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(12, 45, 34, 0.45);
+    align-items: center; justify-content: center; z-index: 1000; padding: 20px;
+  }
+  .su-modal {
+    background: #fff; border-radius: 14px; width: 100%; max-width: 440px;
+    max-height: 90vh; overflow-y: auto;
+  }
+  .su-modal-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 18px 20px; border-bottom: 1px solid #e7e2d5;
+  }
+  .su-modal-header h3 { margin: 0; font-size: 16.5px; font-weight: 800; color: #1a2b23; }
+  .su-modal-close { background: none; border: none; font-size: 20px; color: #9a9484; cursor: pointer; line-height: 1; }
+  .su-modal-body { padding: 20px; }
+  .su-modal-footer {
+    display: flex; justify-content: flex-end; gap: 10px;
+    padding: 16px 20px; border-top: 1px solid #e7e2d5;
+  }
+  .su-modal-note { font-size: 12px; color: #9a9484; margin: 4px 0 0; }
+
+  .su-field { margin-bottom: 14px; }
+  .su-field label { display: block; font-size: 12.5px; font-weight: 700; color: #33403a; margin-bottom: 6px; }
+  .su-field input, .su-field select {
+    width: 100%; padding: 10px 12px; border: 1px solid #d8d2c4; border-radius: 9px;
+    font-size: 13.5px; background: #fbf9f4; color: #1a2b23;
+  }
+
+  .su-form-error {
+    background: #fdecec; color: #b3261e; border: 1px solid #f4c7c3;
+    border-radius: 9px; padding: 9px 12px; font-size: 12.5px; margin-bottom: 14px;
+  }
+
+  .su-info-row {
+    display: flex; justify-content: space-between; gap: 12px;
+    padding: 9px 0; border-bottom: 1px solid #f0ede3; font-size: 13.5px;
+  }
+  .su-info-row:last-child { border-bottom: none; }
+  .su-info-label { color: #6b7280; }
+  .su-info-value { color: #1a2b23; font-weight: 600; text-align: right; }
+
+  @media (max-width: 900px) {
+    .su-summary-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 560px) {
+    .su-summary-grid { grid-template-columns: 1fr; }
+    .su-header { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-mark"><i class="fa-solid fa-paw"></i></div>
+        <div class="brand-text">
+          <div class="brand-name">Pawsitive Care</div>
+          <div class="brand-role">Administrator</div>
+        </div>
+      </div>
+      <div class="sidebar-divider"></div>
+      <nav class="sidebar-nav">
+      <div class="nav-group">
+        <div class="nav-group-label">MAIN</div>
+        <a href="dashboard.html" class="nav-item" data-page="dashboard.html">
+          <span class="nav-icon"><i class="fa-solid fa-house"></i></span>
+          <span class="nav-label">Dashboard</span>
+        </a>
+        <a href="appointments.html" class="nav-item" data-page="appointments.html">
+          <span class="nav-icon"><i class="fa-solid fa-calendar-days"></i></span>
+          <span class="nav-label">Appointments</span>
+        </a>
+        <a href="queue.html" class="nav-item" data-page="queue.html">
+          <span class="nav-icon"><i class="fa-solid fa-hourglass-half"></i></span>
+          <span class="nav-label">Queue</span>
+        </a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">PATIENT MANAGEMENT</div>
+        <a href="patients.html" class="nav-item" data-page="patients.html">
+          <span class="nav-icon"><i class="fa-solid fa-paw"></i></span>
+          <span class="nav-label">Patients</span>
+        </a>
+        <a href="clients.html" class="nav-item" data-page="clients.html">
+          <span class="nav-icon"><i class="fa-solid fa-user"></i></span>
+          <span class="nav-label">Clients</span>
+        </a>
+        <a href="medical-records.html" class="nav-item" data-page="medical-records.html">
+          <span class="nav-icon"><i class="fa-solid fa-notes-medical"></i></span>
+          <span class="nav-label">Medical Records</span>
+        </a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">CLINIC</div>
+        <a href="services.html" class="nav-item" data-page="services.html">
+          <span class="nav-icon"><i class="fa-solid fa-hospital"></i></span>
+          <span class="nav-label">Services</span>
+        </a>
+        <a href="inventory.html" class="nav-item" data-page="inventory.html">
+          <span class="nav-icon"><i class="fa-solid fa-boxes-stacked"></i></span>
+          <span class="nav-label">Inventory</span>
+        </a>
+        <a href="billing.html" class="nav-item" data-page="billing.html">
+          <span class="nav-icon"><i class="fa-solid fa-credit-card"></i></span>
+          <span class="nav-label">Billing</span>
+        </a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">INSIGHTS</div>
+        <a href="predictive-analytics.html" class="nav-item" data-page="predictive-analytics.html">
+          <span class="nav-icon"><i class="fa-solid fa-chart-line"></i></span>
+          <span class="nav-label">Predictive Analytics</span>
+        </a>
+        <a href="reports.html" class="nav-item" data-page="reports.html">
+          <span class="nav-icon"><i class="fa-solid fa-chart-column"></i></span>
+          <span class="nav-label">Reports</span>
+        </a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">SYSTEM</div>
+        <a href="notifications.html" class="nav-item" data-page="notifications.html">
+          <span class="nav-icon"><i class="fa-solid fa-bell"></i></span>
+          <span class="nav-label">Notifications</span>
+        </a>
+        <a href="staff-users.html" class="nav-item" data-page="staff-users.html">
+          <span class="nav-icon"><i class="fa-solid fa-users"></i></span>
+          <span class="nav-label">Staff & Users</span>
+        </a>
+        <a href="settings.html" class="nav-item" data-page="settings.html">
+          <span class="nav-icon"><i class="fa-solid fa-gear"></i></span>
+          <span class="nav-label">Settings</span>
+        </a>
+      </div>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="footer-avatar">A</div>
+        <div>
+          <div class="footer-name">Admin</div>
+          <div class="footer-role">Administrator</div>
+        </div>
+      </div>
+    </aside>
+
+    <div class="main-content">
+      <header class="topbar">
+        <div class="topbar-left">
+          <button class="menu-toggle" aria-label="Toggle navigation"><i class="fa-solid fa-bars"></i></button>
+          <div>
+            <div class="topbar-title">Staff & Users</div>
+            <div class="topbar-crumb">Pawsitive Care / Staff & Users</div>
+          </div>
+        </div>
+      </header>
+
+      <main class="page-body">
+        <div class="su-page">
+          <div class="su-header">
+            <div>
+              <h1 class="su-title">Staff & Users</h1>
+              <p class="su-subtitle">Manage every account that can sign in to Pawsitive Care — Administrators, Veterinarians, Receptionists, Staff, and Pet Owners.</p>
+            </div>
+            <button id="su-add-staff-btn" class="su-btn su-btn-primary" type="button">
+              <i class="fa-solid fa-plus"></i> Add Staff User
+            </button>
+          </div>
+
+          <div id="su-summary-grid" class="su-summary-grid"></div>
+
+          <div class="su-toolbar">
+            <div class="su-search-wrap">
+              <i class="fa-solid fa-magnifying-glass"></i>
+              <input type="text" id="su-search-input" placeholder="Search users...">
+            </div>
+            <select id="su-role-filter" class="su-select"></select>
+            <select id="su-status-filter" class="su-select"></select>
+          </div>
+
+          <div class="su-table-card">
+            <table class="su-table">
+              <thead>
+                <tr>
+                  <th>User</th>
+                  <th>Login</th>
+                  <th>Role</th>
+                  <th>Status</th>
+                  <th>Created</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="su-table-body"></tbody>
+            </table>
+            <div id="su-empty-state" class="su-empty" style="display:none;">No users match your search or filters.</div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <div id="su-modal-overlay" class="su-modal-overlay">
+    <div class="su-modal" id="su-modal"></div>
+  </div>
+
+  <!-- data-store.js first (owns PCData / Accounts / Clients), then the
+       Staff & Users domain layer built on top of it, then this page's
+       DOM/rendering logic, then sidebar.js. -->
+  <script src="data-store.js"></script>
+  <script src="staff-users-data-store.js"></script>
+  <script src="staff-users.js"></script>
+  <script src="sidebar.js"></script>
+</body>
+</html>

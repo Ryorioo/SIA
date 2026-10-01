@@ -1,0 +1,1419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Appointments · Pawsitive Care</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+<link rel="stylesheet" href="style.css">
+<style>
+  /* --- header cleanup (Appointments page) ---
+     The page-level "Appointments" title/breadcrumb was removed from
+     .topbar, but style.css still draws a border-bottom on .topbar
+     for pages that keep that title. With the title gone this left a
+     stray divider line with nothing above it, so it's suppressed
+     here (scoped to this page only, style.css untouched). The small
+     top offset that used to sit on .summary-strip itself now lives
+     on .summary-strip-heading instead, since that heading is the
+     first thing under the topbar; the search bar/calendar/details
+     panel further down are unaffected either way. */
+  .topbar { border-bottom: none; }
+
+  /* --- appointment status heading ---
+     Restyled to match Queue's "TODAY'S QUEUE" header exactly: same
+     font-size/weight/line-height, same margin-top/margin-bottom
+     (mirroring queue.html's page-scoped .page-toolbar margin-top:
+     22px and style.css's shared .page-toolbar margin-bottom: 18px).
+     .summary-strip-heading is also a pre-existing style.css class
+     (used elsewhere as a small label), so font-family, line-height,
+     letter-spacing, text-transform and color are pinned explicitly
+     here rather than left to override-by-omission — Queue's title
+     is a plain, unstyled div that only ever gets font-size/weight
+     inline and otherwise inherits straight from body, so pinning
+     these to "inherit"/"normal"/"none" and body's var(--ink-800)
+     reproduces that same plain, un-styled baseline exactly, instead
+     of silently keeping whatever this class already sets in
+     style.css. Page-scoped only; style.css and the calendar/filter
+     controls beneath are untouched. */
+  .summary-strip-heading {
+    margin-top: 22px;
+    margin-bottom: 18px;
+    font-size: 20px;
+    font-weight: 800;
+    line-height: normal;
+    letter-spacing: normal;
+    text-transform: none;
+    font-family: inherit;
+    color: var(--ink-800);
+  }
+
+  /* --- client / patient picker (Add/Edit Appointment modal) ---
+     Same pattern/classes used on the Patients page, kept internal
+     to this file so style.css is not touched. */
+  .client-search-results {
+    margin-top: 8px;
+    max-height: 220px;
+    overflow-y: auto;
+    border: 1px solid var(--line-soft);
+    border-radius: var(--r-md);
+    background: var(--surface-card);
+  }
+  .client-result-row {
+    display: flex; flex-direction: column; gap: 2px;
+    padding: 9px 12px; cursor: pointer;
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .client-result-row:last-child { border-bottom: none; }
+  .client-result-row:hover { background: var(--surface-sunken); }
+  .client-result-row .crn { font-weight: 800; font-size: 12.8px; color: var(--ink-900); }
+  .client-result-row .crm { font-size: 11.2px; color: var(--ink-faint); font-weight: 600; }
+  .client-search-empty { padding: 14px 12px; font-size: 12.4px; color: var(--ink-faint); font-weight: 600; text-align: center; }
+  .client-selected-card {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    padding: 10px 12px; border: 1px solid var(--line-soft); border-radius: var(--r-md);
+    background: var(--surface-sunken);
+  }
+  .client-selected-card .csc-name { font-weight: 800; font-size: 13px; color: var(--ink-900); }
+  .client-selected-card .csc-meta { font-size: 11.2px; color: var(--ink-faint); font-weight: 600; margin-top: 1px; }
+  #f-patient:disabled { opacity: 0.6; cursor: not-allowed; }
+
+  /* --- client search input: match the Patient/pet selector's width ---
+     #f-client-search sits one level deeper than the other form
+     controls (inside #client-search-view, not a direct child of
+     .form-field), so it doesn't pick up style.css's form-field input
+     sizing and renders at the browser's default (narrow) text input
+     width. This gives it the same full-width box model as #f-patient,
+     using the same border/radius/surface tokens already used above
+     for .client-search-results and .client-selected-card, so the two
+     fields read as a matched pair. Purely visual — no behavior change. */
+  #client-search-view { width: 100%; box-sizing: border-box; }
+  #f-client-search {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 9px 12px;
+    font: inherit;
+    color: var(--ink-900);
+    background: var(--surface-card);
+    border: 1px solid var(--line-soft);
+    border-radius: var(--r-md);
+  }
+  #f-client-search:focus {
+    outline: none;
+    border-color: var(--teal-400);
+  }
+
+  /* --- Reason for Visit: match other Visit Details field focus state ---
+     #f-reason was picking up a :focus background different from the
+     rest of the modal's shared form-control styling, making it look
+     inconsistent the moment it's clicked. The other appointment
+     fields (via style.css's shared .form-field input/select/textarea
+     rule) don't change background on focus, so this pins #f-reason's
+     focus state to the same surface token and the same
+     outline/border-color treatment already used above for
+     #f-client-search, instead of introducing a new style. Only the
+     focus state is touched — its unfocused appearance already
+     matches the other fields. Purely visual — no markup, JS, or
+     validation change. */
+  #f-reason:focus {
+    background: var(--surface-card);
+    outline: none;
+    border-color: var(--teal-400);
+  }
+
+  /* --- appointments search field: fix nested-box appearance ---
+     .search-field (from style.css) already renders the field's
+     single background/border. The plain <input> inside it still
+     carries the browser's own input chrome (background/border),
+     so it visually reads as a box inside a box. Making the input
+     transparent/borderless and moving focus styling to the outer
+     wrapper via :focus-within (same teal token used for focus
+     elsewhere on this page) collapses this back to one visible
+     field, matching the corrected Services search field. Purely
+     visual — no markup, JS, or functional change. */
+  .filter-bar .search-field input {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    outline: none;
+    flex: 1;
+    width: 100%;
+  }
+  .filter-bar .search-field:focus-within {
+    border-color: var(--teal-400);
+  }
+
+  /* --- Add/Edit Appointment modal: section group labels ---
+     Reuses the same small-uppercase-muted look already established
+     by .details-section-title in the Appointment Details panel, so
+     the modal groups (Client & Pet / Appointment / Visit Details)
+     read consistently with the rest of the page instead of
+     introducing a new heading style. */
+  .form-section-title {
+    grid-column: 1 / -1;
+    font-size: 10.6px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em;
+    color: var(--ink-faint);
+    padding-top: 10px;
+    margin-top: 2px;
+    border-top: 1px solid var(--line-soft);
+  }
+  .form-section-title:first-child { border-top: none; padding-top: 0; margin-top: 0; }
+
+  /* ============================================================
+     APPOINTMENT CARD + CALENDAR — visual polish (page-scoped only)
+     Additive rules layered on top of style.css: only spacing,
+     typography, borders, and already-established design tokens
+     (teal brand color, status-badge colors) are touched here.
+     No structural display/layout rules owned by style.css are
+     redefined, and no new colors are introduced.
+     ============================================================ */
+
+  /* --- appointment card: hierarchy —
+         pet name (strongest) > time (prominent) > status (clear)
+         > reason/service (secondary) > owner/vet (supporting) --- */
+  .appt-list, .day-agenda { display: flex; flex-direction: column; gap: 10px; }
+
+  .appt-card { transition: border-color 0.15s ease, box-shadow 0.15s ease; }
+  .appt-card:hover { border-color: var(--teal-300); box-shadow: var(--clay-raised); }
+
+  .appt-time-value { display: block; font-size: 15px; font-weight: 800; color: var(--ink-900); line-height: 1.15; }
+  .appt-date-sm { display: block; margin-top: 2px; }
+
+  .appt-pet-name { font-size: 14.5px; font-weight: 800; color: var(--ink-900); }
+
+  .appt-reason-line {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 12px; font-weight: 600; color: var(--ink-soft);
+    margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .appt-reason-line i { color: var(--ink-faint); font-size: 10.5px; width: 13px; text-align: center; flex-shrink: 0; }
+  .appt-service-tag { color: var(--ink-faint); font-weight: 600; }
+
+  .appt-meta { margin-top: 4px; }
+  .appt-meta span { font-size: 11.2px; color: var(--ink-faint); font-weight: 600; }
+  .appt-meta i { color: var(--ink-faint); }
+
+  /* the top-level status pill (direct child of .appt-card) — not the
+     smaller queue-code pill nested inside .appt-pet-line */
+  .appt-card > .status-badge { font-weight: 800; letter-spacing: 0.02em; padding: 5px 11px; }
+
+  /* --- day view --- */
+  .day-nav-label { font-weight: 800; }
+
+  /* --- week view --- */
+  .week-grid { width: 100%; box-sizing: border-box; }
+  .week-day-col { min-width: 0; }
+  .week-day-head.is-today { background: var(--teal-50); border-radius: var(--r-sm) var(--r-sm) 0 0; }
+  .week-day-head.is-today .wd-name,
+  .week-day-head.is-today .wd-num { color: var(--teal-700); }
+
+  .week-day-body { display: flex; flex-direction: column; gap: 6px; }
+  .week-chip {
+    display: flex; align-items: center; gap: 6px;
+    padding: 6px 8px;
+    border: 1px solid var(--line-soft);
+    border-radius: var(--r-sm);
+    font-weight: 700;
+    line-height: 1.25;
+    cursor: pointer;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    transition: transform 0.12s ease, box-shadow 0.12s ease;
+  }
+  .week-chip:hover { transform: translateY(-1px); box-shadow: var(--clay-flat); }
+  .week-chip .wc-time { font-weight: 800; flex-shrink: 0; }
+
+  /* --- month view --- */
+  .month-grid { width: 100%; box-sizing: border-box; }
+  .month-cell { min-width: 0; }
+  .month-cell.is-today { border: 1.5px solid var(--teal-400); background: var(--teal-50); }
+  .month-cell.is-today .month-cell-num { color: var(--teal-700); font-weight: 800; }
+  .month-dot-row { flex-wrap: wrap; }
+  .month-more { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* ============================================================
+     CALENDAR REDESIGN — unified toolbar + vet-column day schedule
+     Everything below is new markup introduced for this redesign.
+     It is scoped to this page and built only from design tokens
+     already established above / in style.css (surfaces, ink,
+     teal, line, radius, clay-shadow, status-badge colors).
+     ============================================================ */
+
+  /* --- unified calendar toolbar (Day/Week/Month + Prev/Today/Next + date) ---
+     Visual order only, achieved with flex `order` (DOM/markup and all
+     click handlers are untouched). .cal-nav-center and .cal-nav-right
+     are switched to display:contents so their buttons can be
+     regrouped into [Prev, Today, Next] · [Date] · [Day/Week/Month],
+     with Add Appointment pushed to the far right as its own action —
+     safe because neither wrapper has any background/border/padding of
+     its own to lose (see their rules below), so nothing is visually
+     removed, only which row position each child flows into. */
+  .calendar-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 10px 14px;
+    margin-bottom: 12px;
+    background: var(--surface-card);
+    border: 1px solid var(--line-soft);
+    border-radius: var(--r-md);
+  }
+  .cal-nav-center { display: contents; }
+  .cal-nav-center .btn.btn-icon { padding: 6px 10px; }
+  #cal-prev { order: 1; }
+  #cal-today { order: 2; }
+  #cal-next { order: 3; }
+  .cal-date-pill {
+    order: 4;
+    margin-left: 4px;
+    font-size: 13.4px;
+    font-weight: 800;
+    color: var(--teal-700);
+    white-space: nowrap;
+    background: var(--teal-50);
+    border: 1px solid var(--teal-300);
+    border-radius: var(--r-sm);
+    padding: 6px 14px;
+  }
+  .view-tabs { order: 5; margin-left: 4px; }
+
+  /* --- calendar toolbar: right-hand cluster (Today + Add Appointment) ---
+     display:contents lets #cal-today join the Prev/Next nav cluster
+     above (order: 2) while #add-appt-btn is pushed to the far right
+     with margin-left: auto, reading as its own standalone action
+     rather than part of the Today/nav grouping. */
+  .cal-nav-right { display: contents; }
+  .cal-nav-right #add-appt-btn {
+    order: 6;
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 18px;
+    font-size: 13px;
+    font-weight: 700;
+    border-radius: var(--r-md);
+    box-shadow: var(--clay-flat);
+    transition: box-shadow 0.15s ease, transform 0.1s ease;
+  }
+  .cal-nav-right #add-appt-btn i { font-size: 12px; }
+  .cal-nav-right #add-appt-btn:hover {
+    box-shadow: var(--clay-raised);
+    transform: translateY(-1px);
+  }
+  .cal-nav-right #add-appt-btn:active {
+    box-shadow: var(--clay-flat);
+    transform: translateY(0);
+  }
+
+  /* --- appointment summary cards ---
+     Five individual status cards (not one unified strip): each is
+     its own bordered, equal-height box in the spirit of a clinic
+     front-desk status board rather than a generic SaaS analytics
+     widget. No percentage/trend text, no decorative illustrations —
+     just a small functional icon, a label, a restrained number, and
+     a muted description. "Today's Appointments" carries slightly
+     more visual weight (teal icon chip + faint teal-50 card tint,
+     consistent with the "today" emphasis used elsewhere on this
+     page); the other four cards stay neutral and visually equal to
+     each other. */
+  /* subtle width hierarchy: "Today's Appointments" (the lead card)
+     is a touch wider than the four secondary cards, which stay equal
+     to each other — not a separate component, just a slightly larger
+     column within the same 5-card grid/gap/styling. */
+  .summary-strip {
+    display: grid;
+    grid-template-columns: 1.18fr repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+  .summary-metric {
+    box-sizing: border-box;
+    min-width: 0;
+    height: 100%;
+    padding: 16px 18px;
+    display: flex; flex-direction: column; gap: 10px;
+    /* Warm beige surface, matching Queue's "Next Up" card
+       (.qspot-card--next in queue.html: background: var(--surface-sunken)).
+       Applies to all 5 summary cards by default; the lead card
+       ("Today's Appointments") overrides this below via
+       .summary-metric-primary to match Queue's dark teal "Now
+       Serving" card instead. Dimensions/layout/spacing unchanged. */
+    background: var(--surface-sunken);
+    border: 1px solid var(--line-soft);
+    border-radius: var(--r-md);
+    box-shadow: var(--clay-flat);
+  }
+  /* header row: label on the left, and — on the lead card only — a
+     small plain calendar icon pushed to the far right by
+     space-between. The four secondary cards render no icon element
+     at all, so there's no empty icon slot or reserved space. */
+  .summary-metric-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .summary-metric-icon {
+    flex: none;
+    font-size: 12px;
+    color: var(--ink-faint);
+  }
+  .summary-metric-label { font-size: 11px; font-weight: 600; color: var(--ink-faint); line-height: 1.3; }
+  .summary-metric-value { font-size: 26px; font-weight: 800; color: var(--ink-900); line-height: 1.15; }
+  .summary-metric-desc { font-size: 11px; font-weight: 500; color: var(--ink-faint); line-height: 1.4; }
+
+  /* the lead metric ("Today's Appointments"): dark teal surface,
+     matching Queue's "Now Serving" card (.qspot-card--now in
+     queue.html: background: var(--teal-700), border-color:
+     var(--teal-700)). The four secondary cards (Confirmed, Arrived,
+     In Consultation, No-shows) keep the base .summary-metric warm
+     beige surface above, untouched here. Text colors below mirror
+     .qspot-card--now's own on-teal overrides so the label, value,
+     description, and icon all stay readable on the dark surface —
+     same var(--ink-on-brand)/rgba(244,249,247,*) tokens Queue's Now
+     Serving card already uses. Layout/spacing/icon markup unchanged. */
+  .summary-metric-primary { background: var(--teal-700); border-color: var(--teal-700); }
+  .summary-metric-primary .summary-metric-icon { color: rgba(244, 249, 247, 0.78); }
+  .summary-metric-primary .summary-metric-label { color: rgba(244, 249, 247, 0.72); }
+  .summary-metric-primary .summary-metric-value { color: var(--ink-on-brand); }
+  .summary-metric-primary .summary-metric-desc { color: rgba(244, 249, 247, 0.72); }
+
+  /* --- toolbar + status cards: narrow-width adaptation ---
+     At narrow widths the Add Appointment button's margin-left: auto
+     (Step 7) combined with its larger Step 8 padding could crowd or
+     run tight against the wrapped nav controls — unrelated to the
+     status cards and left as before. The cards themselves step down
+     from 5 columns to 2, then to 1, before they'd otherwise get
+     cramped or unreadable. */
+  @media (max-width: 900px) {
+    /* below the point where 5 columns stay comfortable, the width
+       hierarchy drops out (equal 2-up cards) so nothing gets
+       cramped — "Today's Appointments" simply takes the full first
+       row instead of a wider column. */
+    .summary-strip { grid-template-columns: repeat(2, 1fr); }
+    .summary-metric-primary { grid-column: 1 / -1; }
+  }
+  @media (max-width: 640px) {
+    .calendar-toolbar { padding: 10px 12px; gap: 8px 10px; }
+    .cal-nav-right #add-appt-btn {
+      margin-left: 0;
+      flex: 1 1 100%;
+      justify-content: center;
+    }
+  }
+  @media (max-width: 420px) {
+    .summary-strip { grid-template-columns: 1fr; }
+    .summary-metric-primary { grid-column: auto; }
+  }
+
+  /* --- main workspace split: schedule (~70%) + details panel (~30%) ---
+     Calendar is the only Appointments view now, so this split is
+     permanent — no list-view fallback to collapse it. Both panes now
+     share one fixed outer height (--workspace-h) instead of sizing to
+     their own natural content height: neither pane's content can make
+     the other taller or shorter, and each scrolls internally instead.
+     This is a plain fixed value, not a viewport calculation and not
+     derived from either pane's natural/content height. */
+  .calendar-workspace {
+    display: flex; align-items: flex-start; gap: 14px; max-width: 100%;
+    --workspace-h: 760px;
+  }
+  .schedule-pane {
+    flex: 1 1 70%; min-width: 0;
+    height: var(--workspace-h);
+    display: flex; flex-direction: column;
+    overflow: hidden; /* the pane itself never scrolls/grows — its content does, below */
+  }
+  /* ~30% share of the workspace. The old max-width: 380px cap is what
+     was silently keeping this pane narrower than 30% on typical
+     viewports — removed. min-width still guards against the pane
+     getting unreadably narrow. */
+  .details-pane {
+    flex: 0 0 30%; min-width: 260px;
+    height: var(--workspace-h);
+    display: flex; flex-direction: column;
+  }
+  /* #view-root is where renderDay/renderWeek/renderMonth inject their
+     markup (.schedule-wrap, .week-grid, .month-grid). Making it a
+     flex column that fills .schedule-pane lets the day view's
+     .schedule-wrap stretch to the shared height below; the overflow-y
+     here is just a safety net for week/month content, which don't
+     have their own internal scroller, so they scroll here instead of
+     stretching the pane past --workspace-h. */
+  #view-root {
+    flex: 1 1 auto; min-height: 0;
+    display: flex; flex-direction: column;
+    overflow-y: auto;
+  }
+  @media (max-width: 900px) {
+    .calendar-workspace { flex-direction: column; }
+    .details-pane { max-width: none; width: 100%; }
+  }
+
+  /* --- appointment details panel: single cohesive "inspector" ---
+     One bordered card for the whole panel; internal groups are told
+     apart with section labels + a hairline divider (border-top)
+     instead of each being its own nested sunken box, so the panel
+     reads as one document rather than a stack of cards. */
+  .details-panel {
+    background: var(--surface-card);
+    border: 1px solid var(--line-soft);
+    border-radius: var(--r-md);
+    padding: 20px 20px 20px;
+    display: flex; flex-direction: column;
+    /* Fill the fixed-height .details-pane and scroll internally instead
+       of growing to the content's natural height — this is what keeps
+       Arrived/Cancelled/etc. from ever changing the panel's outer
+       height. Design/layout inside is untouched. */
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+  }
+  /* Sole child of .details-panel when nothing is selected — centered
+     in the full panel height (rather than just padded at the top) so
+     the empty state reads as an intentional placeholder, not a stub. */
+  .details-empty {
+    flex: 1 1 auto;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; color: var(--ink-faint); font-weight: 600; font-size: 12.6px;
+    padding: 24px 10px;
+  }
+  .details-empty i { font-size: 22px; margin-bottom: 10px; color: var(--ink-faint); }
+
+  /* --- 1. Pet header --- empty avatar circle (reserved for a future
+     pet photo) + name/status close together + close button, then a
+     single muted meta line (species · age · sex · spay/neuter) and
+     the owner line underneath. No card/background of its own — just
+     the panel's own padding, closed off with a hairline. */
+  .details-header {
+    display: flex; align-items: flex-start; gap: 16px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--line-soft);
+  }
+  /* icon/glyph removed — circle is intentionally left empty until
+     patient photo data exists; size/position/background unchanged. */
+  .details-avatar {
+    width: 56px; height: 56px; border-radius: 50%; flex-shrink: 0;
+    background: var(--surface-sunken);
+  }
+  /* name and status sit close together (flex-start, not
+     space-between) with a comfortable but modest gap, rather than
+     the badge being pushed to the far edge of this column. */
+  .details-title-row { display: flex; align-items: center; justify-content: flex-start; gap: 10px; flex-wrap: wrap; }
+  .details-pet-name { font-size: 18px; font-weight: 800; color: var(--ink-900); }
+  .details-pet-sub {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 12.2px; font-weight: 600; color: var(--ink-faint); margin-top: 6px;
+  }
+  .details-pet-sub i { font-size: 10.5px; color: var(--ink-faint); width: 12px; text-align: center; }
+  .details-pet-owner {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 12.2px; font-weight: 600; color: var(--ink-faint);
+    margin-top: 6px;
+  }
+  .details-pet-owner i { font-size: 10.5px; color: var(--ink-faint); width: 12px; text-align: center; }
+  .details-pet-owner strong { color: var(--ink-900); font-weight: 700; }
+  /* close button: reuses the existing .modal-close styling (defined
+     globally) for visual consistency with the Add/Edit modal's close
+     button — small, subtle, icon-only. Pinned to the header's far
+     right as the last flex child, top-aligned with the avatar. */
+  .details-header .modal-close { flex-shrink: 0; }
+
+  /* --- shared section scaffold ---
+     Every group below the header (Appointment Information,
+     Appointment Status, Owner/Pet Information, Notes, Quick Actions)
+     uses this same wrapper: a small uppercase label, then content,
+     separated from the section before it by a single hairline —
+     never its own filled/bordered box. */
+  .details-section { padding-top: 20px; }
+  .details-section + .details-section { border-top: 1px solid var(--line-soft); margin-top: 20px; }
+  .details-section-title {
+    display: flex; align-items: center; gap: 7px;
+    font-size: 13px; font-weight: 700; color: var(--ink-900);
+    margin-bottom: 12px;
+  }
+  .details-section-title i { font-size: 12px; color: var(--teal-700); width: 14px; text-align: center; }
+
+  /* --- 2. Appointment information --- a bare icon-led list (time,
+     veterinarian, clinic service, reason for visit): one plain icon
+     and one line of text per row, no chip background and no card.
+     The original caption text (Time / Veterinarian / ...) is kept
+     for screen readers via .details-sr-only rather than dropped —
+     only its visible presentation changes, the field itself stays. */
+  .details-rows { display: flex; flex-direction: column; gap: 14px; padding-left: 10px; }
+  .details-row { display: flex; align-items: center; gap: 12px; }
+  .details-row i {
+    width: 16px; flex-shrink: 0; text-align: center;
+    color: var(--ink-faint); font-size: 13px;
+  }
+  .details-row > div { min-width: 0; }
+  .details-row-value { font-size: 13px; font-weight: 500; color: var(--ink-900); line-height: 1.35; word-break: break-word; }
+  /* Time / Veterinarian / Reason for Visit only (rows 1, 2, 4 of the
+     4-row list — Clinic Service is row 3 and intentionally excluded)
+     get a touch darker than the base value color above. Targeted by
+     position since all four rows share the same .details-row-value
+     class; :not(.is-empty) keeps "Unassigned"/"Not specified"
+     placeholders on their own muted styling below, untouched. */
+  .details-rows > .details-row:nth-child(1) .details-row-value:not(.is-empty),
+  .details-rows > .details-row:nth-child(2) .details-row-value:not(.is-empty),
+  .details-rows > .details-row:nth-child(4) .details-row-value:not(.is-empty) {
+    color: color-mix(in srgb, var(--ink-900) 55%, black 45%);
+  }
+  /* Unassigned / Not specified placeholders — same muted, italic
+     treatment as the empty Owner/Pet fields below, so every "no data"
+     value in the panel reads the same way. */
+  .details-row-value.is-empty { color: var(--ink-faint); font-weight: 600; font-style: italic; }
+  .details-sr-only {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+  }
+
+  /* --- 3. Appointment Status --- horizontal stepper: dot + connecting
+     line per stage, label centered underneath. Reuses the same status
+     color tokens already used for .status-badge elsewhere on this
+     page. Cancelled/No-show still get their own compact end-state
+     block instead of being squeezed into the 5-stage progression. */
+  .status-stepper { display: flex; align-items: flex-start; padding: 2px 0 4px; }
+  .status-stepper-step {
+    flex: 1 1 0; min-width: 0;
+    display: flex; flex-direction: column; align-items: center;
+    position: relative;
+  }
+  .status-stepper-step:not(:last-child)::after {
+    content: ''; position: absolute; z-index: 0;
+    top: 10px; left: 50%; width: 100%; height: 2px;
+    background: var(--line-soft);
+  }
+  .status-stepper-dot {
+    width: 21px; height: 21px; border-radius: 50%; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 9px; position: relative; z-index: 1;
+    background: var(--surface-card);
+    border: 2px solid var(--line-soft);
+    color: transparent;
+  }
+  .status-stepper-label {
+    margin-top: 6px; text-align: center;
+    font-size: 10px; font-weight: 700; color: var(--ink-faint);
+    line-height: 1.25; padding: 0 2px;
+  }
+  /* Done AND current stages both render as a filled, checked dot —
+     per the reference, "current" is told apart only by its bold,
+     dark label, not by a different dot treatment. */
+  .status-stepper-step.is-done .status-stepper-dot,
+  .status-stepper-step.is-current .status-stepper-dot {
+    background: var(--teal-500, var(--teal-400)); border-color: var(--teal-500, var(--teal-400)); color: var(--surface-card);
+  }
+  .status-stepper-step.is-done::after { background: var(--teal-500, var(--teal-400)); }
+  .status-stepper-step.is-done .status-stepper-label { color: var(--ink-faint); font-weight: 600; }
+  .status-stepper-step.is-current .status-stepper-label { color: var(--ink-900); font-weight: 800; }
+  /* upcoming: default muted dot/line/label (already the base state) */
+
+  .status-timeline-cancelled {
+    display: flex; align-items: center; gap: 10px;
+    background: rgba(179,63,63,0.08);
+    border: 1px solid var(--status-cancelled-fg, #b33f3f);
+    border-radius: var(--r-md);
+    padding: 9px 11px;
+    /* Matches the 5-step timeline's fixed natural height (dot + label,
+       constant across all normal statuses since the stage labels never
+       change) so Cancelled/No-show reserve the same vertical footprint
+       as every other status instead of shrinking the whole panel. */
+    min-height: 58px;
+    box-sizing: border-box;
+  }
+  .status-timeline-cancelled i { font-size: 16px; color: var(--status-cancelled-fg, #b33f3f); flex-shrink: 0; }
+  .status-timeline-cancelled .stc-title { font-size: 12.6px; font-weight: 700; color: var(--status-cancelled-fg, #b33f3f); }
+  .status-timeline-cancelled .stc-sub { font-size: 11px; font-weight: 600; color: var(--ink-faint); margin-top: 2px; }
+
+  /* No-show reuses the Cancelled end-state block's layout (box, padding,
+     min-height, icon size) since both are terminal states outside the
+     5-stage stepper — this modifier only recolors it, from the shared
+     red family to the No-show amber-orange, so it no longer looks
+     identical to Cancelled in this panel. rgb(177,120,15) is
+     --amber-600's own value, written out so it can carry an alpha
+     channel for the soft tint background (same technique already used
+     above for the Cancelled tint) — not a new color. */
+  .status-timeline-cancelled.status-timeline-no-show {
+    background: rgba(177, 120, 15, 0.08);
+    border-color: var(--amber-600);
+  }
+  .status-timeline-cancelled.status-timeline-no-show i,
+  .status-timeline-cancelled.status-timeline-no-show .stc-title {
+    color: var(--amber-800);
+  }
+
+  /* queue number — folded in as a quiet line under the stepper rather
+     than its own highlighted card, so Appointment Status stays one
+     section instead of two. */
+  .details-queue-line {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line-soft);
+    font-size: 11.6px; font-weight: 700; color: var(--ink-faint);
+  }
+  .details-queue-number { font-size: 13px; font-weight: 800; color: var(--teal-700); }
+  .details-queue-empty { font-size: 11.6px; font-weight: 600; color: var(--ink-faint); }
+
+  /* --- 4. Owner Information + Pet Information --- a compact personal
+     profile summary, side-by-side, no per-column card — a subtle
+     vertical hairline between them does the separating. Falls back to
+     a single column only once the panel is too narrow to fit both
+     comfortably. */
+  .details-columns {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 14px 20px;
+  }
+  .details-column { min-width: 0; }
+  .details-column + .details-column { border-left: 1px solid var(--line-soft); padding-left: 20px; }
+  @media (max-width: 340px) {
+    .details-column + .details-column { border-left: none; padding-left: 0; }
+  }
+  .details-column-title {
+    display: flex; align-items: center; gap: 7px;
+    font-size: 13px; font-weight: 700; color: var(--ink-900); margin-bottom: 12px;
+  }
+  .details-column-title i { font-size: 12px; color: var(--teal-700); width: 14px; text-align: center; }
+  .details-fields { display: flex; flex-direction: column; gap: 12px; padding-left: 10px; }
+
+  /* Label text (Name / Contact / Email) is kept in the markup for
+     screen readers only — visually hidden since the icon already
+     communicates what each row is, using the same off-screen
+     technique as .details-sr-only elsewhere in this panel. */
+  .details-field-label {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+  }
+
+  /* Identity row — the owner's or pet's name. Given the most visual
+     weight of anything in the column (larger, bolder, darker) so it
+     reads as the headline of a profile card rather than one field
+     among many. */
+  .details-identity-row { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .details-identity-row i { width: 16px; flex-shrink: 0; text-align: center; color: var(--teal-700); font-size: 12.5px; }
+  .details-identity-value { font-size: 13px; font-weight: 500; color: var(--ink-900); line-height: 1.3; word-break: break-word; }
+  .details-identity-value.is-empty { color: var(--ink-faint); font-style: italic; }
+
+  /* Muted meta line (species · age · sex · spay/neuter) sits right
+     under the pet's identity row, indented to align under the name
+     rather than the icon — one quiet line instead of four stacked
+     fields, exactly like the pet header above. */
+  .details-pet-meta-line {
+    margin-top: -3px; padding-left: 25px;
+    font-size: 11.8px; font-weight: 600; color: var(--ink-faint);
+    line-height: 1.35;
+  }
+
+  /* Plain row — everyday fields (phone, email, breed): icon leads,
+     value reads at normal field weight with no caption above it. The
+     original caption is kept for screen readers via .details-sr-only. */
+  .details-plain-row { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .details-plain-row i { width: 16px; flex-shrink: 0; text-align: center; color: var(--ink-faint); font-size: 11.5px; }
+  .details-plain-value { font-size: 13px; font-weight: 500; color: var(--ink-900); line-height: 1.3; word-break: break-word; }
+  .details-plain-value.is-empty { color: var(--ink-faint); font-style: italic; }
+
+  /* Inline row — secondary/occasional fields (weight, color,
+     microchip, allergies): a single quiet "label: value" line, so the
+     Pet column stays flat and scannable instead of growing into a
+     long form even when it carries more fields than Owner. */
+  .details-inline-row { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .details-inline-row i { width: 16px; flex-shrink: 0; text-align: center; color: var(--ink-faint); font-size: 11px; }
+  .details-inline-label { font-size: 11.6px; font-weight: 600; color: var(--ink-faint); }
+  .details-inline-value { font-size: 11.6px; font-weight: 600; color: var(--ink-soft); word-break: break-word; }
+
+  /* --- 5. Notes --- plain text, no boxed background; Add/Edit Note
+     stays a small, left-aligned action instead of a full-width bar. */
+  .details-notes { font-size: 12.4px; font-weight: 600; color: var(--ink-soft); line-height: 1.5; margin-bottom: 12px; padding-left: 10px; }
+  .details-notes-empty {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 12.4px; font-weight: 600; color: var(--ink-faint);
+    margin-bottom: 12px; padding-left: 10px;
+  }
+  .details-notes-empty i { font-size: 13px; color: var(--ink-faint); flex-shrink: 0; }
+  .details-notes-empty span { font-style: italic; }
+  .details-add-note-btn { width: auto; }
+
+  /* --- 6. Quick Actions --- primary/secondary actions sit two-per-row;
+     the destructive action (Cancel) always spans the full row beneath
+     them so it reads as clearly separate. Unchanged logic, just the
+     shared section scaffold above it now. */
+  .details-actions { display: flex; flex-wrap: wrap; gap: 12px; }
+  .details-actions .btn { flex: 1 1 calc(50% - 6px); justify-content: center; }
+  .details-actions .btn-danger { flex: 1 1 100%; }
+
+  /* --- selection highlight on schedule cards / week chips --- */
+  .sched-card.is-selected { border-color: var(--teal-400); box-shadow: 0 0 0 2px var(--teal-300); }
+  .week-chip.is-selected { border-color: var(--teal-400); box-shadow: 0 0 0 2px var(--teal-300); }
+
+  /* --- draggable appointment cards: interaction polish ---
+     Grab/grabbing cursor, plus a light lift + soft shadow while
+     dragging (no scale/rotate — this should never read as a floating
+     popup). user-select:none stops a click-drag from selecting the
+     card's text instead of picking it up. Only top/right/bottom
+     border-color changes here — the status-colored left accent
+     (.sched-card.status-*, set further down) is untouched and keeps
+     showing while a card is being dragged.
+     The is-dragging rule is repeated with :hover so the drag state
+     always wins even if the pointer is still technically "hovering"
+     the source element during a native drag (some browsers keep
+     :hover matching); without this, .sched-card:hover further below
+     — same specificity, later in the file — would silently override
+     the lift/shadow/border set here. */
+  .sched-card, .week-chip { cursor: grab; user-select: none; }
+  .sched-card.is-dragging, .week-chip.is-dragging,
+  .sched-card.is-dragging:hover, .week-chip.is-dragging:hover {
+    opacity: 0.9;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 18px -8px rgba(15, 23, 42, 0.28), 0 2px 6px rgba(15, 23, 42, 0.10);
+    border-color: var(--teal-400);
+    cursor: grabbing;
+    z-index: 20;
+  }
+
+  /* --- day schedule: time column + veterinarian columns ---
+     Stretches to fill #view-root (i.e. the shared --workspace-h), so
+     its outer height always matches the details panel's — the actual
+     scrolling for a tall day still happens one level in, on
+     .schedule-body-scroll, exactly as before. overflow stays visible
+     (unchanged) since .schedule-body-scroll already clips its own
+     content on both axes. */
+  .schedule-wrap {
+    background: var(--surface-card);
+    border: 1px solid var(--line-soft);
+    border-radius: var(--r-md);
+    overflow: visible;
+    flex: 1 1 auto;
+    display: flex; flex-direction: column;
+    min-height: 0;
+  }
+  .schedule-vet-head {
+    display: flex;
+    flex: 0 0 auto; /* never shrinks — schedule-body-scroll gives up space instead */
+    border-bottom: 1px solid var(--line-soft);
+    background: var(--surface-sunken);
+    border-radius: var(--r-md) var(--r-md) 0 0;
+  }
+  .schedule-time-head { width: 68px; flex-shrink: 0; }
+  .schedule-vet-col-head {
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 12px 10px;
+    font-size: 12.2px;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    color: var(--ink-900);
+    text-align: center;
+    border-left: 1px solid var(--line-soft);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .schedule-vet-col-head i { color: var(--teal-700); margin-right: 5px; }
+
+  /* --- internal vertical scroll for the schedule body only ---
+     The vet-column header (.schedule-vet-head) lives outside this
+     element, so it never scrolls with the body — no sticky
+     positioning needed. overflow-x stays auto (unchanged) so narrow
+     screens with many vet columns still scroll sideways only within
+     this pane; overflow-y stays auto so a tall day scrolls inside the
+     schedule instead of stretching the whole page. The old fixed
+     max-height (700px) is gone — this now flexes to fill whatever
+     room .schedule-wrap has left below the header (itself pinned to
+     the shared --workspace-h on .schedule-pane), so the calendar's
+     outer height always matches the details panel exactly instead of
+     approximating it. min-height: 0 overrides flexbox's default
+     "auto" so this can actually shrink and scroll instead of forcing
+     the header to shrink first. */
+  .schedule-body-scroll {
+    overflow-x: auto;
+    overflow-y: auto;
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+  .schedule-body { display: flex; position: relative; min-width: 100%; }
+
+  .schedule-time-col { width: 68px; flex-shrink: 0; position: relative; }
+  /* Labels sit just below their gridline (instead of centered on it)
+     so the 8:00 AM label never needs blank space reserved above the
+     grid's top edge to stay unclipped — this is what lets the top
+     padding above 8:00 AM shrink to almost nothing. */
+  .sched-time-mark {
+    position: absolute; left: 0; right: 0;
+    padding-right: 10px;
+    font-size: 11px; font-weight: 600; letter-spacing: 0.01em; color: var(--ink-faint);
+    text-align: right;
+  }
+
+  .sched-vet-col {
+    flex: 1 1 0; min-width: 150px;
+    position: relative;
+    border-left: 1px solid var(--line-soft);
+    transition: background 0.12s ease, box-shadow 0.12s ease;
+  }
+  .sched-gridline {
+    position: absolute; left: 0; right: 0; height: 0;
+    border-top: none;
+    box-shadow: 0 1px 0 0 var(--line-soft);
+  }
+
+  /* --- reschedule drag-and-drop target feedback (Step 7B) ---
+     Subtle only: a soft column tint plus a thin snapped-time line,
+     no overlays/modals, so the calendar's existing look is unchanged.
+     The tint is paired with a thin inset ring around the whole
+     column (not just a background change) so, especially when
+     crossing between several vet columns in a row, it's unambiguous
+     which one is currently the target — without heavily tinting or
+     outlining the rest of the calendar.
+     The indicator is a solid line (was dashed) with a small rounded
+     start-cap and a soft glow instead of a hard rule, so the exact
+     snapped slot reads clearly at a glance without looking heavier
+     than an appointment card's own border. Its top position is set
+     on every dragover (JS, unchanged), and a short eased transition
+     here is what turns those discrete slot-to-slot jumps into a
+     smooth glide as the pointer moves. */
+  .sched-vet-col.is-drop-target {
+    background: rgba(45, 125, 101, 0.06);
+    box-shadow: inset 0 0 0 1px rgba(45, 125, 101, 0.35);
+  }
+  /* Conflict state — same column-tint + line + pill mechanism as
+     above, just recolored to the existing "cancelled" red token
+     (var(--red-800)) instead of a new color, and driven by the same
+     JS that positions/labels the indicator (data-time-label already
+     carries "· Unavailable" for this case). Source order after
+     .is-drop-target above lets the two share a column/indicator
+     without needing a combined selector — both classes are always
+     toggled together in JS. */
+  .sched-vet-col.is-drop-invalid {
+    background: rgba(185, 28, 28, 0.06);
+    box-shadow: inset 0 0 0 1px rgba(185, 28, 28, 0.4);
+  }
+  .sched-drop-indicator {
+    position: absolute; left: 4px; right: 4px; height: 0;
+    border-top: 2px solid var(--teal-400);
+    border-radius: 2px;
+    box-shadow: 0 0 0 3px rgba(45, 125, 101, 0.12);
+    pointer-events: none;
+    transition: top 0.08s ease, border-color 0.12s ease, box-shadow 0.12s ease;
+  }
+  .sched-drop-indicator.is-invalid {
+    border-top-color: var(--red-800);
+    box-shadow: 0 0 0 3px rgba(185, 28, 28, 0.14);
+  }
+  .sched-drop-indicator::before {
+    content: "";
+    position: absolute; left: -3px; top: -4px;
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--teal-400);
+  }
+  .sched-drop-indicator.is-invalid::before { background: var(--red-800); }
+  /* Destination-time pill — reads the same snapped time the drop
+     handler will actually save (data-time-label is set from that
+     value in JS), so the line and the label can never disagree. */
+  .sched-drop-indicator::after {
+    content: attr(data-time-label);
+    position: absolute; right: 0; top: 0;
+    transform: translateY(-50%);
+    background: var(--teal-400);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.01em;
+    line-height: 1.4;
+    padding: 1px 6px;
+    border-radius: 4px;
+    white-space: nowrap;
+    pointer-events: none;
+  }
+  .sched-drop-indicator.is-invalid::after { background: var(--red-800); }
+  .sched-empty-note {
+    position: absolute; top: 14px; left: 0; right: 0;
+    text-align: center; font-size: 11.6px; font-weight: 600; color: var(--ink-faint);
+    pointer-events: none;
+  }
+  .sched-empty-note .sen-title { font-size: 11.6px; font-weight: 700; color: var(--ink-faint); }
+  .sched-empty-note .sen-sub { font-size: 10.6px; font-weight: 600; color: var(--ink-faint); margin-top: 4px; }
+  /* filtered-results variant: same slot, deliberately quieter/smaller
+     than the "day is actually empty" message so it never reads as
+     "the clinic has no appointments" when it's only the active
+     filters hiding them. */
+  .sched-empty-note.is-filtered .sen-title { font-size: 11px; font-weight: 600; }
+
+  /* --- per-column empty state (Step 8) ---
+     Sits inside an individual veterinarian/Unassigned column when that
+     column has no appointments for the day. Deliberately smaller/lighter
+     than an .sched-card so it never reads as louder than a real
+     appointment, and pointer-events:none keeps it from ever blocking a
+     drag-and-drop reschedule onto the column beneath it. */
+  .sched-col-empty {
+    position: absolute; top: 20px; left: 6px; right: 6px;
+    text-align: center; pointer-events: none;
+  }
+  .sched-col-empty .sce-title { font-size: 11px; font-weight: 700; color: var(--ink-faint); }
+  .sched-col-empty .sce-sub { font-size: 10.2px; font-weight: 600; color: var(--ink-faint); margin-top: 3px; }
+
+  /* --- schedule appointment card ---
+     Three visual levels:
+       1. header — pet identity (name + species·age) on the left,
+                   status badge on the right, on independent grid
+                   columns so neither ever negotiates space with the
+                   other
+       2. (identity's own name/meta stack lives inside the header)
+       3. time and reason, each on their own line — time slightly more
+          prominent, reason muted; the reason truncates with an
+          ellipsis rather than wrapping or adding another line
+     No avatar/icon on this card. The chevron stays an absolutely-
+     positioned, non-layout-consuming affordance on .sched-card
+     itself. */
+  .sched-card {
+    position: absolute;
+    box-sizing: border-box;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    background: var(--surface-card);
+    border: 1px solid var(--line-soft);
+    border-left: 5px solid var(--ink-faint);
+    border-radius: var(--r-md);
+    padding: 14px 24px 14px 14px;
+    overflow: hidden;
+    box-shadow: var(--clay-flat);
+    transition: box-shadow 0.15s ease, border-color 0.15s ease, transform 0.1s ease, background 0.15s ease, opacity 0.1s ease;
+  }
+  .sched-card:hover { box-shadow: var(--clay-raised); border-color: var(--teal-300); background: var(--surface-sunken); transform: translateY(-1px); z-index: 5; }
+
+  /* subtle chevron affordance — decorative only, purely CSS so no
+     markup change is needed to add it */
+  .sched-card::after {
+    content: "\f054";
+    font-family: "Font Awesome 6 Free";
+    font-weight: 900;
+    font-size: 10px;
+    color: var(--ink-faint);
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    pointer-events: none;
+  }
+
+  .sched-card-body { flex: 1 1 auto; min-width: 0; }
+
+  /* header row: identity (name + species·age, left) and status
+     (right) on independent grid columns — each has its own sizing
+     rule and never negotiates space with the other:
+       - status column: "max-content" — sized to fit the badge's own
+         text exactly, so it always renders at full size.
+       - identity column: "minmax(0, 1fr)" — takes whatever's left,
+         only ever shrinking (as a last resort, via ellipsis on the
+         pet name) once the status column has taken what it needs. */
+  .sched-card-header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) max-content;
+    align-items: start;
+    column-gap: 8px;
+  }
+  .sched-card-identity {
+    min-width: 0; /* lets the pet name's ellipsis truncation work inside a grid column */
+  }
+  .sched-card-header .status-badge {
+    white-space: nowrap;
+    font-size: 10px; font-weight: 800; letter-spacing: 0.02em;
+    padding: 3px 8px; line-height: 1.3;
+    /* locks the badge to the header's right edge, top-aligned —
+       explicit rather than incidental, so it can't drift even if
+       something else in the header column changes later. */
+    justify-self: end;
+    align-self: start;
+  }
+
+  /* --- status-specific card treatment ---
+     Card background stays neutral for every status, and so does the
+     normal (top/right/bottom) card border — only the left accent
+     border is status-colored, as a secondary, subtle indicator that
+     echoes the status badge's own color without tinting the card
+     itself. Scheduled has no override, so it keeps the base neutral
+     left border, matching "Scheduled = neutral". */
+  .sched-card.status-pending    { }
+  .sched-card.status-confirmed  { border-left-color: var(--sage-600); }
+  .sched-card.status-arrived    { border-left-color: var(--teal-700); }
+  .sched-card.status-consultation { border-left-color: var(--teal-800); }
+  .sched-card.status-completed  { border-left-color: var(--slate-600); }
+  .sched-card.status-cancelled  { border-left-color: var(--red-800); }
+  .sched-card.status-no-show    { border-left-color: var(--amber-600); }
+
+  /* status-specific hover: now identical to the base .sched-card:hover
+     background (card backgrounds are no longer status-tinted), kept
+     here so hover behavior is explicit per status if that ever
+     changes again. */
+  .sched-card.status-pending:hover,
+  .sched-card.status-confirmed:hover,
+  .sched-card.status-arrived:hover,
+  .sched-card.status-consultation:hover,
+  .sched-card.status-completed:hover,
+  .sched-card.status-cancelled:hover,
+  .sched-card.status-no-show:hover { background: var(--surface-sunken); }
+
+  /* pet name lives in the header's identity column, alongside
+     species·age — it only ever truncates (as a last resort) when the
+     name itself is too long for that column's share of the header. */
+  .sched-pet-name {
+    display: block;
+    font-size: 15px; font-weight: 800; color: var(--ink-900); line-height: 1.25;
+    letter-spacing: -0.005em;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    overflow-wrap: anywhere;
+  }
+  /* species · age — sits directly under the pet name, inside the same
+     identity column, muted as secondary context. */
+  .sched-card-meta {
+    margin-top: 3px;
+    font-size: 10.6px; font-weight: 600; color: var(--ink-faint);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+
+  /* time and reason each get their own line — no shared row, so
+     neither has to negotiate width with the other. Time is #2 in the
+     hierarchy (slightly bolder/larger, tabular numerals); reason is
+     muted and truncates to a single line with an ellipsis instead of
+     wrapping or adding another line. */
+  .sched-card-time {
+    margin-top: 8px;
+    font-size: 12.6px; font-weight: 800; color: var(--ink-900);
+    font-variant-numeric: tabular-nums; letter-spacing: 0.01em;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .sched-card-reason {
+    margin-top: 2px;
+    font-size: 11px; font-weight: 600; color: var(--ink-faint);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+
+  /* --- week view: cards restyled to match schedule hierarchy --- */
+  .week-chip {
+    flex-direction: column; align-items: stretch; gap: 2px;
+    border-left: 3px solid var(--ink-faint);
+    padding: 7px 9px 8px;
+  }
+  .week-chip.st-pending    { border-left-color: var(--amber-600); }
+  .week-chip.st-confirmed  { background: var(--sage-100); border-left-color: var(--sage-600); }
+  .week-chip.st-arrived    { background: var(--teal-100); border-left-color: var(--teal-700); }
+  .week-chip.st-consultation { background: var(--teal-200); border-left-color: var(--teal-800); }
+  .week-chip.st-completed  { background: var(--slate-100); border-left-color: var(--slate-600); opacity: 0.85; }
+  .week-chip.st-cancelled  { background: var(--red-100); border-left-color: var(--red-800); opacity: 0.72; }
+  .week-chip.st-no-show    { background: var(--amber-600); border-left-color: var(--amber-800); opacity: 0.72; }
+  .week-chip.st-no-show .wc-pet,
+  .week-chip.st-no-show .wc-time,
+  .week-chip.st-no-show .wc-dot,
+  .week-chip.st-no-show .wc-reason { color: var(--ink-900); }
+  .week-chip .wc-pet { font-size: 12.6px; font-weight: 800; color: var(--ink-900); }
+  .week-chip .wc-meta {
+    display: flex; align-items: baseline; gap: 4px; min-width: 0;
+  }
+  .week-chip .wc-time { font-size: 10.6px; color: var(--ink-faint); font-weight: 800; flex-shrink: 0; }
+  .week-chip .wc-dot { font-size: 10.6px; color: var(--ink-faint); font-weight: 700; flex-shrink: 0; }
+  .week-chip .wc-reason {
+    font-size: 10.6px; font-weight: 600; color: var(--ink-soft); min-width: 0;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+
+  /* --- appointment card: narrow-width compaction ---
+     Column width is driven by the number of vets (flex:1 1 0 on
+     .sched-vet-col, untouched here), so a card can end up quite
+     narrow on smaller screens without its absolute width/height ever
+     changing (those stay driven by cardTopPx/cardHeightPx). This only
+     tightens padding/type-scale so pet name, time, and status badge
+     stay legible and nothing spills past the card's own edge. */
+  @media (max-width: 640px) {
+    .sched-card { padding: 10px 18px 10px 10px; gap: 8px; }
+    .sched-pet-name { font-size: 13px; }
+    .sched-card-header .status-badge { font-size: 8.6px; padding: 2px 6px; }
+    .sched-card-meta { font-size: 10.6px; margin-top: 2px; }
+    .sched-card-time { margin-top: 6px; font-size: 10.6px; }
+    .sched-card-reason { font-size: 10.2px; }
+  }
+</style>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-mark"><i class="fa-solid fa-paw"></i></div>
+        <div class="brand-text">
+          <div class="brand-name">Pawsitive Care</div>
+          <div class="brand-role">Administrator</div>
+        </div>
+      </div>
+      <div class="sidebar-divider"></div>
+      <nav class="sidebar-nav">
+      <div class="nav-group">
+        <div class="nav-group-label">MAIN</div>
+        <a href="dashboard.html" class="nav-item" data-page="dashboard.html">
+          <span class="nav-icon"><i class="fa-solid fa-house"></i></span>
+          <span class="nav-label">Dashboard</span>
+        </a>
+        <a href="appointments.html" class="nav-item" data-page="appointments.html">
+          <span class="nav-icon"><i class="fa-solid fa-calendar-days"></i></span>
+          <span class="nav-label">Appointments</span>
+        </a>
+        <a href="queue.html" class="nav-item" data-page="queue.html">
+          <span class="nav-icon"><i class="fa-solid fa-hourglass-half"></i></span>
+          <span class="nav-label">Queue</span>
+        </a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">PATIENT MANAGEMENT</div>
+        <a href="patients.html" class="nav-item" data-page="patients.html">
+          <span class="nav-icon"><i class="fa-solid fa-paw"></i></span>
+          <span class="nav-label">Patients</span>
+        </a>
+        <a href="clients.html" class="nav-item" data-page="clients.html">
+          <span class="nav-icon"><i class="fa-solid fa-user"></i></span>
+          <span class="nav-label">Clients</span>
+        </a>
+        <a href="medical-records.html" class="nav-item" data-page="medical-records.html">
+          <span class="nav-icon"><i class="fa-solid fa-notes-medical"></i></span>
+          <span class="nav-label">Medical Records</span>
+        </a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">CLINIC</div>
+        <a href="services.html" class="nav-item" data-page="services.html">
+          <span class="nav-icon"><i class="fa-solid fa-hospital"></i></span>
+          <span class="nav-label">Services</span>
+        </a>
+        <a href="inventory.html" class="nav-item" data-page="inventory.html">
+          <span class="nav-icon"><i class="fa-solid fa-boxes-stacked"></i></span>
+          <span class="nav-label">Inventory</span>
+        </a>
+        <a href="billing.html" class="nav-item" data-page="billing.html">
+          <span class="nav-icon"><i class="fa-solid fa-credit-card"></i></span>
+          <span class="nav-label">Billing</span>
+        </a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">INSIGHTS</div>
+        <a href="predictive-analytics.html" class="nav-item" data-page="predictive-analytics.html">
+          <span class="nav-icon"><i class="fa-solid fa-chart-line"></i></span>
+          <span class="nav-label">Predictive Analytics</span>
+        </a>
+        <a href="reports.html" class="nav-item" data-page="reports.html">
+          <span class="nav-icon"><i class="fa-solid fa-chart-column"></i></span>
+          <span class="nav-label">Reports</span>
+        </a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">SYSTEM</div>
+        <a href="notifications.html" class="nav-item" data-page="notifications.html">
+          <span class="nav-icon"><i class="fa-solid fa-bell"></i></span>
+          <span class="nav-label">Notifications</span>
+        </a>
+        <a href="staff-users.html" class="nav-item" data-page="staff-users.html">
+          <span class="nav-icon"><i class="fa-solid fa-users"></i></span>
+          <span class="nav-label">Staff & Users</span>
+        </a>
+        <a href="settings.html" class="nav-item" data-page="settings.html">
+          <span class="nav-icon"><i class="fa-solid fa-gear"></i></span>
+          <span class="nav-label">Settings</span>
+        </a>
+      </div>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="footer-avatar">A</div>
+        <div>
+          <div class="footer-name">Admin</div>
+          <div class="footer-role">Administrator</div>
+        </div>
+      </div>
+    </aside>
+
+    <div class="main-content">
+      <header class="topbar">
+        <div class="topbar-left">
+          <button class="menu-toggle" aria-label="Toggle navigation"><i class="fa-solid fa-bars"></i></button>
+        </div>
+      </header>
+
+      <main class="page-body">
+
+        <!-- Appointment summary: real counts scoped to whatever date
+             range the calendar toolbar currently shows (day/week/month)
+             and the active search/vet/status filters. -->
+        <div class="summary-strip-heading">TODAY'S APPOINTMENT STATUS</div>
+        <div class="summary-strip" id="summary-strip"></div>
+
+        <div class="filter-bar">
+          <div class="search-field">
+            <span><i class="fa-solid fa-magnifying-glass"></i></span>
+            <input type="text" id="search-input" placeholder="Search pet, owner, or vet...">
+          </div>
+          <select class="filter-select" id="filter-vet">
+            <option value="">All veterinarians</option>
+          </select>
+          <select class="filter-select" id="filter-status">
+            <option value="">All statuses</option>
+            <option value="pending">Scheduled</option>
+            <option value="confirmed">Confirmed</option>
+            <option value="arrived">Arrived</option>
+            <option value="consultation">In Consultation</option>
+            <option value="completed">Completed</option>
+            <option value="cancelled">Cancelled</option>
+            <option value="no-show">No-show</option>
+          </select>
+          <select class="filter-select" id="filter-appointment-type">
+            <option value="">All appointment types</option>
+            <option value="Consultation">Consultation</option>
+            <option value="Vaccination">Vaccination</option>
+            <option value="Follow-up">Follow-up</option>
+            <option value="Grooming">Grooming</option>
+            <option value="Surgery">Surgery</option>
+            <option value="Diagnostic">Diagnostic</option>
+            <option value="Emergency">Emergency</option>
+          </select>
+          <button class="btn btn-sm" id="clear-filters">Clear filters</button>
+        </div>
+
+        <!-- Calendar navigation: view granularity + previous/next/today
+             + the currently selected date, with Add Appointment folded
+             into the same right-hand cluster as Today. -->
+        <div class="calendar-toolbar" id="calendar-toolbar">
+          <div class="view-tabs" id="calendar-subtabs">
+            <button class="view-tab active" id="cal-day">Day</button>
+            <button class="view-tab" id="cal-week">Week</button>
+            <button class="view-tab" id="cal-month">Month</button>
+          </div>
+          <div class="cal-nav-center">
+            <button class="btn btn-sm btn-icon" id="cal-prev" aria-label="Previous"><i class="fa-solid fa-chevron-left"></i></button>
+            <div class="cal-date-pill" id="cal-date-label"></div>
+            <button class="btn btn-sm btn-icon" id="cal-next" aria-label="Next"><i class="fa-solid fa-chevron-right"></i></button>
+          </div>
+          <div class="cal-nav-right">
+            <button class="btn btn-sm" id="cal-today">Today</button>
+            <button class="btn btn-sm btn-primary" id="add-appt-btn"><i class="fa-solid fa-plus"></i> Add Appointment</button>
+          </div>
+        </div>
+
+        <!-- Main workspace: the calendar schedule (~70%) plus a
+             permanent Appointment Details panel (~30%) on the right. -->
+        <div class="calendar-workspace" id="calendar-workspace">
+          <div class="schedule-pane">
+            <div id="view-root"></div>
+          </div>
+          <div class="details-pane" id="details-pane">
+            <div class="details-panel" id="details-panel"></div>
+          </div>
+        </div>
+
+      </main>
+    </div>
+  </div>
+
+  <!-- Add / Edit Appointment modal -->
+  <div class="modal-overlay" id="modal-overlay">
+    <div class="modal-box">
+      <div class="modal-head">
+        <div class="modal-title" id="modal-title">Add Appointment</div>
+        <button class="modal-close" id="modal-close"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="form-grid">
+        <div class="form-section-title">Client &amp; Pet</div>
+        <div class="form-field full">
+          <label><i class="fa-solid fa-user"></i> Client (owner) *</label>
+          <div id="client-selected-view" class="client-selected-card" style="display:none;">
+            <div>
+              <div class="csc-name" id="csc-name"></div>
+              <div class="csc-meta" id="csc-meta"></div>
+            </div>
+            <button type="button" class="btn btn-sm" id="client-change-btn">Change</button>
+          </div>
+          <div id="client-search-view">
+            <input type="text" id="f-client-search" placeholder="Search client by name, phone, or email...">
+            <div class="client-search-results" id="client-search-results"></div>
+          </div>
+          <input type="hidden" id="f-client-id">
+        </div>
+        <div class="form-field full">
+          <label><i class="fa-solid fa-paw"></i> Patient / pet *</label>
+          <select id="f-patient" disabled>
+            <option value="">Select a client first…</option>
+          </select>
+        </div>
+
+        <div class="form-section-title">Appointment</div>
+        <div class="form-field">
+          <label><i class="fa-solid fa-calendar-days"></i> Date *</label>
+          <input type="date" id="f-date">
+        </div>
+        <div class="form-field">
+          <label><i class="fa-solid fa-clock"></i> Time *</label>
+          <input type="time" id="f-time">
+          <small id="f-time-hint" style="color:var(--ink-faint); font-weight:600; font-size:11.2px;"></small>
+        </div>
+        <div class="form-field">
+          <label><i class="fa-solid fa-notes-medical"></i> Veterinarian *</label>
+          <select id="f-vet"></select>
+        </div>
+        <div class="form-field">
+          <label><i class="fa-solid fa-briefcase-medical"></i> Clinic Service *</label>
+          <select id="f-service" required>
+            <option value="">Select a service…</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label><i class="fa-solid fa-stethoscope"></i> Appointment Type</label>
+          <select id="f-appointment-type">
+            <option value="">Unspecified</option>
+            <option value="Consultation">Consultation</option>
+            <option value="Vaccination">Vaccination</option>
+            <option value="Follow-up">Follow-up</option>
+            <option value="Grooming">Grooming</option>
+            <option value="Surgery">Surgery</option>
+            <option value="Diagnostic">Diagnostic</option>
+            <option value="Emergency">Emergency</option>
+          </select>
+        </div>
+        <div class="form-field" id="f-status-field" style="display:none;">
+          <label>Status</label>
+          <select id="f-status">
+            <option value="pending">Scheduled</option>
+            <option value="confirmed">Confirmed</option>
+            <option value="arrived">Arrived</option>
+            <option value="consultation">In Consultation</option>
+            <option value="completed">Completed</option>
+            <option value="cancelled">Cancelled</option>
+            <option value="no-show">No-show</option>
+          </select>
+        </div>
+
+        <div class="form-section-title">Visit Details</div>
+        <div class="form-field full">
+          <label>Reason for Visit</label>
+          <input type="text" id="f-reason" placeholder="e.g. Pet has been vomiting since yesterday.">
+        </div>
+        <div class="form-field full">
+          <label>Notes</label>
+          <textarea id="f-notes" placeholder="e.g. Owner said the pet has eaten very little today."></textarea>
+        </div>
+
+        <!-- Species and Owner phone are no longer manual inputs — the
+             selected Patient and Client already carry this data (see
+             applySpeciesFromPatient() / selectClient() in
+             appointments.js). Kept as hidden fields, still populated
+             by the same JS, so the existing appointment data model
+             (species/phone on the appointment record) is unchanged. -->
+        <input type="hidden" id="f-species">
+        <input type="hidden" id="f-phone">
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-danger" id="modal-delete" style="margin-right:auto;"><i class="fa-solid fa-ban"></i> Cancel appointment</button>
+        <button class="btn" id="modal-cancel">Close</button>
+        <button class="btn btn-primary" id="modal-save">Save appointment</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="sidebar.js"></script>
+  <script src="settings-data-store.js"></script>
+  <script src="data-store.js"></script>
+  <script src="patient-data-store.js"></script>
+  <script src="services-data-store.js"></script>
+  <script src="appointments.js"></script>
+</body>
+</html>

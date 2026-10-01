@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Inventory · Pawsitive Care</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+<link rel="stylesheet" href="style.css">
+<style>
+  /* ---- Inventory module styles (scoped to #inventory-page-body) ----
+     Layout/structure is unchanged from before; only the color/theme
+     tokens below have been swapped from a standalone hex-based
+     palette to the shared Pawsitive Care design tokens already in use
+     on Services (see services.html) — teal scale, ink scale, surface
+     scale, line/border, radius and clay-shadow tokens, with the
+     original hex values kept only as safe fallbacks. */
+  #inventory-page-body {
+    --inv-teal: var(--teal-700, #0f766e);
+    --inv-teal-dark: var(--teal-800, #0b5f58);
+    --inv-teal-tint: var(--teal-50, #e7f3f1);
+    --inv-teal-focus: var(--teal-400, #0f766e);
+    --inv-ink: var(--ink-900, #1f2a2a);
+    --inv-ink-soft: var(--ink-soft, #6b7472);
+    --inv-ink-faint: var(--ink-faint, #6b7472);
+    --inv-border: var(--line-soft, #e4e0d8);
+    --inv-border-light: var(--line-soft, #ece9e2);
+    --inv-surface-card: var(--surface-card, #fff);
+    --inv-surface-sunken: var(--surface-sunken, #faf9f6);
+    --inv-radius: var(--r-md, 10px);
+    --inv-shadow: var(--clay-flat, 0 1px 2px rgba(31, 42, 42, 0.04));
+    --inv-shadow-raised: var(--clay-raised, 0 10px 30px rgba(31, 42, 42, 0.18));
+    --inv-danger-bg: var(--red-100, #f5e5e1);
+    --inv-danger: var(--red-800, #7a372d);
+    --inv-warning-bg: var(--amber-100, #f7ecd6);
+    --inv-warning: var(--amber-800, #6d4a09);
+  }
+
+  /* --- header cleanup (Inventory page) ---
+     Same treatment as Services: the page-level title/breadcrumb that
+     used to live in .topbar is removed, so the border-bottom style.css
+     draws for pages that keep that title is suppressed here (scoped to
+     this page only, style.css untouched). */
+  .topbar { border-bottom: none; }
+
+  /* --- header spacing (Inventory page) ---
+     Nudges the "Inventory" toolbar block down slightly to fill the space
+     left by the removed title/breadcrumb, page-scoped only, matching
+     Services' .page-toolbar treatment. */
+  .page-toolbar { margin-top: 22px; }
+
+  /* --- filter bar (Inventory page) ---
+     Same components as Services: .filter-bar / .search-field /
+     .filter-select .pc-select from style.css, with the same page-scoped
+     refinements Services applies on top (single-container search field,
+     search taking most of the row, fixed-width filter controls, unified
+     .pc-select chevron). Page-scoped since style.css is off-limits. */
+
+  /* Search input fills the full width of .search-field; the focused
+     look lives on the single outer container so only one border shows. */
+  #inv-search {
+    flex: 1 1 auto;
+    width: 100%;
+    box-sizing: border-box;
+    background: transparent;
+    border: none;
+    outline: none;
+    box-shadow: none;
+    font: inherit;
+    color: var(--ink-900);
+  }
+  .search-field:focus-within {
+    border-color: var(--teal-400);
+  }
+
+  /* Search gets most of the row; filter controls only take the width
+     their contents need — same proportions as Services' filter bar. */
+  .filter-bar .search-field {
+    flex: 2 1 380px;
+    min-width: 260px;
+    height: 38px;
+  }
+  .filter-controls {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+    flex: 0 0 auto;
+    /* Without a cap, this container sizes to its three fixed-basis selects
+       (170 + 150 + 150 + gaps = 486px) and, at narrow widths, sticks out
+       past the filter bar and the viewport instead of wrapping its
+       selects. Capping it at the bar's width lets the selects wrap. */
+    max-width: 100%;
+  }
+  .filter-bar #inv-filter-category { flex: 0 0 170px; min-width: 0; }
+  .filter-bar #inv-filter-status { flex: 0 0 150px; min-width: 0; }
+  .filter-bar #inv-filter-stock { flex: 0 0 150px; min-width: 0; }
+
+  /* Unified select component (identical to Services/Medical Records/
+     Patients/Clients): warm beige surface, existing border/radius
+     tokens, one CSS-drawn chevron replacing the native arrow. */
+  .pc-select {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    box-sizing: border-box;
+    background-color: var(--surface-sunken);
+    border: 1px solid var(--line-soft);
+    border-radius: 10px;
+    color: var(--ink-900);
+    font: inherit;
+    max-width: 100%;
+    padding: 0 34px 0 12px;
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    background-image:
+      linear-gradient(45deg, transparent 50%, var(--ink-faint) 50%),
+      linear-gradient(135deg, var(--ink-faint) 50%, transparent 50%);
+    background-position:
+      calc(100% - 18px) center,
+      calc(100% - 13px) center;
+    background-size: 5px 5px, 5px 5px;
+    background-repeat: no-repeat;
+    transition: border-color 0.15s ease;
+  }
+  .pc-select::-ms-expand { display: none; }
+  .pc-select:hover { border-color: var(--line-strong); }
+  .pc-select:focus { outline: none; border-color: var(--teal-400); }
+
+  /* Fixed 38px control height, and keep the chevron drawn while focused
+     (style.css's `select:focus` uses the `background` shorthand, which
+     would otherwise reset background-image). */
+  .filter-bar .pc-select {
+    height: 38px;
+  }
+  .filter-bar .pc-select,
+  .filter-bar .pc-select:focus {
+    background-image:
+      linear-gradient(45deg, transparent 50%, var(--ink-faint) 50%),
+      linear-gradient(135deg, var(--ink-faint) 50%, transparent 50%);
+    background-position:
+      calc(100% - 18px) center,
+      calc(100% - 13px) center;
+    background-size: 5px 5px, 5px 5px;
+    background-repeat: no-repeat;
+  }
+
+  /* Result count — same treatment as Services' .services-count-label. */
+  .inv-count {
+    font-size: 11.4px;
+    font-weight: 700;
+    color: var(--ink-faint);
+    margin: 0 2px 10px;
+  }
+
+  #inventory-page-body .inv-table-wrap {
+    background: var(--inv-surface-card);
+    border: 1px solid var(--inv-border);
+    border-radius: var(--inv-radius);
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    box-shadow: var(--inv-shadow);
+  }
+  #inventory-page-body .inv-table-wrap.is-empty {
+    padding: 44px 20px;
+    text-align: center;
+    color: var(--inv-ink-faint);
+    font-size: 13.5px;
+  }
+
+  /* Table scrolls horizontally inside .inv-table-wrap rather than being
+     clipped or squeezed unreadably; min-width keeps every column
+     (Actions included) at a legible width down to the smallest
+     breakpoints, matching Services' overflow-x:auto treatment. */
+  #inventory-page-body table.inv-table { width: 100%; min-width: 880px; border-collapse: collapse; font-size: 13px; }
+  #inventory-page-body .inv-table thead th {
+    text-align: left;
+    padding: 12px 16px;
+    font-size: 10.6px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--inv-ink-faint);
+    background: var(--inv-surface-sunken);
+    border-bottom: 1px solid var(--inv-border);
+    white-space: nowrap;
+  }
+  #inventory-page-body .inv-table tbody td {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--inv-border-light);
+    vertical-align: middle;
+    color: var(--inv-ink);
+    line-height: 1.3;
+  }
+  #inventory-page-body .inv-table tbody tr:last-child td { border-bottom: none; }
+  #inventory-page-body .inv-table tbody tr:hover { background: var(--inv-surface-sunken); }
+
+  #inventory-page-body .inv-item-name { font-weight: 700; color: var(--inv-ink); font-size: 14px; }
+  #inventory-page-body .inv-secondary { color: var(--inv-ink-soft); font-weight: 600; }
+
+  /* Quantity + stock badge sit on one stable row (not stacked), so a
+     Low/Out pill can never push the row taller — the row height is
+     governed only by the cell's line-height, matching Services'
+     uniform row rhythm. Quantity keeps its own larger/bolder styling
+     so it stays the visually dominant value in the row. */
+  #inventory-page-body .inv-qty-stack { display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; white-space: nowrap; }
+  #inventory-page-body .inv-qty { font-size: 15px; font-weight: 800; color: var(--inv-ink); font-variant-numeric: tabular-nums; }
+  #inventory-page-body .inv-pill {
+    display: inline-flex;
+    align-items: center;
+    width: fit-content;
+    font-size: 10.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    padding: 3px 8px;
+    border-radius: 999px;
+    white-space: nowrap;
+    line-height: 1.4;
+  }
+  #inventory-page-body .inv-pill.low { background: var(--inv-warning-bg); color: var(--inv-warning); }
+  #inventory-page-body .inv-pill.out { background: var(--inv-danger-bg); color: var(--inv-danger); }
+  #inventory-page-body .inv-pill.expired { background: var(--inv-danger-bg); color: var(--inv-danger); }
+
+  #inventory-page-body .inv-price-cell { font-variant-numeric: tabular-nums; }
+
+  #inventory-page-body .inv-exp-stack { display: flex; align-items: center; flex-wrap: nowrap; gap: 6px; white-space: nowrap; }
+  #inventory-page-body .inv-exp-date { color: var(--inv-ink-soft); font-weight: 600; font-variant-numeric: tabular-nums; }
+
+  /* Empty-state row: keeps the same table/thead shell instead of
+     swapping in an unrelated block, so filtering to zero results
+     doesn't cause a large layout jump. */
+  #inventory-page-body .inv-empty-row td {
+    padding: 44px 20px;
+    text-align: center;
+    color: var(--inv-ink-faint);
+    font-size: 13.5px;
+    font-weight: 600;
+  }
+
+  #inventory-page-body .inv-status-badge {
+    display: inline-block;
+    font-size: 11.5px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 999px;
+  }
+  #inventory-page-body .inv-status-badge.active { background: var(--inv-teal-tint); color: var(--inv-teal); }
+  #inventory-page-body .inv-status-badge.inactive { background: var(--inv-surface-sunken); color: var(--inv-ink-faint); }
+
+  /* Actions column (table rows only) — Edit is now the same compact
+     icon-only .icon-btn treatment used by Services (30x30, existing
+     border/radius tokens, muted icon at rest, teal border/icon on
+     hover), and Adjust Stock is now the shared .btn/.btn-sm secondary
+     button from style.css, matching Services' compact labeled row
+     action. Page-scoped since style.css is off-limits; .btn/.btn-sm
+     themselves already live in style.css, untouched. */
+  #inventory-page-body .inv-actions { display: flex; gap: 8px; align-items: center; white-space: nowrap; }
+
+  #inventory-page-body .icon-btn {
+    width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center;
+    border-radius: var(--r-sm); border: 1px solid var(--line-soft); background: var(--surface-card-raised);
+    color: var(--ink-soft); cursor: pointer; box-shadow: var(--clay-flat); font-size: 12px;
+    transition: border-color 0.15s ease, color 0.15s ease;
+  }
+  #inventory-page-body .icon-btn:hover { border-color: var(--teal-400); color: var(--teal-700); }
+
+  /* .inv-btn-ghost remains unchanged below — it's still used by the
+     Add/Edit and Adjust Stock modals (Phase 2E scope), just no longer
+     by the table row actions above. (.inv-btn-outline was only ever
+     used by the old Adjust Stock row button and is removed as dead
+     code; it was not referenced by any modal.) */
+  #inventory-page-body .inv-btn-ghost {
+    font-size: 12.5px;
+    font-weight: 600;
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background .15s ease;
+    background: var(--inv-surface-card);
+    border: 1px solid var(--inv-border);
+    color: var(--inv-ink);
+  }
+  #inventory-page-body .inv-btn-ghost:hover { background: var(--inv-surface-sunken); }
+
+  /* Modals launched from Inventory (Add/Edit item, Adjust stock) —
+     retinted onto the same shared tokens as the page above, so the
+     modal no longer carries its own hardcoded hex palette. */
+  #inv-modal-overlay .inv-modal-box {
+    background: var(--surface-card, #fff);
+    border-radius: var(--r-md, 10px);
+    box-shadow: var(--clay-raised, 0 10px 30px rgba(31, 42, 42, 0.18));
+  }
+  #inv-modal-overlay h3 {
+    margin: 0 0 16px;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--ink-900, #1f2a2a);
+  }
+  #inv-modal-overlay label {
+    display: block;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--ink-900, #1f2a2a);
+    margin-bottom: 4px;
+  }
+  #inv-modal-overlay input,
+  #inv-modal-overlay select {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 8px 10px;
+    border: 1px solid var(--line-soft, #e4e0d8);
+    border-radius: 7px;
+    font-size: 13.5px;
+    color: var(--ink-900, #1f2a2a);
+    background: var(--surface-card, #fff);
+  }
+  #inv-modal-overlay input:focus,
+  #inv-modal-overlay select:focus {
+    outline: none;
+    border-color: var(--teal-400, #0f766e);
+    box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.12);
+  }
+  #inv-modal-overlay .inv-field { margin-bottom: 12px; }
+  #inv-modal-overlay .inv-btn-primary {
+    background: var(--teal-700, #0f766e);
+    border: 1px solid var(--teal-700, #0f766e);
+    color: #fff;
+    padding: 8px 16px;
+    border-radius: 7px;
+    font-size: 13.5px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  #inv-modal-overlay .inv-btn-primary:hover { background: var(--teal-800, #0b5f58); }
+  #inv-modal-overlay .inv-btn-ghost {
+    background: var(--surface-card, #fff);
+    border: 1px solid var(--line-soft, #e4e0d8);
+    color: var(--ink-900, #1f2a2a);
+    padding: 8px 16px;
+    border-radius: 7px;
+    font-size: 13.5px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  #inv-modal-overlay .inv-btn-ghost:hover { background: var(--surface-sunken, #faf9f6); }
+  #inv-modal-overlay .inv-error {
+    color: var(--status-cancelled-fg, #b3261e);
+    font-size: 12.5px;
+    margin: 8px 0;
+    display: none;
+  }
+
+  /* --- Add/Edit Inventory Item modal (Phase 2E-1) ---
+     Same shell as the Add/Edit Service and Medical Records modals: fixed
+     header (title + x), scrolling body (.form-grid), fixed footer, capped
+     at min(88vh, 100dvh - 40px) so only the body scrolls. Scoped to
+     .inv-item-modal so the Adjust Stock modal (which shares
+     #inv-modal-overlay / .inv-modal-box) is not affected. */
+  #inv-modal-overlay .inv-item-modal {
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    width: min(610px, calc(100vw - 40px));
+    max-width: 100%;
+    padding: 0;
+    overflow: hidden;
+    max-height: 88vh;
+    max-height: min(88vh, calc(100dvh - 40px));
+    background: var(--surface-card-raised, #fff);
+    border-radius: var(--r-lg, 18px);
+    box-shadow: var(--clay-pop, 0 24px 48px -20px rgba(16, 68, 58, 0.32));
+  }
+  #inv-modal-overlay .inv-item-modal .modal-head {
+    flex: none;
+    margin: 0;
+    padding: 22px 26px 16px;
+    border-bottom: 1px solid var(--line-soft, #e4e0d8);
+  }
+  #inv-modal-overlay .inv-item-modal .modal-title {
+    margin: 0;
+    font-size: 16.5px;
+    font-weight: 800;
+    color: var(--ink-900, #1f2a2a);
+  }
+  #inv-modal-overlay .inv-item-modal #inv-item-form {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+  #inv-modal-overlay .inv-item-modal .form-grid {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
+    padding: 18px 26px;
+  }
+  #inv-modal-overlay .inv-item-modal .inv-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+    margin: 0;
+  }
+  #inv-modal-overlay .inv-item-modal .inv-field.full { grid-column: 1 / -1; }
+  #inv-modal-overlay .inv-item-modal .inv-field label {
+    margin: 0;
+    font-size: 12.2px;
+    font-weight: 700;
+    color: var(--ink-soft, #6b7472);
+  }
+  #inv-modal-overlay .inv-item-modal .inv-help {
+    font-size: 11.5px;
+    line-height: 1.4;
+    color: var(--ink-faint, #6b7472);
+  }
+
+  /* Controls: 38px, sunken warm fill, pressed clay inset, teal focus ring
+     (same look the shared text/date/select controls get in style.css;
+     number inputs aren't covered there, so all controls are styled here). */
+  #inv-modal-overlay .inv-item-modal input,
+  #inv-modal-overlay .inv-item-modal select {
+    height: 38px;
+    padding: 0 12px;
+    border: 1px solid var(--line-soft, #e4e0d8);
+    border-radius: var(--r-sm, 10px);
+    background-color: var(--surface-sunken, #eee8db);
+    box-shadow: var(--clay-pressed, inset 0 1px 3px rgba(31, 42, 46, 0.10));
+    color: var(--ink-800, #1f2a2a);
+    font-family: inherit;
+    font-size: 13.5px;
+    font-weight: 500;
+    transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  #inv-modal-overlay .inv-item-modal input:focus,
+  #inv-modal-overlay .inv-item-modal select:focus {
+    outline: none;
+    border-color: var(--teal-400, #0f766e);
+    background-color: var(--surface-card-raised, #fff);
+    box-shadow: 0 0 0 3px var(--teal-100, rgba(15, 118, 110, 0.12));
+  }
+  #inv-modal-overlay .inv-item-modal select {
+    -webkit-appearance: none; -moz-appearance: none; appearance: none;
+    background-image:
+      linear-gradient(45deg, transparent 50%, var(--ink-faint, #6b7472) 50%),
+      linear-gradient(135deg, var(--ink-faint, #6b7472) 50%, transparent 50%);
+    background-repeat: no-repeat;
+    background-position: calc(100% - 18px) center, calc(100% - 13px) center;
+    background-size: 5px 5px, 5px 5px;
+    padding-right: 30px;
+  }
+  #inv-modal-overlay .inv-item-modal select::-ms-expand { display: none; }
+
+  /* Error line sits between body and footer so it stays visible. */
+  #inv-modal-overlay .inv-item-modal .inv-error { flex: none; margin: 0; padding: 0 26px 10px; }
+
+  #inv-modal-overlay .inv-item-modal .modal-footer {
+    flex: none;
+    margin: 0;
+    padding: 16px 26px 20px;
+    border-top: 1px solid var(--line-soft, #e4e0d8);
+  }
+  #inv-modal-overlay .inv-item-modal .inv-btn-ghost,
+  #inv-modal-overlay .inv-item-modal .inv-btn-primary {
+    padding: 9px 15px;
+    border-radius: var(--r-sm, 10px);
+    font-family: inherit;
+    font-size: 13.2px;
+    font-weight: 700;
+    box-shadow: var(--clay-flat, 0 1px 2px rgba(31, 42, 46, 0.045));
+  }
+  #inv-modal-overlay .inv-item-modal .inv-btn-ghost:hover {
+    border-color: var(--teal-400, #0f766e);
+    color: var(--teal-700, #0f766e);
+    background: var(--surface-card-raised, #fff);
+  }
+  #inv-modal-overlay .inv-item-modal .inv-btn-primary {
+    background: var(--teal-600, #0f766e);
+    border-color: var(--teal-700, #0f766e);
+    color: var(--ink-on-brand, #fff);
+    box-shadow: 0 1px 1px rgba(5, 34, 29, 0.3), 0 8px 16px -8px rgba(16, 68, 58, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  }
+  #inv-modal-overlay .inv-item-modal .inv-btn-primary:hover {
+    background: var(--teal-500, #0b5f58);
+    border-color: var(--teal-600, #0f766e);
+  }
+  /* Visible keyboard focus for the modal's buttons (inputs/selects already
+     get the teal focus ring above). */
+  #inv-modal-overlay .inv-item-modal .modal-close:focus-visible,
+  #inv-modal-overlay .inv-item-modal .inv-btn-ghost:focus-visible,
+  #inv-modal-overlay .inv-item-modal .inv-btn-primary:focus-visible {
+    outline: 2px solid var(--teal-400, #0f766e);
+    outline-offset: 2px;
+  }
+  @media (max-width: 620px) {
+    #inv-modal-overlay .inv-item-modal .modal-head,
+    #inv-modal-overlay .inv-item-modal .form-grid,
+    #inv-modal-overlay .inv-item-modal .modal-footer { padding-left: 18px; padding-right: 18px; }
+    #inv-modal-overlay .inv-item-modal .inv-error { padding-left: 18px; padding-right: 18px; }
+  }
+
+  /* --- Adjust Stock modal (Phase 2E-3) ---
+     Same shell, width, radius, controls and buttons as the Add/Edit modal
+     above, scoped to .inv-stock-modal so nothing here affects Add/Edit.
+     Fixed header and footer; only .inv-stock-body scrolls; capped at
+     min(88vh, calc(100dvh - 40px)). */
+  #inv-modal-overlay .inv-stock-modal {
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    width: min(610px, calc(100vw - 40px));
+    max-width: 100%;
+    padding: 0;
+    overflow: hidden;
+    max-height: 88vh;
+    max-height: min(88vh, calc(100dvh - 40px));
+    background: var(--surface-card-raised, #fff);
+    border-radius: var(--r-lg, 18px);
+    box-shadow: var(--clay-pop, 0 24px 48px -20px rgba(16, 68, 58, 0.32));
+  }
+  #inv-modal-overlay .inv-stock-modal .modal-head {
+    flex: none;
+    margin: 0;
+    padding: 22px 26px 16px;
+    border-bottom: 1px solid var(--line-soft, #e4e0d8);
+  }
+  #inv-modal-overlay .inv-stock-modal .modal-title {
+    margin: 0;
+    font-size: 16.5px;
+    font-weight: 800;
+    color: var(--ink-900, #1f2a2a);
+  }
+  #inv-modal-overlay .inv-stock-modal .inv-stock-body {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
+    padding: 18px 26px;
+  }
+  #inv-modal-overlay .inv-stock-modal .inv-stock-info {
+    padding: 12px 14px;
+    border: 1px solid var(--line-soft, #e4e0d8);
+    border-radius: var(--r-sm, 10px);
+    background: var(--surface-card, #fbf9f4);
+    box-shadow: var(--clay-flat, 0 1px 2px rgba(31, 42, 46, 0.045));
+    min-width: 0;
+  }
+  #inv-modal-overlay .inv-stock-modal .inv-stock-name {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--ink-900, #1f2a2a);
+    overflow-wrap: anywhere;
+  }
+  #inv-modal-overlay .inv-stock-modal .inv-stock-current-line {
+    margin-top: 4px;
+    font-size: 13px;
+    color: var(--ink-soft, #6b7472);
+    overflow-wrap: anywhere;
+  }
+  #inv-modal-overlay .inv-stock-modal .inv-stock-current-line strong {
+    font-size: 15px;
+    color: var(--ink-900, #1f2a2a);
+  }
+  #inv-modal-overlay .inv-stock-modal .inv-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+    margin: 0;
+  }
+  #inv-modal-overlay .inv-stock-modal .inv-field label {
+    margin: 0;
+    font-size: 12.2px;
+    font-weight: 700;
+    color: var(--ink-soft, #6b7472);
+  }
+  #inv-modal-overlay .inv-stock-modal input {
+    height: 38px;
+    padding: 0 12px;
+    border: 1px solid var(--line-soft, #e4e0d8);
+    border-radius: var(--r-sm, 10px);
+    background-color: var(--surface-sunken, #eee8db);
+    box-shadow: var(--clay-pressed, inset 0 1px 3px rgba(31, 42, 46, 0.10));
+    color: var(--ink-800, #1f2a2a);
+    font-family: inherit;
+    font-size: 13.5px;
+    font-weight: 500;
+    transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  #inv-modal-overlay .inv-stock-modal input:focus {
+    outline: none;
+    border-color: var(--teal-400, #0f766e);
+    background-color: var(--surface-card-raised, #fff);
+    box-shadow: 0 0 0 3px var(--teal-100, rgba(15, 118, 110, 0.12));
+  }
+  #inv-modal-overlay .inv-stock-modal .inv-error { flex: none; margin: 0; padding: 0 26px 10px; }
+  #inv-modal-overlay .inv-stock-modal .modal-footer {
+    flex: none;
+    flex-wrap: wrap;
+    margin: 0;
+    padding: 16px 26px 20px;
+    border-top: 1px solid var(--line-soft, #e4e0d8);
+  }
+  #inv-modal-overlay .inv-stock-modal .inv-btn-ghost,
+  #inv-modal-overlay .inv-stock-modal .inv-btn-primary {
+    min-height: 38px;
+    padding: 9px 15px;
+    border-radius: var(--r-sm, 10px);
+    font-family: inherit;
+    font-size: 13.2px;
+    font-weight: 700;
+    box-shadow: var(--clay-flat, 0 1px 2px rgba(31, 42, 46, 0.045));
+  }
+  #inv-modal-overlay .inv-stock-modal .inv-btn-ghost:hover {
+    border-color: var(--teal-400, #0f766e);
+    color: var(--teal-700, #0f766e);
+    background: var(--surface-card-raised, #fff);
+  }
+  #inv-modal-overlay .inv-stock-modal .inv-btn-primary {
+    background: var(--teal-600, #0f766e);
+    border-color: var(--teal-700, #0f766e);
+    color: var(--ink-on-brand, #fff);
+    box-shadow: 0 1px 1px rgba(5, 34, 29, 0.3), 0 8px 16px -8px rgba(16, 68, 58, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  }
+  #inv-modal-overlay .inv-stock-modal .inv-btn-primary:hover {
+    background: var(--teal-500, #0b5f58);
+    border-color: var(--teal-600, #0f766e);
+  }
+  #inv-modal-overlay .inv-stock-modal .modal-close:focus-visible,
+  #inv-modal-overlay .inv-stock-modal .inv-btn-ghost:focus-visible,
+  #inv-modal-overlay .inv-stock-modal .inv-btn-primary:focus-visible {
+    outline: 2px solid var(--teal-400, #0f766e);
+    outline-offset: 2px;
+  }
+  @media (max-width: 620px) {
+    #inv-modal-overlay .inv-stock-modal .modal-head,
+    #inv-modal-overlay .inv-stock-modal .inv-stock-body,
+    #inv-modal-overlay .inv-stock-modal .modal-footer,
+    #inv-modal-overlay .inv-stock-modal .inv-error { padding-left: 18px; padding-right: 18px; }
+    #inv-modal-overlay .inv-stock-modal .modal-footer .inv-btn-ghost,
+    #inv-modal-overlay .inv-stock-modal .modal-footer .inv-btn-primary { flex: 1 1 auto; }
+  }
+</style>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-mark"><i class="fa-solid fa-paw"></i></div>
+        <div class="brand-text">
+          <div class="brand-name">Pawsitive Care</div>
+          <div class="brand-role">Administrator</div>
+        </div>
+      </div>
+      <div class="sidebar-divider"></div>
+      <nav class="sidebar-nav">
+      <div class="nav-group">
+        <div class="nav-group-label">MAIN</div>
+        <a href="dashboard.html" class="nav-item" data-page="dashboard.html">
+          <span class="nav-icon"><i class="fa-solid fa-house"></i></span>
+          <span class="nav-label">Dashboard</span>
+        </a>
+        <a href="appointments.html" class="nav-item" data-page="appointments.html">
+          <span class="nav-icon"><i class="fa-solid fa-calendar-days"></i></span>
+          <span class="nav-label">Appointments</span>
+        </a>
+        <a href="queue.html" class="nav-item" data-page="queue.html">
+          <span class="nav-icon"><i class="fa-solid fa-hourglass-half"></i></span>
+          <span class="nav-label">Queue</span>
+        </a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">PATIENT MANAGEMENT</div>
+        <a href="patients.html" class="nav-item" data-page="patients.html">
+          <span class="nav-icon"><i class="fa-solid fa-paw"></i></span>
+          <span class="nav-label">Patients</span>
+        </a>
+        <a href="clients.html" class="nav-item" data-page="clients.html">
+          <span class="nav-icon"><i class="fa-solid fa-user"></i></span>
+          <span class="nav-label">Clients</span>
+        </a>
+        <a href="medical-records.html" class="nav-item" data-page="medical-records.html">
+          <span class="nav-icon"><i class="fa-solid fa-notes-medical"></i></span>
+          <span class="nav-label">Medical Records</span>
+        </a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">CLINIC</div>
+        <a href="services.html" class="nav-item" data-page="services.html">
+          <span class="nav-icon"><i class="fa-solid fa-hospital"></i></span>
+          <span class="nav-label">Services</span>
+        </a>
+        <a href="inventory.html" class="nav-item" data-page="inventory.html">
+          <span class="nav-icon"><i class="fa-solid fa-boxes-stacked"></i></span>
+          <span class="nav-label">Inventory</span>
+        </a>
+        <a href="billing.html" class="nav-item" data-page="billing.html">
+          <span class="nav-icon"><i class="fa-solid fa-credit-card"></i></span>
+          <span class="nav-label">Billing</span>
+        </a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">INSIGHTS</div>
+        <a href="predictive-analytics.html" class="nav-item" data-page="predictive-analytics.html">
+          <span class="nav-icon"><i class="fa-solid fa-chart-line"></i></span>
+          <span class="nav-label">Predictive Analytics</span>
+        </a>
+        <a href="reports.html" class="nav-item" data-page="reports.html">
+          <span class="nav-icon"><i class="fa-solid fa-chart-column"></i></span>
+          <span class="nav-label">Reports</span>
+        </a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">SYSTEM</div>
+        <a href="notifications.html" class="nav-item" data-page="notifications.html">
+          <span class="nav-icon"><i class="fa-solid fa-bell"></i></span>
+          <span class="nav-label">Notifications</span>
+        </a>
+        <a href="staff-users.html" class="nav-item" data-page="staff-users.html">
+          <span class="nav-icon"><i class="fa-solid fa-users"></i></span>
+          <span class="nav-label">Staff & Users</span>
+        </a>
+        <a href="settings.html" class="nav-item" data-page="settings.html">
+          <span class="nav-icon"><i class="fa-solid fa-gear"></i></span>
+          <span class="nav-label">Settings</span>
+        </a>
+      </div>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="footer-avatar">A</div>
+        <div>
+          <div class="footer-name">Admin</div>
+          <div class="footer-role">Administrator</div>
+        </div>
+      </div>
+    </aside>
+
+    <div class="main-content">
+      <header class="topbar">
+        <div class="topbar-left">
+          <button class="menu-toggle" aria-label="Toggle navigation"><i class="fa-solid fa-bars"></i></button>
+        </div>
+      </header>
+
+      <main class="page-body" id="inventory-page-body">
+        <div id="inventory-root"></div>
+      </main>
+    </div>
+  </div>
+
+  <script src="data-store.js"></script>
+  <script src="sidebar.js"></script>
+  <script src="inventory.js"></script>
+</body>
+</html>

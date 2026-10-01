@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Queue · Pawsitive Care</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+<link rel="stylesheet" href="style.css">
+<style>
+  /* --- header cleanup (Queue page) ---
+     Same reasoning as Appointments: the page-level title/breadcrumb
+     that used to live in .topbar is gone, so the border-bottom
+     style.css draws for pages that keep that title is suppressed
+     here (scoped to this page only, style.css untouched). */
+  .topbar { border-bottom: none; }
+
+  /* --- header spacing (Queue page) ---
+     Nudges the "TODAY'S QUEUE" toolbar block down slightly, page-
+     scoped only. margin-bottom (spacing to Now Serving/Next Up below)
+     is untouched — inherited from style.css's .page-toolbar as before. */
+  .page-toolbar { margin-top: 22px; }
+
+  /* ============================================================
+     MASTER/DETAIL WORKSPACE — Queue list (left) + Queue Details
+     (right), mirroring Appointments' .calendar-workspace /
+     .schedule-pane / .details-pane / .details-panel pattern so the
+     two pages feel like the same system. Additive only: no rule
+     owned by style.css is redefined here.
+     ============================================================ */
+  .queue-workspace {
+    display: flex; align-items: flex-start; gap: 14px; max-width: 100%;
+    --workspace-h: 560px;
+  }
+  .queue-list-pane {
+    flex: 1 1 65%; min-width: 0;
+    height: var(--workspace-h);
+    display: flex; flex-direction: column;
+  }
+  .queue-list-pane .queue-table-wrap {
+    flex: 1 1 auto; min-height: 0;
+    overflow-y: auto;
+  }
+  .queue-details-pane {
+    flex: 0 0 35%; min-width: 260px;
+    height: var(--workspace-h);
+    display: flex; flex-direction: column;
+  }
+  @media (max-width: 900px) {
+    .queue-workspace { flex-direction: column; }
+    .queue-workspace .queue-list-pane,
+    .queue-workspace .queue-details-pane { height: auto; max-width: none; width: 100%; }
+    .queue-list-pane .queue-table-wrap { max-height: 420px; }
+  }
+
+  /* --- Queue Details panel — same "inspector" treatment as the
+     Appointment Details panel: one bordered card, section groups
+     told apart with a small label + hairline instead of nested
+     boxes. Classes/structure intentionally match appointments.html
+     so the two panels read as the same component. --- */
+  .details-panel {
+    background: var(--surface-card);
+    border: 1px solid var(--line-soft);
+    border-radius: var(--r-md);
+    padding: 20px 20px 20px;
+    display: flex; flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+  }
+  .details-empty {
+    flex: 1 1 auto;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; color: var(--ink-faint); font-weight: 600; font-size: 12.6px;
+    padding: 24px 10px;
+  }
+  .details-empty i { font-size: 22px; margin-bottom: 10px; color: var(--ink-faint); }
+
+  .details-header {
+    display: flex; align-items: flex-start; gap: 16px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .details-avatar {
+    width: 56px; height: 56px; border-radius: 50%; flex-shrink: 0;
+    background: var(--surface-sunken);
+  }
+  .details-title-row { display: flex; align-items: center; justify-content: flex-start; gap: 10px; flex-wrap: wrap; }
+  .details-pet-name { font-size: 18px; font-weight: 800; color: var(--ink-900); }
+  .details-pet-sub {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 12.2px; font-weight: 600; color: var(--ink-faint); margin-top: 6px;
+  }
+  .details-pet-owner {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 12.2px; font-weight: 600; color: var(--ink-faint);
+    margin-top: 6px;
+  }
+  .details-pet-owner i { font-size: 10.5px; color: var(--ink-faint); width: 12px; text-align: center; }
+  .details-pet-owner strong { color: var(--ink-900); font-weight: 700; }
+  /* close button — reuses the shared .modal-close styling, pinned to
+     the header's far right as the last flex child. Same rule/pattern
+     as appointments.html's Appointment Details close button. */
+  .details-header .modal-close { flex-shrink: 0; }
+
+  .details-section { padding-top: 20px; }
+  .details-section + .details-section { border-top: 1px solid var(--line-soft); margin-top: 20px; }
+  .details-section-title {
+    display: flex; align-items: center; gap: 7px;
+    font-size: 13px; font-weight: 700; color: var(--ink-900);
+    margin-bottom: 12px;
+  }
+  .details-section-title i { font-size: 12px; color: var(--teal-700); width: 14px; text-align: center; }
+
+  .details-rows { display: flex; flex-direction: column; gap: 14px; padding-left: 10px; }
+  .details-row { display: flex; align-items: center; gap: 12px; }
+  .details-row i {
+    width: 16px; flex-shrink: 0; text-align: center;
+    color: var(--ink-faint); font-size: 13px;
+  }
+  .details-row > div { min-width: 0; }
+  .details-row-value { font-size: 13px; font-weight: 500; color: var(--ink-900); line-height: 1.35; word-break: break-word; }
+  .details-row-value.is-empty { color: var(--ink-faint); font-weight: 600; font-style: italic; }
+  .details-sr-only {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+  }
+
+  /* --- Queue Information — plain label/value rows (Queue Code,
+     Position, Arrived, Waiting Time, Status), same section scaffold
+     as above but a simple two-ended row instead of an icon list,
+     since these are short facts rather than descriptive fields. --- */
+  .queue-info-rows { display: flex; flex-direction: column; gap: 11px; padding-left: 10px; }
+  .queue-info-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    font-size: 12.2px; font-weight: 600; color: var(--ink-faint);
+  }
+  .queue-info-row .qir-value { font-size: 13px; font-weight: 800; color: var(--ink-900); }
+
+  .details-notes { font-size: 12.4px; font-weight: 600; color: var(--ink-soft); line-height: 1.5; padding-left: 10px; }
+  .details-notes-empty {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 12.4px; font-weight: 600; color: var(--ink-faint);
+    padding-left: 10px;
+  }
+  .details-notes-empty i { font-size: 13px; color: var(--ink-faint); flex-shrink: 0; }
+  .details-notes-empty span { font-style: italic; }
+
+  .details-actions { display: flex; flex-wrap: wrap; gap: 12px; }
+  .details-actions .btn { flex: 1 1 calc(50% - 6px); justify-content: center; }
+
+  /* --- selection highlight on queue table rows — same visual
+     language as .sched-card.is-selected on Appointments. --- */
+  .queue-table tbody tr { cursor: pointer; transition: background 0.12s ease; }
+  .queue-table tbody tr.is-selected { background: var(--teal-100); }
+  .queue-table tbody tr.is-selected:hover { background: var(--teal-100); }
+
+  /* ============================================================
+     NOW SERVING / NEXT UP — one shared card component (.qspot-card)
+     for both. Task: identical internal layout for both states, both
+     using the current Next Up card's light surface treatment (no
+     separate dark "hero" style for Now Serving). Page-scoped only —
+     style.css's own .now-serving-card / .next-up-card rules are
+     simply not used anymore on this page; style.css itself is
+     untouched, so nothing elsewhere is affected.
+     ============================================================ */
+  .qspot-card {
+    background: var(--surface-card);
+    border: 1px solid var(--line-soft);
+    border-radius: var(--r-lg);
+    box-shadow: var(--clay-raised);
+    padding: 22px 24px;
+    min-height: 214px;
+    /* Single-column shell now — the photo no longer sits beside the
+       whole tall stack. It lives inside .qspot-body, paired only with
+       the queue code + patient name via .qspot-identity below.
+       min-width: 0 lets this grid item shrink inside .queue-layout's
+       1.1fr/1fr tracks instead of forcing them wider than the page. */
+    display: flex; flex-direction: column;
+    min-width: 0;
+  }
+  /* The card's original content column, unchanged in spacing — still
+     stretches to the card's full height so .qspot-status-row's
+     margin-top:auto still pins the status to the bottom, and still
+     has min-width: 0 so long vet/service strings wrap instead of
+     widening the card past its track and pushing content out of view. */
+  .qspot-body {
+    flex: 1 1 auto; min-width: 0;
+    display: flex; flex-direction: column; gap: 7px;
+  }
+  /* Nothing in the stack may be compressed to make the card fit —
+     every line keeps its natural height so all of Next Up's rows
+     (code, patient, species/age/sex, vet, service, waiting, action)
+     stay visible instead of being squeezed out. */
+  .qspot-body > * { flex-shrink: 0; }
+  /* Identity row — photo paired specifically with queue code + patient
+     name, not the entire card. gap matches .details-header's avatar-
+     to-text gap (16px) so this reads as the same component language
+     as Queue Details. */
+  .qspot-identity {
+    display: flex; align-items: center; gap: 16px; min-width: 0;
+  }
+  .qspot-identity-text { min-width: 0; }
+  /* Pet photo placeholder — intentionally empty (no icon/initials);
+     the real image gets dropped in later. Same 56px circle, same
+     flex-shrink and surface as Queue Details' .details-avatar. */
+  .qspot-avatar {
+    width: 56px; height: 56px; border-radius: 50%; flex-shrink: 0;
+    background: var(--surface-sunken);
+  }
+  .qspot-pet, .qspot-meta, .qspot-service, .qspot-status { overflow-wrap: anywhere; }
+  .qspot-label { font-size: 11.5px; font-weight: 800; letter-spacing: 0.08em; color: var(--ink-faint); }
+  .qspot-code { font-size: 28px; font-weight: 800; letter-spacing: -0.02em; color: var(--teal-700); margin: 2px 0; }
+  .qspot-pet { font-size: 17px; font-weight: 800; color: var(--ink-900); }
+  .qspot-meta { font-size: 12.6px; color: var(--ink-soft); font-weight: 600; }
+  .qspot-detail {
+    font-size: 12.8px; color: var(--ink-soft); font-weight: 600;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .qspot-detail i { font-size: 11px; color: var(--ink-faint); width: 13px; text-align: center; flex-shrink: 0; }
+  .qspot-detail span { min-width: 0; overflow-wrap: anywhere; }
+  .qspot-service { font-size: 13px; font-weight: 700; color: var(--ink-900); }
+  .qspot-status-row {
+    margin-top: auto; padding-top: 12px;
+    border-top: 1px solid var(--line-soft);
+  }
+  .qspot-status { font-size: 12.6px; font-weight: 700; color: var(--teal-700); }
+  .qspot-actions { margin-top: 10px; }
+
+  /* --- Now Serving state modifier: same .qspot-card structure/
+     spacing as Next Up, but restores the original dark teal "active
+     patient" surface (matching style.css's now-serving-* colors) via
+     scoped text-color overrides on the shared child classes. Next Up
+     keeps the base .qspot-card light treatment untouched. --- */
+  .qspot-card--now {
+    background: var(--teal-700);
+    border-color: var(--teal-700);
+    box-shadow: var(--clay-raised-lg);
+  }
+  .qspot-card--now .qspot-label { color: rgba(244, 249, 247, 0.62); }
+  .qspot-card--now .qspot-code,
+  .qspot-card--now .qspot-pet,
+  .qspot-card--now .qspot-status { color: var(--ink-on-brand); }
+  .qspot-card--now .qspot-meta { color: rgba(244, 249, 247, 0.72); }
+  .qspot-card--now .qspot-detail { color: rgba(244, 249, 247, 0.78); }
+  .qspot-card--now .qspot-detail i { color: rgba(244, 249, 247, 0.62); }
+  .qspot-card--now .qspot-service { color: rgba(244, 249, 247, 0.9); }
+  .qspot-card--now .qspot-status-row { border-top-color: rgba(244, 249, 247, 0.18); }
+  /* Same circle, same size/shape; only the fill is translated to the
+     dark surface using the exact on-teal value this card already uses
+     for .qspot-empty-icon, so the placeholder reads as a recessed well
+     rather than a beige blob. Card colors themselves are untouched. */
+  .qspot-card--now .qspot-avatar { background: rgba(244, 249, 247, 0.1); }
+  .qspot-card--now .qspot-empty-icon { background: rgba(244, 249, 247, 0.1); color: rgba(244, 249, 247, 0.8); }
+  .qspot-card--now .qspot-empty p { color: rgba(244, 249, 247, 0.72); }
+
+  /* --- Next Up state modifier: restores the exact surface color the
+     original (pre-refactor) Next Up card used — var(--surface-sunken),
+     the same sunken-box background its nested .next-up-spotlight had
+     — now applied to the whole card since the two-level nesting was
+     flattened into one .qspot-card. Border/shadow are unchanged from
+     the base .qspot-card, matching the original outer .next-up-card's
+     border/shadow values already. */
+  .qspot-card--next { background: var(--surface-sunken); }
+  /* Next Up's photo placeholder was invisible: both this card and the
+     default .qspot-avatar use var(--surface-sunken), so the circle
+     blended into the card. Give the placeholder its own visible fill
+     here — the card's own background above is untouched. */
+  .qspot-card--next .qspot-avatar {
+    background: var(--surface-card);
+    border: 1px solid var(--line-strong);
+  }
+  /* Same root cause as the avatar fix above: the status-row divider
+     uses var(--line-soft) (#eae3d3), which sits almost on top of this
+     card's var(--surface-sunken) background (#eee8db) — so the
+     Service → Waiting divider was rendered but invisible. Bump just
+     this card's divider to var(--line-strong), the same tone already
+     used for borders that need to read against a sunken surface (see
+     the avatar border above, and .details-panel-style dividers
+     elsewhere in the Queue/Appointment Details UI). Structure, width,
+     and spacing of .qspot-status-row are untouched. */
+  .qspot-card--next .qspot-status-row { border-top-color: var(--line-strong); }
+
+  /* empty state (no one serving / no one waiting) — same shell,
+     centered icon + text, no card-specific styling of its own. */
+  .qspot-empty {
+    flex: 1 1 auto;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; gap: 8px;
+  }
+  .qspot-empty-icon {
+    font-size: 20px; width: 48px; height: 48px; border-radius: var(--r-md);
+    background: var(--surface-sunken); color: var(--ink-faint);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .qspot-empty p { color: var(--ink-soft); font-weight: 600; font-size: 13px; }
+</style>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-mark"><i class="fa-solid fa-paw"></i></div>
+        <div class="brand-text">
+          <div class="brand-name">Pawsitive Care</div>
+          <div class="brand-role">Administrator</div>
+        </div>
+      </div>
+      <div class="sidebar-divider"></div>
+      <nav class="sidebar-nav">
+      <div class="nav-group">
+        <div class="nav-group-label">MAIN</div>
+        <a href="dashboard.html" class="nav-item" data-page="dashboard.html">
+          <span class="nav-icon"><i class="fa-solid fa-house"></i></span>
+          <span class="nav-label">Dashboard</span>
+        </a>
+        <a href="appointments.html" class="nav-item" data-page="appointments.html">
+          <span class="nav-icon"><i class="fa-solid fa-calendar-days"></i></span>
+          <span class="nav-label">Appointments</span>
+        </a>
+        <a href="queue.html" class="nav-item" data-page="queue.html">
+          <span class="nav-icon"><i class="fa-solid fa-hourglass-half"></i></span>
+          <span class="nav-label">Queue</span>
+        </a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">PATIENT MANAGEMENT</div>
+        <a href="patients.html" class="nav-item" data-page="patients.html">
+          <span class="nav-icon"><i class="fa-solid fa-paw"></i></span>
+          <span class="nav-label">Patients</span>
+        </a>
+        <a href="clients.html" class="nav-item" data-page="clients.html">
+          <span class="nav-icon"><i class="fa-solid fa-user"></i></span>
+          <span class="nav-label">Clients</span>
+        </a>
+        <a href="medical-records.html" class="nav-item" data-page="medical-records.html">
+          <span class="nav-icon"><i class="fa-solid fa-notes-medical"></i></span>
+          <span class="nav-label">Medical Records</span>
+        </a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">CLINIC</div>
+        <a href="services.html" class="nav-item" data-page="services.html">
+          <span class="nav-icon"><i class="fa-solid fa-hospital"></i></span>
+          <span class="nav-label">Services</span>
+        </a>
+        <a href="inventory.html" class="nav-item" data-page="inventory.html">
+          <span class="nav-icon"><i class="fa-solid fa-boxes-stacked"></i></span>
+          <span class="nav-label">Inventory</span>
+        </a>
+        <a href="billing.html" class="nav-item" data-page="billing.html">
+          <span class="nav-icon"><i class="fa-solid fa-credit-card"></i></span>
+          <span class="nav-label">Billing</span>
+        </a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">INSIGHTS</div>
+        <a href="predictive-analytics.html" class="nav-item" data-page="predictive-analytics.html">
+          <span class="nav-icon"><i class="fa-solid fa-chart-line"></i></span>
+          <span class="nav-label">Predictive Analytics</span>
+        </a>
+        <a href="reports.html" class="nav-item" data-page="reports.html">
+          <span class="nav-icon"><i class="fa-solid fa-chart-column"></i></span>
+          <span class="nav-label">Reports</span>
+        </a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">SYSTEM</div>
+        <a href="notifications.html" class="nav-item" data-page="notifications.html">
+          <span class="nav-icon"><i class="fa-solid fa-bell"></i></span>
+          <span class="nav-label">Notifications</span>
+        </a>
+        <a href="staff-users.html" class="nav-item" data-page="staff-users.html">
+          <span class="nav-icon"><i class="fa-solid fa-users"></i></span>
+          <span class="nav-label">Staff & Users</span>
+        </a>
+        <a href="settings.html" class="nav-item" data-page="settings.html">
+          <span class="nav-icon"><i class="fa-solid fa-gear"></i></span>
+          <span class="nav-label">Settings</span>
+        </a>
+      </div>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="footer-avatar">A</div>
+        <div>
+          <div class="footer-name">Admin</div>
+          <div class="footer-role">Administrator</div>
+        </div>
+      </div>
+    </aside>
+
+    <div class="main-content">
+      <header class="topbar">
+        <div class="topbar-left">
+          <button class="menu-toggle" aria-label="Toggle navigation"><i class="fa-solid fa-bars"></i></button>
+        </div>
+      </header>
+
+      <main class="page-body">
+
+        <div class="page-toolbar">
+          <div>
+            <div style="font-size:20px; font-weight:800; margin-bottom:2px;">TODAY'S QUEUE</div>
+            <div id="queue-date" style="font-size:13px; color:var(--ink-soft); font-weight:600;"></div>
+          </div>
+        </div>
+
+        <div class="queue-layout">
+          <div class="qspot-card qspot-card--now" id="now-serving-box"></div>
+          <div class="qspot-card qspot-card--next" id="next-up-box"></div>
+        </div>
+
+        <div class="queue-workspace">
+          <div class="queue-list-pane">
+            <div class="queue-table-wrap">
+              <table class="queue-table">
+                <thead>
+                  <tr>
+                    <th>Code</th>
+                    <th>Patient</th>
+                    <th>Client</th>
+                    <th>Veterinarian</th>
+                    <th>Status</th>
+                    <th>Waiting</th>
+                  </tr>
+                </thead>
+                <tbody id="queue-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="queue-details-pane">
+            <div class="details-panel" id="details-panel"></div>
+          </div>
+        </div>
+
+      </main>
+    </div>
+  </div>
+
+  <script src="sidebar.js"></script>
+  <script src="data-store.js"></script>
+  <script src="patient-data-store.js"></script>
+  <script src="settings-data-store.js"></script>
+  <script src="queue.js"></script>
+</body>
+</html>

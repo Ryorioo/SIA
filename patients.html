@@ -1,0 +1,1012 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Patients · Pawsitive Care</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+<link rel="stylesheet" href="style.css">
+<style>
+  /* ============================================================
+     PATIENTS PAGE — page-scoped styles only (style.css untouched)
+     Reuses existing design tokens (colors, radii, shadows) from
+     style.css so it matches the rest of the app.
+     ============================================================ */
+
+  /* --- header cleanup (Patients page) ---
+     Same treatment as Appointments/Queue: the page-level title/
+     breadcrumb that used to live in .topbar is removed, so the
+     border-bottom style.css draws for pages that keep that title is
+     suppressed here (scoped to this page only, style.css untouched). */
+  .topbar { border-bottom: none; }
+
+  /* --- header spacing (Patients page) ---
+     Nudges the "Patient Records" toolbar block down slightly to fill
+     the space left by the removed title/breadcrumb, page-scoped only.
+     margin-bottom (spacing to the filter bar below) is untouched —
+     inherited from style.css's .page-toolbar as before. */
+  .page-toolbar { margin-top: 22px; }
+
+  /* --- patients search field: fix nested-box appearance ---
+     .search-field (from style.css) already renders the field's
+     single background/border. The plain <input> inside it still
+     carries the browser's own input chrome (background/border),
+     so it visually reads as a box inside a box. Making the input
+     transparent/borderless and moving focus styling to the outer
+     wrapper via :focus-within (same teal token used for this fix
+     on the Services/Appointments search fields) collapses this
+     back to one visible field. Purely visual — no markup, JS, or
+     functional change. */
+  .filter-bar .search-field input {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    outline: none;
+    flex: 1;
+    width: 100%;
+  }
+  .filter-bar .search-field:focus-within {
+    border-color: var(--teal-400);
+  }
+
+  /* ============================================================
+     Unified select component — Species / Sex / Status / Vaccination
+     status (Add/Edit Patient modal) and the Species/Status filters
+     on the Patients toolbar. All six get the same class (.pc-select)
+     so they render identically: warm beige surface, existing border/
+     radius tokens, and one CSS-drawn chevron replacing each browser's
+     native (oversized, inconsistent) arrow. Purely visual — markup
+     stays a plain native <select> (appearance:none only hides the
+     OS arrow; it does not change behavior or keyboard access), and
+     no option, value, id, or JS hook is touched. Kept here because
+     style.css is off-limits.
+     Height (38px) for the modal selects continues to come from the
+     existing "#modal-overlay .form-field select" rule further down;
+     the filter selects get their own 38px below so both groups match. */
+  .pc-select {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    box-sizing: border-box;
+    background-color: var(--surface-sunken);
+    border: 1px solid var(--line-soft);
+    border-radius: 10px;
+    color: var(--ink-900);
+    font: inherit;
+    max-width: 100%;
+    padding: 0 34px 0 12px;
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    /* Two small gradient squares meeting at right angles, rotated to
+       form a single downward chevron — no image asset, so its color
+       tracks the design tokens exactly and it stays crisp at any zoom. */
+    background-image:
+      linear-gradient(45deg, transparent 50%, var(--ink-faint) 50%),
+      linear-gradient(135deg, var(--ink-faint) 50%, transparent 50%);
+    background-position:
+      calc(100% - 18px) center,
+      calc(100% - 13px) center;
+    background-size: 5px 5px, 5px 5px;
+    background-repeat: no-repeat;
+    transition: border-color 0.15s ease;
+  }
+  .pc-select::-ms-expand { display: none; }
+  .pc-select:hover { border-color: var(--line-strong); }
+  .pc-select:focus {
+    outline: none;
+    border-color: var(--teal-400);
+  }
+  /* Filter-bar selects sit outside #modal-overlay's height rule, so
+     they get the same fixed 38px control height directly here. */
+  .filter-bar .pc-select {
+    height: 38px;
+  }
+
+  /* Generic panel surface — reused for the empty-results state. */
+  .patients-table-wrap {
+    background: var(--surface-card);
+    border: 1px solid var(--line-soft);
+    border-radius: var(--r-lg);
+    box-shadow: var(--clay-flat);
+    overflow-x: auto;
+  }
+
+  /* --- patient card: identity row (photo placeholder + name/species/ID) ---
+     Gap and avatar size scaled up slightly from the first pass so the
+     row reads with the same "give it room" feel as Queue's identity
+     row (.qspot-identity, 16px gap / 56px avatar), just brought down a
+     size notch to suit a 3-up grid card instead of a single hero card. */
+  .patient-card-identity { display: flex; align-items: flex-start; gap: 24px; }
+
+  /* Empty circular photo placeholder — plain surface + muted camera
+     glyph, not a species icon or emoji, so it reads as "no photo yet"
+     rather than as decoration. */
+  .patient-photo-placeholder {
+    width: 48px; height: 48px; border-radius: 50%; flex-shrink: 0;
+    background: var(--surface-card);
+    border: 1px solid var(--line-strong);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--ink-faint); font-size: 16px;
+  }
+
+  .patient-identity-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  /* Patient ID badge — soft-teal pill so it reads as "this is the
+     clinic ID" rather than plain muted text, while staying clearly
+     smaller/quieter than the Active/Inactive status badge (that one
+     uses --sage-100/--slate-100 + --sage-600/--ink-soft and the shared
+     .status-badge pill sizing at 11.3px/4px-11px padding — this badge
+     is intentionally a size down on both font and padding, and
+     align-self keeps it from stretching to the identity column's
+     width). Colors reuse the existing soft-teal tokens already used
+     elsewhere in the app (e.g. --teal-50/--teal-700 on nav/hover
+     states) — no new color introduced. */
+  /* Patient ID badge — subtle neutral/warm pill (same --surface-card +
+     --line-soft border pattern used for neutral panels elsewhere in the
+     app, e.g. the profile-section / client-selected-card surfaces) so it
+     reads as a clinic identifier, not a status indicator. Text stays
+     dark-teal; only the background moved off teal to keep that color
+     reserved for the Active/Inactive status badge alone. Still clearly
+     smaller/quieter than the status badge (11px text vs. its 11.3px +
+     heavier 4px/11px padding, and align-self keeps it from stretching
+     to the identity column's width). */
+  .patient-identity-text .ppid {
+    align-self: flex-start;
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--teal-700);
+    background: var(--surface-card);
+    border: 1px solid var(--line-soft);
+    padding: 2px 7px;
+    border-radius: 6px;
+    line-height: 1.4;
+  }
+  /* Dark-teal patient name — matches the dark-teal token already used
+     within the Queue's Next Up card (--teal-700, used there for the
+     queue code and status line) so the name reads in the same visual
+     language as Queue, rather than the previous dark-ink color. */
+  .patient-identity-text .pname { font-weight: 800; color: var(--teal-700); font-size: 16px; line-height: 1.25; }
+  .patient-identity-text .pspecies { font-size: 11.5px; color: var(--ink-700); font-weight: 600; }
+
+  .patient-card-status { margin-left: auto; flex-shrink: 0; }
+
+  /* Thin horizontal rules separating the identity / quick-info /
+     owner-visit / actions groups inside a card. Spacing above/below
+     comes entirely from .patient-card's own flex `gap` (below), so
+     that's what gives these dividers more room — the rule itself
+     stays exactly as thin/subtle as before, matching Queue's
+     --line-soft divider treatment.
+     Color is --line-strong rather than --line-soft, though: this card's
+     background is --surface-sunken, and --line-soft (#eae3d3) sits
+     almost on top of --surface-sunken (#eee8db) — the same near-
+     invisible pairing Queue's own qspot-card--next had to correct for
+     its status-row divider by bumping to --line-strong. Same fix,
+     same reasoning, applied here so the dividers stay visible instead
+     of disappearing into the card's beige surface. */
+  .patient-card-hr { border: none; border-top: 1px solid var(--line-strong); margin: 0; }
+  /* Anchors the last divider (and the actions row after it) to the
+     bottom of the card. Cards in the same grid row already stretch to
+     equal height (CSS Grid default), so on shorter cards this turns
+     that leftover space into breathing room above the actions instead
+     of stranding them high up with dead space below — every card in a
+     row gets the same, aligned action-row position without forcing
+     identical content heights. */
+  /* Only the identity→quickinfo and quickinfo→ownervisit dividers
+     remain (the one above actions is removed — see patients.js).
+     The actions row now anchors to the card bottom directly, since
+     it's no longer the element right after the last <hr>. */
+  .patient-card-footer { margin-top: auto; }
+
+  /* --- quick-info row (Sex / Age / Weight) ---
+     Three equal-width items, each centered, separated by thin
+     vertical dividers that stretch to the row's own (compact)
+     height — same --line-strong divider treatment used for the
+     Owner/Last Visit divider below. Muted --ink-soft throughout
+     (same tone as the Owner/Last Visit *labels*, not the darker
+     value color) so this row stays a supporting element, never
+     competing with the pet name or owner value. */
+  .patient-card-quickinfo {
+    display: flex;
+    align-items: center;
+    font-size: 12.2px;
+    line-height: 1.4;
+    color: var(--ink-soft);
+    font-weight: 600;
+  }
+  .patient-card-quickinfo .pqi-item {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .patient-card-quickinfo .pqi-item i {
+    font-size: 14px;
+    color: var(--ink-soft);
+    flex-shrink: 0;
+  }
+  .patient-card-quickinfo .pqi-divider {
+    width: 1px;
+    align-self: stretch;
+    margin: 1px 0;
+    background: var(--line-strong);
+    flex-shrink: 0;
+  }
+
+  /* --- patient card grid (replaces the old patients table) --- */
+  /* Desktop: 3 cards per row. Collapses at the same tablet/mobile
+     breakpoints already used elsewhere in the app (1080px, 640px)
+     so it steps down in line with the rest of Pawsitive Care. */
+  .patients-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 18px;
+  }
+
+  @media (max-width: 1080px) {
+    .patients-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+
+  @media (max-width: 640px) {
+    .patients-grid { grid-template-columns: 1fr; }
+  }
+
+  /* Warm beige/sunken surface — same token Queue uses for its
+     "next up" card and avatar wells — with the existing flat
+     claymorphism (restrained border + soft shadow, no gradients).
+     Padding/gap opened up a notch from the first pass (16px 18px /
+     12px) so the card reads as spacious rather than tight, in the
+     spirit of Queue's roomier .qspot-card padding — scaled down to
+     suit a 3-up grid card rather than Queue's single hero card. */
+  .patient-card {
+    background: var(--surface-sunken);
+    border: 1px solid var(--line-soft);
+    border-radius: var(--r-lg);
+    box-shadow: var(--clay-flat);
+    padding: 18px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  .patient-card:hover { border-color: var(--teal-400); box-shadow: var(--clay-raised); }
+
+  .patient-card-ownervisit {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+  .patient-card-ownervisit .pcov-col {
+    display: flex; flex-direction: column; gap: 3px; min-width: 0;
+  }
+  .patient-card-ownervisit .pcov-col + .pcov-col {
+    border-left: 1px solid var(--line-strong);
+    padding-left: 14px;
+    margin-left: 14px;
+  }
+  .patient-card-ownervisit .pf-label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--ink-soft);
+  }
+  .patient-card-ownervisit .pf-label i {
+    font-size: 11.5px;
+    color: var(--ink-soft);
+    flex-shrink: 0;
+  }
+  .patient-card-ownervisit .pf-value {
+    font-size: 12.8px;
+    font-weight: 600;
+    color: var(--ink-800);
+    overflow-wrap: anywhere;
+  }
+  /* Secondary line under the Owner value (contact) and Last Visit value
+     (service) — same muted tone/weight as the Sex·Age·Weight row so it
+     stays supporting, never competing with the value line above it. */
+  .patient-card-ownervisit .pf-sub {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10.8px;
+    font-weight: 600;
+    color: var(--ink-faint);
+    overflow-wrap: anywhere;
+  }
+  .patient-card-ownervisit .pf-sub i { font-size: 10px; color: var(--ink-faint); flex-shrink: 0; }
+
+  .patient-card-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .icon-btn {
+    width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center;
+    border-radius: var(--r-sm); border: 1px solid var(--line-soft); background: var(--surface-card-raised);
+    color: var(--ink-soft); cursor: pointer; box-shadow: var(--clay-flat); font-size: 12px;
+    transition: border-color 0.15s ease, color 0.15s ease;
+  }
+  .icon-btn:hover { border-color: var(--teal-400); color: var(--teal-700); }
+
+  /* Active reuses the app's existing sage "positive" tokens (already the
+     closest match to the requested soft sage-green/dark-green direction).
+     Inactive intentionally does NOT reuse --slate-100/--slate-800 — those
+     are already the appointment "Completed" badge colors, and reusing them
+     here would make an inactive patient read like a completed appointment.
+     --line-soft/--ink-soft instead give a warm beige-gray in the same
+     family as the rest of the app's neutral tokens, without borrowing
+     another status's meaning. */
+  .status-active   { background: var(--sage-100); color: var(--sage-600); }
+  .status-inactive { background: var(--line-soft); color: var(--ink-soft); }
+
+  .patients-count { font-size: 13px; color: var(--ink-soft); font-weight: 600; margin-bottom: 12px; }
+
+  /* --- large profile modal (reuses .modal-overlay / .modal-box tokens) --- */
+  .profile-modal .modal-box { max-width: 760px; }
+
+  .profile-head {
+    display: flex; align-items: center; gap: 14px; margin-bottom: 4px;
+  }
+  .profile-avatar {
+    width: 56px; height: 56px; border-radius: var(--r-md);
+    background: var(--teal-600); color: var(--ink-on-brand);
+    display: flex; align-items: center; justify-content: center; font-size: 22px;
+    box-shadow: var(--clay-raised); flex-shrink: 0;
+  }
+  .profile-name { font-size: 19px; font-weight: 800; color: var(--ink-900); }
+  .profile-sub { font-size: 12.5px; color: var(--ink-soft); font-weight: 600; margin-top: 2px; }
+
+  .profile-links { display: flex; gap: 8px; flex-wrap: wrap; margin: 16px 0 4px; }
+
+  .profile-section {
+    background: var(--surface-card);
+    border: 1px solid var(--line-soft);
+    border-radius: var(--r-md);
+    padding: 14px 16px;
+    margin-top: 14px;
+  }
+  .profile-section-title {
+    font-size: 11.5px; font-weight: 800; letter-spacing: 0.05em; color: var(--ink-faint);
+    text-transform: uppercase; margin-bottom: 10px; display: flex; align-items: center; gap: 7px;
+  }
+  .profile-section-title i { color: var(--teal-500); font-size: 11px; }
+
+  /* --- Add/Edit Patient modal: section group labels ---
+     Groups the modal's existing fields into Patient Information /
+     Pet Owner / Medical Information / Notes without
+     adding boxes or panels. Typography matches the small-uppercase-
+     muted look already used for .profile-section-title in the
+     Patient Profile modal, and the top-border divider between
+     groups mirrors the same section-label pattern already used in
+     the Appointments modal (.form-section-title there), so this
+     reads as an established pattern rather than a new style.
+     Purely visual — no fields, ids, or markup structure removed. */
+  .form-section-title {
+    grid-column: 1 / -1;
+    font-size: 11.5px; font-weight: 800; letter-spacing: 0.05em;
+    color: var(--ink-faint); text-transform: uppercase;
+    padding-top: 12px;
+    margin-top: 4px;
+    border-top: 1px solid var(--line-soft);
+  }
+  .form-section-title:first-child { border-top: none; padding-top: 0; margin-top: 0; }
+
+  /* Notes gets a comfortable but bounded height rather than the
+     browser's default cramped textarea. No other field types are
+     changed. */
+  #f-notes { min-height: 72px; resize: vertical; }
+
+  .profile-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 20px; }
+  .profile-field { display: flex; flex-direction: column; gap: 2px; }
+  .profile-field .pf-label { font-size: 11px; font-weight: 700; color: var(--ink-faint); }
+  .profile-field .pf-value { font-size: 13px; font-weight: 600; color: var(--ink-800); }
+
+  .history-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    padding: 9px 0; border-bottom: 1px solid var(--line-soft); font-size: 12.6px;
+  }
+  .history-row:last-child { border-bottom: none; }
+  .history-main { display: flex; flex-direction: column; gap: 2px; }
+  .history-main .h-reason { font-weight: 700; color: var(--ink-900); }
+  .history-main .h-meta { font-size: 11.2px; color: var(--ink-faint); font-weight: 600; }
+
+  .no-results { text-align: center; padding: 46px 20px; color: var(--ink-faint); font-weight: 600; font-size: 13.3px; }
+
+  /* --- client picker (Add/Edit Patient modal) --- */
+  .client-search-results {
+    margin-top: 8px;
+    max-height: 220px;
+    overflow-y: auto;
+    border: 1px solid var(--line-soft);
+    border-radius: var(--r-sm);
+    background: var(--surface-card);
+  }
+  .client-result-row {
+    display: flex; flex-direction: column; gap: 2px;
+    padding: 9px 12px; cursor: pointer;
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .client-result-row:last-child { border-bottom: none; }
+  .client-result-row:hover { background: var(--surface-sunken); }
+  .client-result-row .crn { font-weight: 800; font-size: 12.8px; color: var(--ink-900); }
+  .client-result-row .crm { font-size: 11.2px; color: var(--ink-faint); font-weight: 600; }
+  .client-search-empty { padding: 14px 12px; font-size: 12.4px; color: var(--ink-faint); font-weight: 600; text-align: center; }
+  .client-selected-card {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    padding: 10px 12px; border: 1px solid var(--line-soft); border-radius: var(--r-sm);
+    background: var(--surface-sunken);
+  }
+  .client-selected-card .csc-name { font-weight: 800; font-size: 13px; color: var(--ink-900); }
+  .client-selected-card .csc-meta { font-size: 11.2px; color: var(--ink-faint); font-weight: 600; margin-top: 1px; }
+
+  /* --- client search input ---
+     #f-client-search sits one level deeper than the other form controls
+     (inside #client-search-view, not a direct child of .form-field), so
+     it needs its full-width box model spelled out here. Its look
+     (background, border, 10px radius, inset shadow, focus ring,
+     typography) now comes from the same shared input rule in style.css
+     as Pet name / Allergies / etc., so it matches them. The 38px
+     control height is applied by the Add/Edit modal block below. */
+  #client-search-view { width: 100%; box-sizing: border-box; }
+  #f-client-search { display: block; width: 100%; box-sizing: border-box; }
+
+  /* --- Add Patient modal: Patient Information layout ---
+     Rows 1-2: [photo] [field] [field] — the photo sits to the LEFT of
+     the first two field rows (Pet name / Species, Breed / Sex) and is
+     vertically centered against them; it is a side element, not a
+     third form column. .patient-identity-row is a small nested grid
+     (photo | 1fr | 1fr) inside the modal's existing 2-column
+     .form-grid. Rows 3-4 (Date of birth / Color, Weight / Status)
+     are plain .form-field items in that outer grid and use the full
+     modal width with the same 14px gaps as everything else.
+     Edit mode adds .no-photo (photo hidden) so the fields fall back
+     to the original two-column layout.
+     Page-scoped because style.css is off-limits. */
+  .patient-identity-row {
+    --pet-photo-size: 110px;
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: var(--pet-photo-size) minmax(0, 1fr) minmax(0, 1fr);
+    gap: 14px;
+    align-items: start;
+  }
+  .patient-identity-row.no-photo { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+  /* One shared control height for every normal input and dropdown in
+     the modal (text, date, select, client search) so no field reads
+     larger or smaller than its neighbours. Radius, padding, border
+     and background still come from style.css / the rules above.
+     Only the Notes textarea and the photo are intentionally
+     different. Scoped to #modal-overlay so the vaccination modal is
+     unaffected. */
+  #modal-overlay .form-field input:not([type="hidden"]):not([type="file"]),
+  #modal-overlay .form-field select,
+  #modal-overlay #f-client-search {
+    height: 38px;
+    box-sizing: border-box;
+  }
+
+  /* Photo: fixed square, centered vertically against rows 1-2. The
+     "Change photo" link hangs just below the circle (absolute) so
+     showing/hiding it never shifts the photo. */
+  .pet-photo-field {
+    position: relative;
+    grid-column: 1;
+    grid-row: 1 / span 2;
+    align-self: center;
+    width: var(--pet-photo-size);
+    height: var(--pet-photo-size);
+  }
+  .pet-photo-field[hidden] { display: none !important; }
+  .pet-photo-field [hidden] { display: none !important; }
+
+  .pet-photo-wrap { position: relative; width: 100%; height: 100%; }
+
+  /* Same circular treatment as .patient-photo-placeholder on the
+     patient cards, just larger. Empty = dashed sunken well (matches
+     the beige input backgrounds), text label only; with a photo =
+     solid border and the <img> fills the circle (object-fit: cover). */
+  .pet-photo-drop {
+    position: relative;
+    width: 100%; height: 100%;
+    padding: 0; margin: 0;
+    border-radius: 50%;
+    border: 1.5px dashed var(--line-strong);
+    background: var(--surface-sunken);
+    box-shadow: var(--clay-pressed);
+    color: var(--ink-soft);
+    font: inherit;
+    cursor: pointer;
+    overflow: hidden;
+    display: flex; align-items: center; justify-content: center;
+    transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+  }
+  .pet-photo-drop:hover { border-color: var(--teal-400); color: var(--teal-700); background: var(--surface-card); }
+  .pet-photo-drop.has-photo { border: 1px solid var(--line-strong); }
+  .pet-photo-drop.has-photo:hover { border-color: var(--teal-400); }
+
+  .pet-photo-empty { font-size: 12px; font-weight: 700; line-height: 1.2; }
+
+  .pet-photo-img {
+    display: block;
+    width: 100%; height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+  }
+
+  /* Small remove control tucked onto the photo's edge. */
+  .pet-photo-remove {
+    position: absolute; top: 6px; right: 2px;
+    width: 22px; height: 22px; padding: 0;
+    border-radius: 50%;
+    border: 1px solid var(--line-strong);
+    background: var(--surface-card-raised);
+    color: var(--ink-soft);
+    font-size: 10px;
+    display: inline-flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    box-shadow: var(--clay-flat);
+    transition: border-color 0.15s ease, color 0.15s ease;
+  }
+  .pet-photo-remove:hover { border-color: var(--red-600); color: var(--red-600); }
+
+  .pet-photo-change {
+    position: absolute; top: calc(100% + 3px); left: 50%;
+    transform: translateX(-50%);
+    white-space: nowrap;
+    padding: 0; border: none; background: none;
+    font: inherit; font-size: 11.5px; font-weight: 700;
+    color: var(--teal-600);
+    cursor: pointer;
+  }
+  .pet-photo-change:hover { color: var(--teal-700); text-decoration: underline; }
+
+  /* Mobile: same single-column collapse as the rest of the form. The
+     photo centers above the fields and the Change link goes back in
+     normal flow so it can't overlap the next field. */
+  @media (max-width: 620px) {
+    .patient-identity-row,
+    .patient-identity-row.no-photo { grid-template-columns: 1fr; }
+    .pet-photo-field {
+      grid-row: auto; align-self: auto; justify-self: center;
+      height: auto;
+      display: flex; flex-direction: column; align-items: center; gap: 6px;
+    }
+    .pet-photo-wrap { width: var(--pet-photo-size); height: var(--pet-photo-size); }
+    .pet-photo-change { position: static; transform: none; }
+  }
+
+  /* --- Add/Edit Patient modal: fixed header + footer, scrolling form ---
+     The modal box stays inside the viewport; only the form content
+     between the header and the action buttons scrolls, so the title,
+     close button, Cancel and Save Patient are always visible. Scoped
+     to #modal-overlay — the profile and vaccination modals keep the
+     stock .modal-box behavior. Spacing is the original modal's,
+     moved from the box onto its three parts (22px top, 26px sides,
+     20px bottom; 16px above the footer rule). max-height is the
+     original 88vh, capped to the dynamic viewport where supported so
+     mobile browser toolbars can't push the footer off screen. */
+  #modal-overlay .modal-box {
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    overflow: hidden;
+    max-height: 88vh;
+    max-height: min(88vh, calc(100dvh - 40px));
+  }
+  #modal-overlay .modal-head {
+    flex: none;
+    margin: 0;
+    padding: 22px 26px 16px;
+    border-bottom: 1px solid var(--line-soft);
+  }
+  #modal-overlay .form-grid {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 18px 26px;
+  }
+  #modal-overlay .modal-footer {
+    flex: none;
+    margin: 0;
+    padding: 16px 26px 20px;
+  }
+
+  /* Client list stays collapsed until the search field is used (the
+     small script at the bottom of this page toggles .is-open). */
+  #client-search-view .client-search-results { display: none; }
+  #client-search-view.is-open .client-search-results { display: block; }
+
+  @media (max-width: 620px) {
+    .profile-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-mark"><i class="fa-solid fa-paw"></i></div>
+        <div class="brand-text">
+          <div class="brand-name">Pawsitive Care</div>
+          <div class="brand-role">Administrator</div>
+        </div>
+      </div>
+      <div class="sidebar-divider"></div>
+      <nav class="sidebar-nav">
+      <div class="nav-group">
+        <div class="nav-group-label">MAIN</div>
+        <a href="dashboard.html" class="nav-item" data-page="dashboard.html">
+          <span class="nav-icon"><i class="fa-solid fa-house"></i></span>
+          <span class="nav-label">Dashboard</span>
+        </a>
+        <a href="appointments.html" class="nav-item" data-page="appointments.html">
+          <span class="nav-icon"><i class="fa-solid fa-calendar-days"></i></span>
+          <span class="nav-label">Appointments</span>
+        </a>
+        <a href="queue.html" class="nav-item" data-page="queue.html">
+          <span class="nav-icon"><i class="fa-solid fa-hourglass-half"></i></span>
+          <span class="nav-label">Queue</span>
+        </a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">PATIENT MANAGEMENT</div>
+        <a href="patients.html" class="nav-item" data-page="patients.html">
+          <span class="nav-icon"><i class="fa-solid fa-paw"></i></span>
+          <span class="nav-label">Patients</span>
+        </a>
+        <a href="clients.html" class="nav-item" data-page="clients.html">
+          <span class="nav-icon"><i class="fa-solid fa-user"></i></span>
+          <span class="nav-label">Clients</span>
+        </a>
+        <a href="medical-records.html" class="nav-item" data-page="medical-records.html">
+          <span class="nav-icon"><i class="fa-solid fa-notes-medical"></i></span>
+          <span class="nav-label">Medical Records</span>
+        </a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">CLINIC</div>
+        <a href="services.html" class="nav-item" data-page="services.html">
+          <span class="nav-icon"><i class="fa-solid fa-hospital"></i></span>
+          <span class="nav-label">Services</span>
+        </a>
+        <a href="inventory.html" class="nav-item" data-page="inventory.html">
+          <span class="nav-icon"><i class="fa-solid fa-boxes-stacked"></i></span>
+          <span class="nav-label">Inventory</span>
+        </a>
+        <a href="billing.html" class="nav-item" data-page="billing.html">
+          <span class="nav-icon"><i class="fa-solid fa-credit-card"></i></span>
+          <span class="nav-label">Billing</span>
+        </a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">INSIGHTS</div>
+        <a href="predictive-analytics.html" class="nav-item" data-page="predictive-analytics.html">
+          <span class="nav-icon"><i class="fa-solid fa-chart-line"></i></span>
+          <span class="nav-label">Predictive Analytics</span>
+        </a>
+        <a href="reports.html" class="nav-item" data-page="reports.html">
+          <span class="nav-icon"><i class="fa-solid fa-chart-column"></i></span>
+          <span class="nav-label">Reports</span>
+        </a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">SYSTEM</div>
+        <a href="notifications.html" class="nav-item" data-page="notifications.html">
+          <span class="nav-icon"><i class="fa-solid fa-bell"></i></span>
+          <span class="nav-label">Notifications</span>
+        </a>
+        <a href="staff-users.html" class="nav-item" data-page="staff-users.html">
+          <span class="nav-icon"><i class="fa-solid fa-users"></i></span>
+          <span class="nav-label">Staff & Users</span>
+        </a>
+        <a href="settings.html" class="nav-item" data-page="settings.html">
+          <span class="nav-icon"><i class="fa-solid fa-gear"></i></span>
+          <span class="nav-label">Settings</span>
+        </a>
+      </div>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="footer-avatar">A</div>
+        <div>
+          <div class="footer-name">Admin</div>
+          <div class="footer-role">Administrator</div>
+        </div>
+      </div>
+    </aside>
+
+    <div class="main-content">
+      <header class="topbar">
+        <div class="topbar-left">
+          <button class="menu-toggle" aria-label="Toggle navigation"><i class="fa-solid fa-bars"></i></button>
+        </div>
+      </header>
+
+      <main class="page-body">
+
+        <div class="page-toolbar">
+          <div>
+            <div style="font-size:20px; font-weight:800; margin-bottom:2px;">PATIENT RECORDS</div>
+          </div>
+          <button class="btn btn-primary" id="add-patient-btn"><i class="fa-solid fa-plus"></i> Add Patient</button>
+        </div>
+
+        <div class="filter-bar">
+          <div class="search-field">
+            <span><i class="fa-solid fa-magnifying-glass"></i></span>
+            <input type="text" id="search-input" placeholder="Search pet name, owner name, or contact number...">
+          </div>
+          <select class="filter-select pc-select" id="filter-species">
+            <option value="">All species</option>
+            <option value="Dog">Dog</option>
+            <option value="Cat">Cat</option>
+            <option value="Other">Other</option>
+          </select>
+          <select class="filter-select pc-select" id="filter-status">
+            <option value="">All statuses</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </select>
+          <button class="btn btn-sm" id="clear-filters">Clear filters</button>
+        </div>
+
+        <div class="patients-count" id="patients-count"></div>
+
+        <div id="view-root"></div>
+
+      </main>
+    </div>
+  </div>
+
+  <!-- Add / Edit Patient modal -->
+  <div class="modal-overlay" id="modal-overlay">
+    <div class="modal-box">
+      <div class="modal-head">
+        <div class="modal-title" id="modal-title">Add Patient</div>
+        <button class="modal-close" id="modal-close" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="form-grid">
+        <div class="form-section-title">Patient Information</div>
+        <div class="patient-identity-row" id="patient-identity-row">
+          <div class="pet-photo-field" id="pet-photo-field">
+            <input type="file" id="f-photo" accept="image/*" hidden>
+            <div class="pet-photo-wrap">
+              <button type="button" class="pet-photo-drop" id="pet-photo-btn" aria-label="Add pet photo">
+                <span class="pet-photo-empty" id="pet-photo-empty">Add Photo</span>
+                <img class="pet-photo-img" id="pet-photo-img" alt="Selected pet photo preview" hidden>
+              </button>
+              <button type="button" class="pet-photo-remove" id="pet-photo-remove" aria-label="Remove photo" title="Remove photo" hidden>
+                <i class="fa-solid fa-xmark"></i>
+              </button>
+            </div>
+            <button type="button" class="pet-photo-change" id="pet-photo-change" hidden>Change photo</button>
+          </div>
+          <div class="form-field">
+            <label>Pet name *</label>
+            <input type="text" id="f-pet" placeholder="e.g. Max">
+          </div>
+          <div class="form-field">
+            <label>Species</label>
+            <select id="f-species" class="pc-select">
+              <option>Dog</option>
+              <option>Cat</option>
+              <option>Rabbit</option>
+              <option>Bird</option>
+              <option>Other</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label>Breed</label>
+            <select id="f-breed" class="pc-select"></select>
+          </div>
+          <div class="form-field">
+            <label>Sex</label>
+            <select id="f-sex" class="pc-select">
+              <option>Male</option>
+              <option>Female</option>
+              <option>Unknown</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-field">
+          <label>Date of birth</label>
+          <input type="date" id="f-dob">
+        </div>
+        <div class="form-field">
+          <label>Color</label>
+          <input type="text" id="f-color" placeholder="e.g. Golden">
+        </div>
+        <div class="form-field">
+          <label>Weight (kg)</label>
+          <input type="text" id="f-weight" inputmode="decimal" placeholder="e.g. 12.5">
+        </div>
+        <div class="form-field">
+          <label>Status</label>
+          <select id="f-status" class="pc-select">
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </select>
+        </div>
+        <div class="form-section-title">Pet Owner</div>
+        <div class="form-field full">
+          <label>Client (pet owner) *</label>
+          <div id="client-selected-view" class="client-selected-card" style="display:none;">
+            <div>
+              <div class="csc-name" id="csc-name"></div>
+              <div class="csc-meta" id="csc-meta"></div>
+            </div>
+            <button type="button" class="btn btn-sm" id="client-change-btn">Change</button>
+          </div>
+          <div id="client-search-view">
+            <input type="text" id="f-client-search" placeholder="Search client by name, phone, or email...">
+            <div class="client-search-results" id="client-search-results"></div>
+          </div>
+          <input type="hidden" id="f-client-id">
+        </div>
+        <div class="form-section-title">Medical Information</div>
+        <div class="form-field full">
+          <label>Allergies</label>
+          <input type="text" id="f-allergies" placeholder="e.g. None known">
+        </div>
+        <div class="form-field full">
+          <label>Existing medical conditions</label>
+          <input type="text" id="f-conditions" placeholder="e.g. None">
+        </div>
+        <div class="form-field full">
+          <label>Current medications</label>
+          <input type="text" id="f-medications" placeholder="e.g. None">
+        </div>
+        <div class="form-field full">
+          <label>Vaccination status</label>
+          <select id="f-vaccination" class="pc-select">
+            <option>Up to date</option>
+            <option>Due soon</option>
+            <option>Overdue</option>
+            <option>N/A</option>
+            <option>Unknown</option>
+          </select>
+        </div>
+        <div class="form-section-title">Notes</div>
+        <div class="form-field full">
+          <label>Notes</label>
+          <textarea id="f-notes" placeholder="Optional notes..."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" id="modal-cancel">Cancel</button>
+        <button class="btn btn-primary" id="modal-save">Save Patient</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Patient profile modal -->
+  <div class="modal-overlay profile-modal" id="profile-overlay">
+    <div class="modal-box" id="profile-box"></div>
+  </div>
+
+  <!-- Add / Edit Vaccination record modal -->
+  <div class="modal-overlay" id="vaccination-modal-overlay">
+    <div class="modal-box">
+      <div class="modal-head">
+        <div class="modal-title" id="vaccination-modal-title">Add Vaccination</div>
+        <button class="modal-close" id="vaccination-modal-close"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="form-grid">
+        <div class="form-field full">
+          <label><i class="fa-solid fa-syringe"></i> Vaccine name</label>
+          <input type="text" id="vf-vaccine-name" placeholder="e.g. 4-in-1, Anti-Rabies">
+        </div>
+        <div class="form-field">
+          <label><i class="fa-solid fa-calendar-check"></i> Date given</label>
+          <input type="date" id="vf-date-given">
+        </div>
+        <div class="form-field">
+          <label><i class="fa-solid fa-calendar-days"></i> Next due date</label>
+          <input type="date" id="vf-next-due">
+        </div>
+        <div class="form-field full">
+          <label>Notes</label>
+          <textarea id="vf-notes" placeholder="Optional notes..."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" id="vaccination-modal-cancel">Close</button>
+        <button class="btn btn-primary" id="vaccination-modal-save">Save vaccination</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="sidebar.js"></script>
+  <script src="data-store.js"></script>
+  <script src="patient-data-store.js"></script>
+  <script src="patients.js"></script>
+  <script>
+    /* Add/Edit Patient modal — presentation-only helpers.
+       Kept here (not in patients.js) on purpose: they only toggle a CSS
+       class and forward Escape to the existing Cancel button; the
+       client-selection, save and photo logic in patients.js is untouched. */
+    (function () {
+      var overlay = document.getElementById('modal-overlay');
+      var view = document.getElementById('client-search-view');
+      var input = document.getElementById('f-client-search');
+      var results = document.getElementById('client-search-results');
+      var changeBtn = document.getElementById('client-change-btn');
+      var scroller = overlay && overlay.querySelector('.form-grid');
+      if (!overlay || !view || !input || !results || !scroller) return;
+
+      function isOpen() { return view.classList.contains('is-open'); }
+      function closeList() { view.classList.remove('is-open'); }
+      function openList() {
+        if (isOpen()) return;
+        view.classList.add('is-open');
+        if (view.scrollIntoView) view.scrollIntoView({ block: 'nearest' });
+      }
+
+      // Reveal on focus / click / typing (patients.js already filters on input).
+      input.addEventListener('focus', openList);
+      input.addEventListener('click', openList);
+      input.addEventListener('input', openList);
+
+      // Collapse after a client is chosen (patients.js handles the selection).
+      results.addEventListener('click', function (e) {
+        if (e.target.closest && e.target.closest('[data-client-id]')) closeList();
+      });
+
+      // Collapse when the user moves on: click elsewhere, or Tab away.
+      // (Not on blur — that would fire before a row click registers.)
+      document.addEventListener('pointerdown', function (e) {
+        if (!isOpen()) return;
+        if (view.contains(e.target) || e.target === scroller) return; // scroller = its scrollbar
+        closeList();
+      });
+      input.addEventListener('keydown', function (e) {
+        if (e.key === 'Tab') closeList();
+      });
+
+      // Every time the modal opens or closes, start collapsed.
+      new MutationObserver(closeList).observe(overlay, { attributes: true, attributeFilter: ['class'] });
+
+      // "Change" re-shows the search field: put the cursor in it, selected,
+      // so the user can just type. Deferred so patients.js shows it first.
+      if (changeBtn) {
+        changeBtn.addEventListener('click', function () {
+          setTimeout(function () {
+            if (view.offsetParent !== null) { input.focus(); input.select(); }
+          }, 0);
+        });
+      }
+
+      // Escape: first collapses an open client list; otherwise behaves
+      // exactly like clicking Cancel. Ignored while another modal is on
+      // top. (Breed used to carve itself out here to avoid swallowing the
+      // Escape that dismissed its old text-input datalist suggestion list;
+      // now that Breed is a native <select> like Species/Sex/Status, that
+      // carve-out no longer applies and has been removed for consistency.)
+      document.addEventListener('keydown', function (e) {
+        if (e.key !== 'Escape' || e.defaultPrevented || e.isComposing) return;
+        if (!overlay.classList.contains('open')) return;
+        var others = ['vaccination-modal-overlay', 'profile-overlay'];
+        for (var i = 0; i < others.length; i++) {
+          var o = document.getElementById(others[i]);
+          if (o && o.classList.contains('open')) return;
+        }
+        if (isOpen()) { closeList(); e.preventDefault(); return; }
+        var cancel = document.getElementById('modal-cancel');
+        if (cancel) cancel.click();
+      });
+    })();
+  </script>
+</body>
+</html>

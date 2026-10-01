@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Weather & Health Factors · Pawsitive Care</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+<link rel="stylesheet" href="style.css">
+<style>
+  /* ============================================================
+     Weather & Health Factors — page-scoped styles.
+     Dedicated Predictive Analytics sub-page (Phase 2C). Follows the
+     same convention predictive-analytics.html already established:
+     these rules reuse existing style.css tokens/classes throughout
+     (status-badge colors, --surface, --line, --r, --clay tokens,
+     .btn/.btn-sm, font sizes/weights) and only introduce new
+     "wh-" prefixed classes for structure that has no existing
+     equivalent. This page does not share predictive-analytics.html's
+     inline <style> block (that file is not modified/imported), so
+     the small number of overlapping patterns (compact read-only
+     tables, panel headings, badges) are re-declared here rather than
+     referenced, keeping this file fully self-contained.
+     ============================================================ */
+
+  /* --- Back link + page header --- */
+  .wh-title { margin: 0 0 6px; font-size: 25px; font-weight: 800; letter-spacing: -0.01em; color: var(--ink-900); }
+
+  /* --- shared section heading hierarchy, matching Predictive
+     Analytics' other sections (h2 + sub) --- */
+  .wh-section { margin-bottom: 24px; }
+  .wh-h2 { margin: 0 0 14px; font-size: 16px; font-weight: 800; line-height: normal; letter-spacing: normal; text-transform: none; color: var(--ink-800); }
+
+  /* --- Analysis Controls (mirrors predictive-analytics.html's
+     Analysis Controls panel — see that file for the NOTE on why the
+     Analysis Period selector does not yet recalculate results) --- */
+
+  /* --- Current Conditions --- */
+  .wh-conditions-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
+  .wh-condition-card { box-sizing: border-box; min-width: 0; display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: var(--surface-sunken); border: 1px solid var(--line-soft); border-radius: var(--r-md); box-shadow: var(--clay-flat); }
+  .wh-condition-icon { flex: none; width: 36px; height: 36px; border-radius: var(--r-sm); background: var(--surface-card-raised); color: var(--teal-600); display: flex; align-items: center; justify-content: center; font-size: 15px; }
+  .wh-condition-body { min-width: 0; }
+  .wh-condition-label { font-size: 11px; font-weight: 700; color: var(--ink-700); white-space: nowrap; }
+  .wh-condition-value { margin-top: 3px; font-size: 15.5px; font-weight: 800; color: var(--ink-900); line-height: 1.2; overflow-wrap: anywhere; }
+  .wh-condition-value.wh-value-muted { font-size: 12.5px; font-weight: 600; color: var(--ink-faint); }
+  @media (max-width: 1150px) { .wh-conditions-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  @media (max-width: 620px) { .wh-conditions-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+  .wh-conditions-state { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 16px 18px; background: var(--surface-sunken); border: 1px dashed var(--line-strong); border-radius: var(--r-md); }
+  .wh-conditions-state p { margin: 0; font-size: 13px; font-weight: 500; color: var(--ink-800); flex: 1 1 240px; }
+  .wh-conditions-loading { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; padding: 16px 0; color: var(--ink-700); font-size: 13px; font-weight: 500; }
+
+  /* --- side-by-side split (Environmental Factors + Related Health
+     Patterns, and Weather & Health Context + Weather Trend) --- */
+  .wh-split-grid { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 16px; align-items: start; margin-bottom: 24px; }
+  .wh-split-grid > .wh-section { margin-bottom: 0; min-width: 0; }
+  @media (max-width: 1000px) { .wh-split-grid { grid-template-columns: minmax(0, 1fr); } }
+
+  /* --- Environmental Factors table --- */
+  .wh-table-wrap { background: var(--surface-card); border: 1px solid var(--line-soft); border-radius: var(--r-md); box-shadow: var(--clay-flat); overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .wh-table { width: 100%; min-width: 420px; border-collapse: collapse; font-size: 13px; }
+  .wh-table thead th { text-align: left; padding: 12px 14px; font-size: 10.6px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-700); background: var(--surface-sunken); border-bottom: 1px solid var(--line-soft); white-space: nowrap; }
+  .wh-table tbody td { padding: 12px 14px; border-bottom: 1px solid var(--line-soft); vertical-align: top; color: var(--ink-900); }
+  .wh-table tbody tr:last-child td { border-bottom: none; }
+  .wh-factor-name { display: flex; align-items: center; gap: 8px; font-weight: 700; white-space: nowrap; }
+  .wh-factor-name i { color: var(--ink-soft); font-size: 12px; }
+  .wh-relevance-text { font-size: 12.5px; font-weight: 500; line-height: 1.45; color: var(--ink-700); }
+
+  /* --- Related Health Patterns --- */
+  .wh-patterns-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+  .wh-pattern-row { box-sizing: border-box; padding: 14px 16px; background: var(--surface-card); border: 1px solid var(--line); border-radius: var(--r-md); box-shadow: var(--clay-flat); display: grid; grid-template-columns: minmax(120px, 1fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr); gap: 12px; align-items: start; }
+  .wh-pattern-cat { display: flex; align-items: flex-start; gap: 10px; min-width: 0; }
+  .wh-pattern-icon { flex: none; width: 32px; height: 32px; border-radius: 50%; background: var(--teal-50); color: var(--teal-700); display: flex; align-items: center; justify-content: center; font-size: 13px; }
+  .wh-pattern-name { font-size: 13px; font-weight: 800; color: var(--ink-900); line-height: 1.3; }
+  .wh-pattern-sublabel { margin-top: 2px; font-size: 10.8px; font-weight: 600; color: var(--ink-faint); line-height: 1.3; }
+  .wh-pattern-col-label { font-size: 10.2px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; color: var(--ink-faint); margin-bottom: 4px; }
+  .wh-pattern-col-value { font-size: 12.3px; font-weight: 600; color: var(--ink-800); line-height: 1.4; }
+  @media (max-width: 900px) {
+    .wh-pattern-row { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+    .wh-pattern-cat { padding-bottom: 8px; border-bottom: 1px solid var(--line-soft); }
+  }
+
+  /* --- Weather & Health Context (3-column relationship rows) --- */
+  .wh-ctx-list { list-style: none; margin: 0; padding: 0; background: var(--surface-card); border: 1px solid var(--line); border-radius: var(--r-md); box-shadow: var(--clay-flat); overflow: hidden; }
+  .wh-ctx-header, .wh-ctx-row { display: grid; grid-template-columns: minmax(0, 1fr) 22px minmax(0, 1fr) 22px minmax(110px, 130px); gap: 8px; align-items: center; padding: 12px 16px; }
+  .wh-ctx-header { background: var(--surface-sunken); border-bottom: 1px solid var(--line-soft); font-size: 10.4px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.03em; color: var(--ink-700); }
+  .wh-ctx-row { border-bottom: 1px solid var(--line-soft); font-size: 12.8px; font-weight: 600; color: var(--ink-900); }
+  .wh-ctx-list > .wh-ctx-row:last-child { border-bottom: none; }
+  .wh-ctx-arrow { color: var(--ink-faint); font-size: 12px; text-align: center; }
+  .wh-ctx-cell-label { display: none; }
+  .wh-ctx-badge { display: inline-flex; align-items: center; padding: 4px 11px; border-radius: var(--r-pill); font-size: 11px; font-weight: 800; letter-spacing: 0.01em; white-space: nowrap; background: var(--sage-100); color: var(--sage-600); }
+  .wh-ctx-empty { padding: 16px 18px; }
+  @media (max-width: 760px) {
+    .wh-ctx-header { display: none; }
+    .wh-ctx-row { grid-template-columns: minmax(0, 1fr); gap: 10px; padding: 14px 16px; }
+    .wh-ctx-arrow { display: none; }
+    .wh-ctx-cell-label { display: block; }
+  }
+
+  /* --- Weather Trend (no historical weather store exists yet — see
+     predictive-analytics-data-store.js; this stays an honest
+     unavailable state rather than a fabricated chart) --- */
+  .wh-trend-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; text-align: center; min-height: 200px; padding: 32px 20px; background: var(--surface-sunken); border: 1px dashed var(--line-strong); border-radius: var(--r-md); }
+  .wh-trend-empty-icon { width: 44px; height: 44px; border-radius: 50%; background: var(--surface-card); color: var(--ink-faint); display: flex; align-items: center; justify-content: center; font-size: 18px; }
+  .wh-trend-empty-text { margin: 0; max-width: 320px; font-size: 13px; font-weight: 500; line-height: 1.5; color: var(--ink-700); }
+
+  /* --- Data Confidence --- */
+  .wh-confidence-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+  .wh-confidence-card { box-sizing: border-box; min-width: 0; padding: 16px 18px; background: var(--surface-sunken); border: 1px solid var(--line-soft); border-radius: var(--r-md); box-shadow: var(--clay-flat); }
+  .wh-confidence-top { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .wh-confidence-dot { flex: none; width: 9px; height: 9px; border-radius: 50%; }
+  .wh-confidence-dot.wh-dot-high { background: var(--sage-600); }
+  .wh-confidence-dot.wh-dot-medium { background: var(--amber-600); }
+  .wh-confidence-dot.wh-dot-low { background: var(--red-600); }
+  .wh-confidence-dot.wh-dot-insufficient { background: var(--ink-faint); }
+  .wh-confidence-label { font-size: 10.4px; font-weight: 800; letter-spacing: 0.03em; text-transform: uppercase; color: var(--ink-700); }
+  .wh-confidence-count { font-size: 26px; font-weight: 800; color: var(--ink-900); line-height: 1.1; }
+  .wh-confidence-unit { margin-top: 4px; font-size: 12px; font-weight: 600; color: var(--ink-700); }
+  @media (max-width: 1100px) { .wh-confidence-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 560px) { .wh-confidence-grid { grid-template-columns: minmax(0, 1fr); } }
+  .wh-confidence-note { margin: 12px 2px 0; font-size: 12px; font-weight: 500; color: var(--ink-700); }
+
+  /* --- Analysis Note --- */
+  .wh-note { display: flex; align-items: flex-start; gap: 12px; padding: 14px 16px; background: var(--teal-50); border: 1px solid var(--teal-200); border-radius: var(--r-md); }
+  .wh-note-icon { flex: none; margin-top: 1px; color: var(--teal-700); font-size: 15px; }
+  .wh-note-title { margin: 0 0 3px; font-size: 11.5px; font-weight: 800; letter-spacing: 0.03em; text-transform: uppercase; color: var(--teal-700); }
+  .wh-note-text { margin: 0; font-size: 13px; font-weight: 500; line-height: 1.5; color: var(--ink-800); }
+
+  .wh-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+  .wh-badge-nodata { background: transparent; color: var(--ink-700); border: 1px solid var(--line-strong); }
+  .wh-empty { color: var(--ink-700); font-size: 13px; font-weight: 500; padding: 16px 18px; background: var(--surface-sunken); border: 1px solid var(--line-soft); border-radius: var(--r-md); }
+
+  /* --- Consistency pass: match the finalized Predictive Analytics landing page --- */
+  /* Removes the straight divider under the shared topbar (same override as the landing page). */
+  .topbar { border-bottom: none; }
+  /* Page title typography = landing page title. */
+  .wh-title { margin: 0 0 2px; font-size: 20px; font-weight: 800; line-height: inherit; letter-spacing: normal; color: var(--ink-900); }
+
+  /* --- Consistency pass (part 2): Analysis Controls + Back link, shared with the landing page --- */
+  /* Back to Predictive Analytics — one shared control for all four dedicated pages.
+     Same pill language as the landing page's View buttons (.pa-view-link). The row's
+     22px top margin mirrors the landing page title's offset. */
+  .pa-back-row { margin: 22px 0 12px; }
+  .pa-back-link { display: inline-flex; align-items: center; gap: 8px; box-sizing: border-box; padding: 7px 14px; background: var(--surface-sunken); border: 1px solid var(--line-soft); border-radius: var(--r-pill); color: var(--ink-800); font: inherit; font-size: 12.5px; font-weight: 700; line-height: 1.3; text-decoration: none; white-space: nowrap; cursor: pointer; transition: border-color 0.15s ease, color 0.15s ease; }
+  .pa-back-link:hover { border-color: var(--teal-400); color: var(--teal-700); }
+  .pa-back-link:focus-visible { outline: none; border-color: var(--teal-400); box-shadow: 0 0 0 3px var(--teal-100); }
+  .pa-back-link i { font-size: 11px; }
+
+  /* Analysis Controls — copied from predictive-analytics.html */
+  .pa-controls { margin-bottom: 30px; }
+  .pa-controls-heading { margin: 0 0 18px; font-size: 20px; font-weight: 800; line-height: normal; letter-spacing: normal; color: var(--ink-800); }
+  .pa-controls-panel { box-sizing: border-box; display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px 24px; padding: 16px 18px; background: var(--surface-sunken); border: 1px solid var(--line-soft); border-radius: var(--r-md); box-shadow: var(--clay-flat); }
+  .pa-controls-field, .pa-controls-status { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .pa-controls-label { font-size: 12px; font-weight: 700; color: var(--ink-700); line-height: 1.3; }
+  .pa-controls-select { box-sizing: border-box; height: 38px; min-width: 200px; max-width: 100%; }
+  .pa-controls-actions { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 16px 24px; min-width: 0; }
+  .pa-controls-value { display: flex; align-items: center; min-height: 38px; font-size: 13px; font-weight: 500; color: var(--ink-700); overflow-wrap: anywhere; }
+  @media (max-width: 640px) {
+    .pa-controls-panel { flex-direction: column; align-items: stretch; }
+    .pa-controls-select { width: 100%; min-width: 0; }
+    .pa-controls-actions { flex-direction: column; align-items: stretch; gap: 16px; }
+    .pa-controls-value { min-height: 0; }
+  }
+
+  /* Analysis Period select — interactive control on the sunken panel */
+  .pa-controls-select {
+    -webkit-appearance: none; -moz-appearance: none; appearance: none;
+    padding: 0 38px 0 12px;
+    background-color: var(--surface-card-raised);
+    background-image: linear-gradient(45deg, transparent 50%, var(--ink-soft) 50%), linear-gradient(135deg, var(--ink-soft) 50%, transparent 50%);
+    background-position: calc(100% - 19px) center, calc(100% - 14px) center;
+    background-size: 5px 5px, 5px 5px;
+    background-repeat: no-repeat;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r-sm);
+    box-shadow: var(--clay-flat);
+    color: var(--ink-900);
+    font-weight: 600;
+    cursor: pointer;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  .pa-controls-select:hover { border-color: var(--teal-400); }
+  .pa-controls-select:focus,
+  .pa-controls-select:focus-visible {
+    background-color: var(--surface-card-raised);
+    background-image: linear-gradient(45deg, transparent 50%, var(--teal-600) 50%), linear-gradient(135deg, var(--teal-600) 50%, transparent 50%);
+    background-position: calc(100% - 19px) center, calc(100% - 14px) center;
+    background-size: 5px 5px, 5px 5px;
+    background-repeat: no-repeat;
+    border-color: var(--teal-400);
+    box-shadow: 0 0 0 3px var(--teal-100);
+    outline: none;
+  }
+  .pa-controls-select[disabled] { opacity: 0.7; cursor: not-allowed; }
+  .pa-controls-select[disabled]:hover { border-color: var(--line-strong); }
+</style>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-mark"><i class="fa-solid fa-paw"></i></div>
+        <div class="brand-text">
+          <div class="brand-name">Pawsitive Care</div>
+          <div class="brand-role">Administrator</div>
+        </div>
+      </div>
+      <div class="sidebar-divider"></div>
+      <nav class="sidebar-nav">
+      <div class="nav-group">
+        <div class="nav-group-label">MAIN</div>
+        <a href="dashboard.html" class="nav-item" data-page="dashboard.html">
+          <span class="nav-icon"><i class="fa-solid fa-house"></i></span>
+          <span class="nav-label">Dashboard</span>
+        </a>
+        <a href="appointments.html" class="nav-item" data-page="appointments.html">
+          <span class="nav-icon"><i class="fa-solid fa-calendar-days"></i></span>
+          <span class="nav-label">Appointments</span>
+        </a>
+        <a href="queue.html" class="nav-item" data-page="queue.html">
+          <span class="nav-icon"><i class="fa-solid fa-hourglass-half"></i></span>
+          <span class="nav-label">Queue</span>
+        </a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">PATIENT MANAGEMENT</div>
+        <a href="patients.html" class="nav-item" data-page="patients.html">
+          <span class="nav-icon"><i class="fa-solid fa-paw"></i></span>
+          <span class="nav-label">Patients</span>
+        </a>
+        <a href="clients.html" class="nav-item" data-page="clients.html">
+          <span class="nav-icon"><i class="fa-solid fa-user"></i></span>
+          <span class="nav-label">Clients</span>
+        </a>
+        <a href="medical-records.html" class="nav-item" data-page="medical-records.html">
+          <span class="nav-icon"><i class="fa-solid fa-notes-medical"></i></span>
+          <span class="nav-label">Medical Records</span>
+        </a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">CLINIC</div>
+        <a href="services.html" class="nav-item" data-page="services.html">
+          <span class="nav-icon"><i class="fa-solid fa-hospital"></i></span>
+          <span class="nav-label">Services</span>
+        </a>
+        <a href="inventory.html" class="nav-item" data-page="inventory.html">
+          <span class="nav-icon"><i class="fa-solid fa-boxes-stacked"></i></span>
+          <span class="nav-label">Inventory</span>
+        </a>
+        <a href="billing.html" class="nav-item" data-page="billing.html">
+          <span class="nav-icon"><i class="fa-solid fa-credit-card"></i></span>
+          <span class="nav-label">Billing</span>
+        </a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">INSIGHTS</div>
+        <a href="predictive-analytics.html" class="nav-item" data-page="predictive-analytics.html">
+          <span class="nav-icon"><i class="fa-solid fa-chart-line"></i></span>
+          <span class="nav-label">Predictive Analytics</span>
+        </a>
+        <a href="reports.html" class="nav-item" data-page="reports.html">
+          <span class="nav-icon"><i class="fa-solid fa-chart-column"></i></span>
+          <span class="nav-label">Reports</span>
+        </a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">SYSTEM</div>
+        <a href="notifications.html" class="nav-item" data-page="notifications.html">
+          <span class="nav-icon"><i class="fa-solid fa-bell"></i></span>
+          <span class="nav-label">Notifications</span>
+        </a>
+        <a href="staff-users.html" class="nav-item" data-page="staff-users.html">
+          <span class="nav-icon"><i class="fa-solid fa-users"></i></span>
+          <span class="nav-label">Staff & Users</span>
+        </a>
+        <a href="settings.html" class="nav-item" data-page="settings.html">
+          <span class="nav-icon"><i class="fa-solid fa-gear"></i></span>
+          <span class="nav-label">Settings</span>
+        </a>
+      </div>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="footer-avatar">A</div>
+        <div>
+          <div class="footer-name">Admin</div>
+          <div class="footer-role">Administrator</div>
+        </div>
+      </div>
+    </aside>
+
+    <div class="main-content">
+      <header class="topbar">
+        <div class="topbar-left">
+          <button class="menu-toggle" aria-label="Toggle navigation"><i class="fa-solid fa-bars"></i></button>
+        </div>
+      </header>
+
+      <main class="page-body">
+        <div id="wh-root"></div>
+      </main>
+    </div>
+  </div>
+
+  <script src="data-store.js"></script>
+  <script src="patient-data-store.js"></script>
+  <script src="medical-records-data-store.js"></script>
+  <script src="predictive-analytics-data-store.js"></script>
+  <script src="weather-health.js"></script>
+  <script src="sidebar.js"></script>
+</body>
+</html>

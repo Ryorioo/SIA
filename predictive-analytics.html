@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Predictive Analytics · Pawsitive Care</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+<link rel="stylesheet" href="style.css">
+<style>
+  /* ============================================================
+     Predictive Analytics — page-scoped styles.
+     These rules live here rather than in the shared style.css for
+     now. They reuse existing style.css tokens/classes throughout
+     (status-badge colors, --surface-sunken/--line-soft/--r-md/
+     --clay-flat, .btn/.btn-sm, .filter-bar/.search-field/
+     .filter-select) and only introduce new "pa-" prefixed classes for
+     structure that has no existing equivalent. If/when this page's
+     styles are promoted to match the other finalized modules, these
+     rules should move into style.css instead of living on this page.
+     ============================================================ */
+  /* --- Analysis Controls (Phase 6, restructured) ---
+     Standalone configuration section at the top of the page, using the
+     same h2 + sub hierarchy as the finalized sections below it. The panel
+     mirrors the Analysis Overview cards (sunken surface, --line-soft
+     border, --r-md radius, --clay-flat shadow). The select reuses the
+     shared .pc-select / global select styling and the action is the
+     shared .btn.btn-primary; only layout is defined here. Larger bottom
+     margin than the other sections so it reads as separate from Analysis
+     Overview. Stacks at narrow widths; no horizontal scrolling. */
+  .pa-controls { margin-bottom: 30px; }
+  .pa-controls-heading { margin: 0 0 18px; font-size: 20px; font-weight: 800; line-height: normal; letter-spacing: normal; color: var(--ink-800); }
+  .pa-controls-sub { margin: 0 0 18px; font-size: 13px; font-weight: 500; line-height: 1.45; color: var(--ink-700); }
+  .pa-controls-panel { box-sizing: border-box; display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px 24px; padding: 16px 18px; background: var(--surface-sunken); border: 1px solid var(--line-soft); border-radius: var(--r-md); box-shadow: var(--clay-flat); }
+  .pa-controls-field, .pa-controls-status { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .pa-controls-label { font-size: 12px; font-weight: 700; color: var(--ink-700); line-height: 1.3; }
+  .pa-controls-select { box-sizing: border-box; height: 38px; min-width: 200px; max-width: 100%; }
+  .pa-controls-actions { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 16px 24px; min-width: 0; }
+  .pa-controls-value { display: flex; align-items: center; min-height: 38px; font-size: 13px; font-weight: 500; color: var(--ink-700); overflow-wrap: anywhere; }
+  .pa-controls-refresh { box-sizing: border-box; min-height: 38px; flex: 0 0 auto; white-space: nowrap; }
+  .pa-controls-refresh[disabled] { opacity: 0.7; cursor: not-allowed; }
+  @media (max-width: 640px) {
+    .pa-controls-panel { flex-direction: column; align-items: stretch; }
+    .pa-controls-select { width: 100%; min-width: 0; }
+    .pa-controls-actions { flex-direction: column; align-items: stretch; gap: 16px; }
+    .pa-controls-value { min-height: 0; }
+    .pa-controls-refresh { width: 100%; min-height: 44px; }
+  }
+
+  /* --- Analysis Overview (Phase 1) ---
+     Adapted from the Appointments summary cards: same warm sunken
+     surface, line-soft border, --r-md radius, --clay-flat shadow, and
+     a deep-teal lead card, using style.css tokens only. Label/description
+     text uses --ink-700 (not --ink-faint) to keep readable contrast on
+     the beige surface. 4 columns on desktop, 2 x 2 on tablet, 1 on mobile. */
+  .pa-overview { margin-bottom: 24px; }
+  .pa-overview-heading { margin: 0 0 18px; font-size: 20px; font-weight: 800; line-height: normal; letter-spacing: normal; color: var(--ink-800); }
+  .pa-overview-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+  .pa-overview-card { box-sizing: border-box; min-width: 0; height: 100%; padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; background: var(--surface-sunken); border: 1px solid var(--line-soft); border-radius: var(--r-md); box-shadow: var(--clay-flat); }
+  .pa-overview-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .pa-overview-icon { flex: none; font-size: 12px; color: var(--ink-soft); }
+  .pa-overview-label { font-size: 12px; font-weight: 700; color: var(--ink-700); line-height: 1.3; }
+  .pa-overview-value { font-size: 26px; font-weight: 800; color: var(--ink-900); line-height: 1.15; overflow-wrap: anywhere; }
+  .pa-overview-desc { font-size: 12px; font-weight: 500; color: var(--ink-700); line-height: 1.4; }
+  .pa-overview-card-primary { background: var(--teal-700); border-color: var(--teal-700); }
+  .pa-overview-card-primary .pa-overview-icon { color: rgba(244, 249, 247, 0.85); }
+  .pa-overview-card-primary .pa-overview-label,
+  .pa-overview-card-primary .pa-overview-desc { color: rgba(244, 249, 247, 0.86); }
+  .pa-overview-card-primary .pa-overview-value { color: var(--ink-on-brand); }
+  @media (max-width: 1100px) { .pa-overview-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 640px) { .pa-overview-grid { grid-template-columns: minmax(0, 1fr); } }
+
+  /* --- Overview compact previews (Phase 1) ---
+     Shared header-row + "View X" link-button pattern for the four
+     compact Overview sections below (Current Risk Snapshot, Medicine &
+     Inventory Pressure preview, Weather & Health Context, Recommendations
+     preview). The full detail renderers for Disease Risk / Medicine
+     Demand / Recommendations still exist further down this file, just
+     unused by the Overview as of Phase 1 — kept so Phase 2's dedicated
+     pages can reuse them as-is. */
+  .pa-preview-head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 10px 16px; margin-bottom: 18px; }
+  .pa-preview-headtext { min-width: 0; flex: 1 1 260px; }
+  .pa-preview-heading { margin: 0; font-size: 20px; font-weight: 800; line-height: normal; letter-spacing: normal; color: var(--ink-800); }
+  .pa-preview-sub { margin: 0; font-size: 13px; font-weight: 500; line-height: 1.45; color: var(--ink-700); }
+  .pa-view-link { text-decoration: none; flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; background: var(--surface-sunken); border: 1px solid var(--line-soft); border-radius: var(--r-pill); color: var(--ink-800); font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; white-space: nowrap; transition: border-color 0.15s ease, color 0.15s ease; }
+  .pa-view-link:hover { border-color: var(--teal-400); color: var(--teal-700); }
+  .pa-view-link i { font-size: 11px; }
+
+  /* Shared compact read-only table used by both the Current Risk
+     Snapshot and the Medicine & Inventory Pressure preview. */
+  .pa-snapshot-table-wrap { background: var(--surface-card); border: 1px solid var(--line-soft); border-radius: var(--r-md); box-shadow: var(--clay-flat); overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .pa-snapshot-table { width: 100%; min-width: 480px; border-collapse: collapse; font-size: 13px; }
+  .pa-snapshot-table thead th { text-align: left; padding: 12px 16px; font-size: 10.6px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-700); background: var(--surface-sunken); border-bottom: 1px solid var(--line-soft); white-space: nowrap; }
+  .pa-snapshot-table tbody td { padding: 12px 16px; border-bottom: 1px solid var(--line-soft); vertical-align: middle; color: var(--ink-900); }
+  .pa-snapshot-table tbody tr:last-child td { border-bottom: none; }
+  .pa-snapshot-cell-trend { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 700; color: var(--ink-700); white-space: nowrap; }
+  .pa-snapshot-cell-trend i { font-size: 12px; color: var(--ink-soft); }
+  .pa-snapshot-cell-none { color: var(--ink-faint); }
+  .pa-snapshot-med-name { font-weight: 700; color: var(--ink-900); }
+  .pa-snapshot-med-stock { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; }
+
+  /* Medicine & Inventory Pressure preview + Weather & Health Context,
+     side by side per the target screenshot; stacks on narrower screens. */
+  .pa-lower-grid { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 16px; align-items: start; margin-bottom: 24px; }
+  .pa-lower-grid > .pa-med, .pa-lower-grid > .pa-weather { margin-bottom: 0; }
+  @media (max-width: 1000px) { .pa-lower-grid { grid-template-columns: minmax(0, 1fr); } }
+
+  /* --- Disease Risk Predictions (Phase 2) ---
+     Clinical decision-support cards on style.css tokens: warm off-white
+     card surface with a soft line border; the insufficient-data variant
+     drops to the sunken surface with a dashed border so it reads as
+     "no signal yet" and never as a Low-risk card. Risk badges reuse the
+     existing status-badge classes; trend, risk and confidence are always
+     text. Environmental (weather) context is a quieter inset block. */
+  .pa-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+  .pa-disease { margin-bottom: 24px; }
+  .pa-disease-heading { margin: 0 0 6px; font-size: 20px; font-weight: 800; line-height: normal; letter-spacing: normal; color: var(--ink-800); }
+  .pa-disease-sub { margin: 0 0 18px; font-size: 13px; font-weight: 500; line-height: 1.45; color: var(--ink-700); }
+  .pa-disease-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .pa-disease-empty { padding: 16px 18px; background: var(--surface-sunken); border: 1px solid var(--line-soft); border-radius: var(--r-md); }
+  .pa-disease-empty .pa-empty { padding: 0; color: var(--ink-700); font-size: 13px; }
+  .pa-dcard { box-sizing: border-box; min-width: 0; height: 100%; padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; background: var(--surface-card); border: 1px solid var(--line); border-radius: var(--r-md); box-shadow: var(--clay-flat); }
+  .pa-dcard-nodata { background: var(--surface-sunken); border: 1px dashed var(--line-strong); box-shadow: none; }
+  .pa-dcard-title { font-size: 15px; font-weight: 800; line-height: 1.3; color: var(--ink-900); overflow-wrap: anywhere; }
+  .pa-dcard-meta { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; margin-top: -4px; }
+  .pa-dcard-trend { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: var(--ink-700); }
+  .pa-dcard-trend i { font-size: 12px; color: var(--ink-soft); }
+  .pa-badge-nodata { background: transparent; color: var(--ink-700); border: 1px solid var(--line-strong); }
+  .pa-dcard-cases { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 0; padding: 12px 0; border-top: 1px solid var(--line-soft); border-bottom: 1px solid var(--line-soft); }
+  .pa-dcase { min-width: 0; }
+  .pa-dcase dt { font-size: 12px; font-weight: 700; color: var(--ink-700); line-height: 1.3; }
+  .pa-dcase dd { margin: 0; }
+  .pa-dcase-value { margin-top: 4px; font-size: 22px; font-weight: 700; line-height: 1.15; color: var(--ink-700); }
+  .pa-dcase-recent .pa-dcase-value { font-size: 26px; font-weight: 800; color: var(--ink-900); }
+  .pa-dcase-sub { margin-top: 2px; font-size: 12px; font-weight: 500; line-height: 1.4; color: var(--ink-700); }
+  .pa-dcard-confidence { font-size: 12px; font-weight: 700; color: var(--ink-700); }
+  .pa-dcard-reason, .pa-dcard-message { margin: 0; font-size: 13px; font-weight: 500; line-height: 1.5; color: var(--ink-800); }
+  .pa-dcard-records { font-size: 12px; font-weight: 600; color: var(--ink-700); }
+  .pa-dcard-env { margin-top: auto; padding: 8px 10px; background: var(--surface-sunken); border-left: 3px solid var(--line-strong); border-radius: var(--r-xs); }
+  .pa-dcard-env-label { font-size: 11.5px; font-weight: 700; color: var(--ink-700); margin-bottom: 2px; }
+  .pa-dcard-env-label i { font-size: 11px; margin-right: 2px; }
+  .pa-dcard-env p { margin: 0; font-size: 12px; font-weight: 500; line-height: 1.45; color: var(--ink-700); }
+  @media (max-width: 640px) { .pa-disease-grid { grid-template-columns: minmax(0, 1fr); } }
+
+  /* --- Medicine Demand Forecast (Phase 3) ---
+     Inventory's table + filter-bar language on style.css tokens: card
+     surface wrapper with a soft border, sunken header row, compact rows,
+     tabular quantities and pill flags. The wrapper owns horizontal
+     scrolling so the page itself never grows wider than the viewport.
+     Stock (quantity + flags) and demand/risk are separate columns. */
+  .pa-med { margin-bottom: 24px; }
+  .pa-med-heading { margin: 0 0 6px; font-size: 20px; font-weight: 800; line-height: normal; letter-spacing: normal; color: var(--ink-800); }
+  .pa-med-sub { margin: 0 0 18px; font-size: 13px; font-weight: 500; line-height: 1.45; color: var(--ink-700); }
+  .pa-med-empty { padding: 16px 18px; background: var(--surface-sunken); border: 1px solid var(--line-soft); border-radius: var(--r-md); }
+  .pa-med-empty .pa-empty { padding: 0; color: var(--ink-700); font-size: 13px; }
+
+  .pa-med-filters { margin-bottom: 14px; }
+  .pa-med-filters .search-field { flex: 2 1 260px; min-width: 0; height: 38px; }
+  .pa-med-filters .search-field:focus-within { border-color: var(--teal-400); }
+  .pa-med-filters .search-field input { flex: 1 1 auto; width: 100%; box-sizing: border-box; padding: 0; background: transparent; border: none; outline: none; box-shadow: none; font: inherit; color: var(--ink-900); }
+  .pa-med-filters .filter-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; flex: 0 0 auto; max-width: 100%; }
+  .pa-med-filters .pc-select { -webkit-appearance: none; -moz-appearance: none; appearance: none; box-sizing: border-box; height: 38px; flex: 0 0 150px; min-width: 0; max-width: 100%; padding: 0 34px 0 12px; background-color: var(--surface-sunken); border: 1px solid var(--line-soft); border-radius: 10px; color: var(--ink-900); font: inherit; font-weight: 600; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: border-color 0.15s ease; }
+  .pa-med-filters .pc-select:hover { border-color: var(--line-strong); }
+  .pa-med-filters .pc-select:focus { outline: none; border-color: var(--teal-400); }
+  .pa-med-filters .pc-select,
+  .pa-med-filters .pc-select:focus {
+    background-image: linear-gradient(45deg, transparent 50%, var(--ink-faint) 50%), linear-gradient(135deg, var(--ink-faint) 50%, transparent 50%);
+    background-position: calc(100% - 18px) center, calc(100% - 13px) center;
+    background-size: 5px 5px, 5px 5px;
+    background-repeat: no-repeat;
+  }
+  .pa-med-count { margin: 0 2px 10px; font-size: 12px; font-weight: 700; color: var(--ink-700); }
+
+  .pa-med-table-wrap { position: relative; /* contains the absolutely-positioned sr-only text inside the scroller */ background: var(--surface-card); border: 1px solid var(--line-soft); border-radius: var(--r-md); box-shadow: var(--clay-flat); overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; }
+  .pa-med-table { width: 100%; min-width: 860px; border-collapse: collapse; font-size: 13px; }
+  .pa-med-table thead th { text-align: left; padding: 12px 14px; font-size: 10.6px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-700); background: var(--surface-sunken); border-bottom: 1px solid var(--line-soft); white-space: nowrap; }
+  .pa-med-table tbody th, .pa-med-table tbody td { padding: 12px 14px; border-bottom: 1px solid var(--line-soft); vertical-align: top; text-align: left; color: var(--ink-900); line-height: 1.35; }
+  .pa-med-table tbody tr:last-child th, .pa-med-table tbody tr:last-child td { border-bottom: none; }
+  .pa-med-table tbody tr:hover { background: var(--surface-sunken); }
+  .pa-med-name-cell { font-weight: inherit; min-width: 130px; }
+  .pa-med-name { display: block; font-size: 14px; font-weight: 700; color: var(--ink-900); }
+  .pa-med-cat { display: block; margin-top: 2px; font-size: 11.5px; font-weight: 600; color: var(--ink-700); }
+
+  .pa-med-stock { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; min-width: 150px; }
+  .pa-med-qty { font-size: 15px; font-weight: 800; color: var(--ink-900); font-variant-numeric: tabular-nums; }
+  .pa-med-unit { font-size: 12.5px; font-weight: 600; color: var(--ink-700); }
+  .pa-pill { display: inline-flex; align-items: center; width: fit-content; font-size: 10.5px; font-weight: 700; letter-spacing: 0.03em; padding: 3px 8px; border-radius: 999px; white-space: nowrap; line-height: 1.4; }
+  .pa-pill.low { background: var(--amber-100); color: var(--amber-800); }
+  .pa-pill.out, .pa-pill.expired { background: var(--red-100); color: var(--red-800); }
+
+  .pa-med-demand { font-size: 13px; font-weight: 700; color: var(--ink-900); }
+  .pa-med-nodata-label { font-size: 11px; font-weight: 800; letter-spacing: 0.03em; color: var(--ink-700); }
+  .pa-med-support { margin-top: 2px; font-size: 12px; font-weight: 500; line-height: 1.4; color: var(--ink-700); min-width: 130px; }
+  .pa-med-trend { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 700; color: var(--ink-700); white-space: nowrap; }
+  .pa-med-trend i { font-size: 12px; color: var(--ink-soft); }
+  .pa-med-rec { min-width: 180px; font-size: 12.5px; font-weight: 500; color: var(--ink-800); }
+  .pa-med-empty-row td { padding: 44px 20px; text-align: center; color: var(--ink-700); font-size: 13.5px; font-weight: 600; }
+
+  /* --- Weather & Health Factors (Phase 4) ---
+     Same heading/spacing hierarchy as Analysis Overview, Disease Risk
+     Predictions and Medicine Demand Forecast (h2.pa-weather-heading +
+     p.pa-weather-sub, not the generic .pa-section wrapper Recommendations
+     still uses). Two panels on style.css tokens: Current Conditions reads
+     as a clinical vitals list on a sunken surface; Environmental Factors
+     reads as secondary/contextual rows on the card surface, deliberately
+     quieter than the Disease Risk Predictions cards above it. Loading and
+     error states share the same two-panel frame so the section never
+     collapses to a single floating line. */
+  .pa-weather { margin-bottom: 24px; }
+  .pa-weather-heading { margin: 0 0 6px; font-size: 20px; font-weight: 800; line-height: normal; letter-spacing: normal; color: var(--ink-800); }
+  .pa-weather-sub { margin: 0 0 18px; font-size: 13px; font-weight: 500; line-height: 1.45; color: var(--ink-700); }
+
+  .pa-weather-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: 12px; align-items: stretch; }
+  @media (max-width: 900px) { .pa-weather-grid { grid-template-columns: minmax(0, 1fr); } }
+
+  .pa-weather-panel { box-sizing: border-box; min-width: 0; padding: 16px 18px; background: var(--surface-card); border: 1px solid var(--line); border-radius: var(--r-md); box-shadow: var(--clay-flat); }
+  .pa-weather-panel-title { margin: 0 0 12px; font-size: 12px; font-weight: 700; color: var(--ink-700); }
+
+  /* Current Conditions — sunken vitals list, deep teal reserved for the
+     unit/value emphasis rather than the whole panel. */
+  .pa-weather-current { background: var(--surface-sunken); }
+  .pa-weather-vitals { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+  .pa-vital { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line-soft); }
+  .pa-vital:last-child { border-bottom: none; padding-bottom: 0; }
+  .pa-vital:first-child { padding-top: 0; }
+  .pa-vital-label { font-size: 13px; font-weight: 600; color: var(--ink-700); }
+  .pa-vital-value { font-size: 15px; font-weight: 800; color: var(--teal-700); font-variant-numeric: tabular-nums; text-align: right; }
+  .pa-weather-updated { margin-top: 12px; font-size: 11.5px; font-weight: 600; color: var(--ink-faint); }
+
+  /* Environmental Factors — quieter than the Disease Risk cards: text
+     rows on a hairline-divided list, not another card grid. */
+  .pa-weather-factor-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+  .pa-weather-factor { padding: 10px 12px; background: var(--surface-sunken); border-left: 3px solid var(--line-strong); border-radius: var(--r-xs); }
+  .pa-weather-factor-text { margin: 0; font-size: 13px; font-weight: 500; line-height: 1.45; color: var(--ink-800); }
+  .pa-weather-affects { margin-top: 6px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+  .pa-weather-affects-label { font-size: 11px; font-weight: 700; color: var(--ink-faint); }
+  .pa-weather-tag { display: inline-flex; align-items: center; font-size: 11px; font-weight: 700; color: var(--ink-700); background: var(--surface-card); border: 1px solid var(--line-soft); border-radius: var(--r-pill); padding: 2px 9px; }
+
+  .pa-weather-empty, .pa-weather-loading { display: flex; align-items: center; gap: 10px; padding: 16px 0; color: var(--ink-700); font-size: 13px; font-weight: 500; }
+  .pa-weather-loading i { color: var(--ink-soft); }
+
+  /* Error state spans the full grid so the section keeps its two-panel
+     footprint even while conditions are unavailable. */
+  .pa-weather-error { grid-column: 1 / -1; padding: 16px 18px; background: var(--surface-sunken); border: 1px dashed var(--line-strong); border-radius: var(--r-md); box-shadow: none; }
+  .pa-weather-error-text { margin: 0 0 12px; font-size: 13px; font-weight: 500; line-height: 1.5; color: var(--ink-800); }
+
+  /* --- Recommendations (Phase 5) ---
+     Same heading/spacing hierarchy as the four sections above (h2 +
+     sub, not the generic .pa-section/.pa-rec-list-of-icons treatment
+     this used before). Renders as a single clean action checklist —
+     deliberately not a card grid or table, so it reads as the closing
+     ACTION step rather than another data section. getRecommendations()
+     returns plain strings with no category/priority, so no badges are
+     invented here; the recommendation text itself carries all the
+     visual weight, with only a small teal action marker beside it. */
+  .pa-rec { margin-bottom: 24px; }
+  .pa-rec-heading { margin: 0 0 6px; font-size: 20px; font-weight: 800; line-height: normal; letter-spacing: normal; color: var(--ink-800); }
+  .pa-rec-sub { margin: 0 0 18px; font-size: 13px; font-weight: 500; line-height: 1.45; color: var(--ink-700); }
+  .pa-rec-panel { background: var(--surface-card); border: 1px solid var(--line); border-radius: var(--r-md); box-shadow: var(--clay-flat); padding: 2px 18px; }
+  .pa-rec-list { list-style: none; margin: 0; padding: 0; }
+  .pa-rec-item { display: flex; align-items: flex-start; gap: 12px; padding: 14px 0; border-bottom: 1px solid var(--line-soft); }
+  .pa-rec-item:last-child { border-bottom: none; }
+  .pa-rec-marker { flex: none; width: 20px; height: 20px; margin-top: 1px; border-radius: 50%; background: var(--teal-700); color: var(--ink-on-brand); display: flex; align-items: center; justify-content: center; font-size: 10px; }
+  .pa-rec-text { margin: 0; font-size: 14px; font-weight: 600; line-height: 1.5; color: var(--ink-900); overflow-wrap: anywhere; }
+  .pa-rec-empty { padding: 16px 18px; }
+
+  .pa-empty { color: #6b7280; font-size: 0.9rem; padding: 8px 0; }
+  .pa-updated { color: #9ca3af; font-size: 0.8rem; text-align: right; }
+
+  /* --- Visual polish pass (containment / contrast / hierarchy) ---
+     Presentation only: no markup, data or logic changes. All rules use
+     existing style.css tokens. Scoped to .pa-controls-panel and to the
+     two Overview modules inside .pa-lower-grid, so the full Medicine
+     Demand / Weather sections reserved for Phase 2 and the Current Risk
+     Snapshot keep their current look.
+
+     Surface ladder: page bg -> module (card) -> inner box (page-bg tone,
+     hairline border, faint inset). The Analysis Period select sits one
+     step above its sunken panel (raised surface + visible border). */
+
+  /* Straight divider above Analysis Controls: it is the shared .topbar's
+     border-bottom from style.css. Removed for this page only (page-scoped
+     override; style.css is untouched). The Analysis Controls panel keeps
+     its own border. */
+  .topbar { border-bottom: none; }
+
+  /* Page title — same block as Billing's: shared .page-toolbar with a
+     22px top margin, and a 20px / 800 / --ink-900 title with a 2px
+     bottom margin (Billing's .bl-page-title). */
+  .page-toolbar { margin-top: 22px; }
+  .pa-page-title { margin: 0 0 2px; font-size: 20px; font-weight: 800; line-height: inherit; letter-spacing: normal; color: var(--ink-900); }
+
+  /* Analysis Period select — interactive control on the sunken panel */
+  .pa-controls-select {
+    -webkit-appearance: none; -moz-appearance: none; appearance: none;
+    padding: 0 38px 0 12px;
+    background-color: var(--surface-card-raised);
+    background-image: linear-gradient(45deg, transparent 50%, var(--ink-soft) 50%), linear-gradient(135deg, var(--ink-soft) 50%, transparent 50%);
+    background-position: calc(100% - 19px) center, calc(100% - 14px) center;
+    background-size: 5px 5px, 5px 5px;
+    background-repeat: no-repeat;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r-sm);
+    box-shadow: var(--clay-flat);
+    color: var(--ink-900);
+    font-weight: 600;
+    cursor: pointer;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  .pa-controls-select:hover { border-color: var(--teal-400); }
+  .pa-controls-select:focus,
+  .pa-controls-select:focus-visible {
+    background-color: var(--surface-card-raised);
+    background-image: linear-gradient(45deg, transparent 50%, var(--teal-600) 50%), linear-gradient(135deg, var(--teal-600) 50%, transparent 50%);
+    background-position: calc(100% - 19px) center, calc(100% - 14px) center;
+    background-size: 5px 5px, 5px 5px;
+    background-repeat: no-repeat;
+    border-color: var(--teal-400);
+    box-shadow: 0 0 0 3px var(--teal-100);
+    outline: none;
+  }
+
+  /* Outer module containers (Medicine & Inventory Pressure, Weather & Health Context) */
+  .pa-lower-grid > .pa-med,
+  .pa-lower-grid > .pa-weather {
+    box-sizing: border-box;
+    min-width: 0;
+    padding: 16px 18px 18px;
+    background: var(--surface-card);
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+    box-shadow: var(--clay-flat);
+  }
+  /* Module header: same title/sub/button treatment in both, one step
+     below the 20px page-section headings so the hierarchy reads
+     page section -> module -> inner box. */
+  .pa-lower-grid .pa-preview-head { margin-bottom: 14px; gap: 8px 14px; }
+  .pa-lower-grid .pa-preview-heading { margin-bottom: 4px; font-size: 16px; }
+  .pa-lower-grid .pa-preview-sub { font-size: 12.5px; }
+  .pa-lower-grid .pa-view-link { background: var(--surface-bg); border-color: var(--line); }
+  .pa-lower-grid .pa-view-link:hover { background: var(--surface-card-raised); border-color: var(--teal-400); color: var(--teal-700); }
+  .pa-lower-grid .pa-view-link:focus-visible { outline: none; border-color: var(--teal-400); box-shadow: 0 0 0 3px var(--teal-100); }
+
+  /* Medicine table — one inner content surface (rows stay plain rows) */
+  .pa-med .pa-snapshot-table-wrap {
+    padding: 6px 10px 4px;
+    background: var(--surface-bg);
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+    box-shadow: inset 0 1px 2px rgba(31, 42, 46, 0.05);
+  }
+  .pa-med .pa-snapshot-table thead th { padding: 10px 12px; }
+  .pa-med .pa-snapshot-table thead th:first-child { border-top-left-radius: var(--r-xs); border-bottom-left-radius: var(--r-xs); border-bottom-color: transparent; }
+  .pa-med .pa-snapshot-table thead th:last-child { border-top-right-radius: var(--r-xs); border-bottom-right-radius: var(--r-xs); border-bottom-color: transparent; }
+  .pa-med .pa-snapshot-table thead th { border-bottom-color: transparent; }
+  .pa-med .pa-snapshot-table tbody td { padding: 11px 12px; border-bottom-color: var(--line); }
+  .pa-med .pa-snapshot-table tbody tr:last-child td { border-bottom: none; }
+
+  /* Weather & Health — Current Conditions / Environmental Factors as two matching inner boxes */
+  .pa-weather .pa-weather-grid { gap: 12px; }
+  .pa-weather .pa-weather-panel {
+    padding: 14px 16px;
+    background: var(--surface-bg);
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+    box-shadow: inset 0 1px 2px rgba(31, 42, 46, 0.05);
+  }
+  .pa-weather .pa-weather-current { background: var(--surface-bg); }
+  .pa-weather .pa-weather-panel-title {
+    margin: 0 0 12px;
+    padding-bottom: 9px;
+    border-bottom: 1px solid var(--line);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--ink-700);
+  }
+  .pa-weather .pa-vital { border-bottom-color: var(--line); }
+  .pa-weather .pa-weather-factor { background: var(--surface-card); border: 1px solid var(--line-soft); border-left: 3px solid var(--line-strong); }
+  .pa-weather .pa-weather-tag { background: var(--surface-bg); border-color: var(--line); }
+  .pa-weather .pa-weather-error { background: var(--surface-bg); border: 1px dashed var(--line-strong); }
+</style>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-mark"><i class="fa-solid fa-paw"></i></div>
+        <div class="brand-text">
+          <div class="brand-name">Pawsitive Care</div>
+          <div class="brand-role">Administrator</div>
+        </div>
+      </div>
+      <div class="sidebar-divider"></div>
+      <nav class="sidebar-nav">
+      <div class="nav-group">
+        <div class="nav-group-label">MAIN</div>
+        <a href="dashboard.html" class="nav-item" data-page="dashboard.html">
+          <span class="nav-icon"><i class="fa-solid fa-house"></i></span>
+          <span class="nav-label">Dashboard</span>
+        </a>
+        <a href="appointments.html" class="nav-item" data-page="appointments.html">
+          <span class="nav-icon"><i class="fa-solid fa-calendar-days"></i></span>
+          <span class="nav-label">Appointments</span>
+        </a>
+        <a href="queue.html" class="nav-item" data-page="queue.html">
+          <span class="nav-icon"><i class="fa-solid fa-hourglass-half"></i></span>
+          <span class="nav-label">Queue</span>
+        </a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">PATIENT MANAGEMENT</div>
+        <a href="patients.html" class="nav-item" data-page="patients.html">
+          <span class="nav-icon"><i class="fa-solid fa-paw"></i></span>
+          <span class="nav-label">Patients</span>
+        </a>
+        <a href="clients.html" class="nav-item" data-page="clients.html">
+          <span class="nav-icon"><i class="fa-solid fa-user"></i></span>
+          <span class="nav-label">Clients</span>
+        </a>
+        <a href="medical-records.html" class="nav-item" data-page="medical-records.html">
+          <span class="nav-icon"><i class="fa-solid fa-notes-medical"></i></span>
+          <span class="nav-label">Medical Records</span>
+        </a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">CLINIC</div>
+        <a href="services.html" class="nav-item" data-page="services.html">
+          <span class="nav-icon"><i class="fa-solid fa-hospital"></i></span>
+          <span class="nav-label">Services</span>
+        </a>
+        <a href="inventory.html" class="nav-item" data-page="inventory.html">
+          <span class="nav-icon"><i class="fa-solid fa-boxes-stacked"></i></span>
+          <span class="nav-label">Inventory</span>
+        </a>
+        <a href="billing.html" class="nav-item" data-page="billing.html">
+          <span class="nav-icon"><i class="fa-solid fa-credit-card"></i></span>
+          <span class="nav-label">Billing</span>
+        </a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">INSIGHTS</div>
+        <a href="predictive-analytics.html" class="nav-item" data-page="predictive-analytics.html">
+          <span class="nav-icon"><i class="fa-solid fa-chart-line"></i></span>
+          <span class="nav-label">Predictive Analytics</span>
+        </a>
+        <a href="reports.html" class="nav-item" data-page="reports.html">
+          <span class="nav-icon"><i class="fa-solid fa-chart-column"></i></span>
+          <span class="nav-label">Reports</span>
+        </a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">SYSTEM</div>
+        <a href="notifications.html" class="nav-item" data-page="notifications.html">
+          <span class="nav-icon"><i class="fa-solid fa-bell"></i></span>
+          <span class="nav-label">Notifications</span>
+        </a>
+        <a href="staff-users.html" class="nav-item" data-page="staff-users.html">
+          <span class="nav-icon"><i class="fa-solid fa-users"></i></span>
+          <span class="nav-label">Staff & Users</span>
+        </a>
+        <a href="settings.html" class="nav-item" data-page="settings.html">
+          <span class="nav-icon"><i class="fa-solid fa-gear"></i></span>
+          <span class="nav-label">Settings</span>
+        </a>
+      </div>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="footer-avatar">A</div>
+        <div>
+          <div class="footer-name">Admin</div>
+          <div class="footer-role">Administrator</div>
+        </div>
+      </div>
+    </aside>
+
+    <div class="main-content">
+      <header class="topbar">
+        <div class="topbar-left">
+          <button class="menu-toggle" aria-label="Toggle navigation"><i class="fa-solid fa-bars"></i></button>
+        </div>
+      </header>
+
+      <main class="page-body">
+        <div class="page-toolbar">
+          <div>
+            <h1 class="pa-page-title">PREDICTIVE ANALYTICS</h1>
+          </div>
+        </div>
+        <div id="pa-root"></div>
+      </main>
+    </div>
+  </div>
+
+  <script src="data-store.js"></script>
+  <script src="patient-data-store.js"></script>
+  <script src="medical-records-data-store.js"></script>
+  <script src="predictive-analytics-data-store.js"></script>
+  <script src="predictive-analytics.js"></script>
+  <script src="sidebar.js"></script>
+</body>
+</html>

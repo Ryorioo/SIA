@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Services · Pawsitive Care</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+<link rel="stylesheet" href="style.css">
+<style>
+  /* Services page — internal styles only, style.css untouched.
+     Reuses the same components/tokens already established across
+     Pawsitive Care (e.g. Appointments): .filter-bar / .search-field /
+     .filter-select for the toolbar, .btn / .btn-sm / .btn-primary /
+     .btn-danger for actions, .modal-overlay / .modal-box / .modal-head
+     / .modal-title / .modal-close / .form-grid / .form-field /
+     .modal-footer for the modal, and .status-badge for status pills —
+     instead of the page's previous standalone hex-based styling. Only
+     page-specific pieces (the table itself, and small color/shape
+     variants layered on top of the shared classes) are defined here,
+     and every color used is one of the app's existing CSS custom
+     properties, never a new hardcoded value. */
+
+  /* --- header cleanup (Services page) ---
+     Same treatment as Medical Records/Patients/Clients: the page-level
+     title/breadcrumb that used to live in .topbar is removed, so the
+     border-bottom style.css draws for pages that keep that title is
+     suppressed here (scoped to this page only, style.css untouched). */
+  .topbar { border-bottom: none; }
+
+  /* --- header spacing (Services page) ---
+     Nudges the "Services" toolbar block down slightly to fill the space
+     left by the removed title/breadcrumb, page-scoped only, matching
+     Medical Records' .page-toolbar treatment. */
+  .page-toolbar { margin-top: 22px; }
+
+  .services-count-label {
+    font-size: 11.4px;
+    font-weight: 700;
+    color: var(--ink-faint);
+    margin: 0 2px 10px;
+  }
+
+  /* --- services table --- */
+  .services-table-wrap {
+    background: var(--surface-card);
+    border: 1px solid var(--line-soft);
+    border-radius: var(--r-md);
+    box-shadow: var(--clay-flat);
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+  table.services-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table.services-table th,
+  table.services-table td {
+    padding: 12px 16px;
+    text-align: left;
+    border-bottom: 1px solid var(--line-soft);
+  }
+  table.services-table th {
+    background: var(--surface-sunken);
+    color: var(--ink-faint);
+    font-size: 10.6px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  table.services-table tbody tr:last-child td { border-bottom: none; }
+  table.services-table tbody tr:hover { background: var(--surface-sunken); }
+
+  .svc-name { font-weight: 800; color: var(--ink-900); }
+  .svc-category { font-weight: 600; color: var(--ink-soft); }
+  .svc-price { font-weight: 800; color: var(--ink-900); }
+  .svc-duration { font-weight: 600; color: var(--ink-soft); }
+
+  /* status pill colors — reuses .status-badge (already used by
+     Appointments) with two new modifiers, mapped onto the same
+     semantic tokens as the closest existing statuses: Active reads
+     like Confirmed (teal), Inactive reads like Completed (neutral). */
+  .status-badge.status-active {
+    color: var(--status-confirmed-fg, var(--teal-700));
+    background: var(--teal-50);
+  }
+  .status-badge.status-inactive {
+    color: var(--status-completed-fg, var(--ink-faint));
+    background: var(--surface-sunken);
+  }
+
+  .row-actions { display: flex; gap: 6px; flex-wrap: nowrap; align-items: center; }
+
+  /* --- compact icon-only action button (identical to Medical Records'
+     .icon-btn): 30x30, existing border/radius tokens, muted icon at
+     rest, teal border/icon on hover. Used here for the Edit action
+     only — Activate/Deactivate stays a labeled .btn so a status change
+     remains immediately legible. Page-scoped since style.css is
+     off-limits. */
+  .icon-btn {
+    width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center;
+    border-radius: var(--r-sm); border: 1px solid var(--line-soft); background: var(--surface-card-raised);
+    color: var(--ink-soft); cursor: pointer; box-shadow: var(--clay-flat); font-size: 12px;
+    transition: border-color 0.15s ease, color 0.15s ease;
+  }
+  .icon-btn:hover { border-color: var(--teal-400); color: var(--teal-700); }
+
+  .empty-row td { text-align: center; padding: 34px 16px; color: var(--ink-faint); font-weight: 600; }
+
+  /* --- Add/Edit Service modal --- */
+  .modal-sub {
+    flex: none;
+    margin: 0;
+    padding: 12px 26px 0;
+    font-size: 12.4px;
+    font-weight: 600;
+    color: var(--ink-faint);
+  }
+  .modal-sub:empty {
+    display: none;
+    margin: 0;
+    padding: 0;
+  }
+  .field-error {
+    color: var(--status-cancelled-fg, #b33f3f);
+    font-size: 11.6px;
+    font-weight: 600;
+    margin-top: 4px;
+    display: none;
+  }
+  .field-error.show { display: block; }
+
+  /* --- Add/Edit Service modal: fixed header + footer, scrolling body ---
+     Same shell as Medical Records' Add/Edit modal: the modal box stays
+     inside the viewport and only the form fields between the header and
+     the action buttons scroll, so the title, close button, Cancel and
+     Save Service are always visible. Same 88vh cap, limited to the
+     dynamic viewport where supported so mobile browser toolbars can't
+     push the footer off screen; same spacing (22px top, 26px sides, 16px
+     bottom on the header; 18px/26px on the scrolling body; 16px/26px/20px
+     on the footer); same header bottom divider. Scoped to
+     #service-modal-overlay only.
+     Services' markup wraps the form-grid and footer in a <form> (Medical
+     Records' does not), so the <form> itself is made a flex column
+     filling the remaining height — that's the one structural adaptation
+     needed; the form's id, fields and submit handler are untouched. */
+  #service-modal-overlay .modal-box {
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    overflow: hidden;
+    max-height: 88vh;
+    max-height: min(88vh, calc(100dvh - 40px));
+  }
+  #service-modal-overlay .modal-head {
+    flex: none;
+    margin: 0;
+    padding: 22px 26px 16px;
+    border-bottom: 1px solid var(--line-soft);
+  }
+  #service-modal-overlay #service-form {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+  #service-modal-overlay .form-grid {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 18px 26px;
+  }
+  #service-modal-overlay .modal-footer {
+    flex: none;
+    margin: 0;
+    padding: 16px 26px 20px;
+  }
+
+  /* --- Add/Edit Service modal selects: same height/border/radius/
+     background/typography as the rest of the form fields (untouched,
+     inherited from style.css) — only the native arrow is replaced, with
+     the same chevron the filter dropdowns (.filter-bar .pc-select) and
+     Medical Records' modal selects draw: same gradients, size, color and
+     position. Only #service-status is a <select> in this form. --- */
+  #service-modal-overlay .form-field select {
+    -webkit-appearance: none; -moz-appearance: none; appearance: none;
+    background-image:
+      linear-gradient(45deg, transparent 50%, var(--ink-faint) 50%),
+      linear-gradient(135deg, var(--ink-faint) 50%, transparent 50%);
+    background-repeat: no-repeat;
+    background-position:
+      calc(100% - 18px) center,
+      calc(100% - 13px) center;
+    background-size: 5px 5px, 5px 5px;
+    padding-right: 30px;
+  }
+  #service-modal-overlay .form-field select::-ms-expand { display: none; }
+
+  /* Same shared 38px control height as Medical Records' modal inputs and
+     dropdowns, so no field in this modal reads larger or smaller than its
+     neighbours. Textarea (#service-description) is intentionally
+     excluded, same as Medical Records' own textareas. */
+  #service-modal-overlay .form-field input:not([type="hidden"]),
+  #service-modal-overlay .form-field select {
+    height: 38px;
+    box-sizing: border-box;
+  }
+
+  /* --- Price / Duration inputs ---
+     Root cause of the mismatch: the shared modal form-control styling in
+     style.css is keyed off input type, and Price/Duration were the only
+     type="number" inputs in the form — so they never matched the type="text"
+     selector that Name/Category/Status/Description use. A hand-copied
+     override here (guessing at background/border/radius values) is fragile
+     and drifted out of sync with the real shared styling, which is exactly
+     what caused the "different background" and "unstyled" reports.
+     The robust fix is to stop trying to re-create that styling and instead
+     put these two fields under the SAME selector as every other text field:
+     they are now type="text" (see services.html body) with inputmode hints
+     for numeric keyboards on mobile, so they inherit identical styling
+     automatically, with no separate CSS rule needed here or anywhere else.
+     Existing JS validation (parseFloat/parseInt + isNaN/negative checks in
+     services.js) already treats the value as a string either way, so no
+     behavior changed — only the attribute that controls which CSS selector
+     matches. */
+
+  /* --- search field: fill the full width, no gap ---
+     Ensures the text input itself stretches to occupy all remaining
+     space inside .search-field (next to the icon) rather than sitting
+     at an intrinsic/default width and leaving empty space on the
+     right. The icon stays exactly where it already was — only the
+     input's own box model changes. */
+  #services-search {
+    flex: 1 1 auto;
+    width: 100%;
+    box-sizing: border-box;
+    background: transparent;
+    border: none;
+    outline: none;
+    box-shadow: none;
+    font: inherit;
+    color: var(--ink-900);
+  }
+
+  /* Move the focused look to the single outer container instead of the
+     inner input, so there is only ever one visible border. */
+  .search-field:focus-within {
+    border-color: var(--teal-400);
+  }
+
+  /* --- filter bar: search gets most of the row; filter controls only
+     take the width their contents need — same proportions as Medical
+     Records' filter bar. */
+  .filter-bar .search-field {
+    flex: 2 1 380px;
+    min-width: 260px;
+  }
+
+  /* filter controls: fixed, content-appropriate widths instead of
+     stretching to fill the row (Category/Status), same pattern as
+     Medical Records' .filter-controls. */
+  .filter-controls {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+    flex: 0 0 auto;
+  }
+  .filter-bar #services-category-filter { flex: 0 0 170px; min-width: 0; }
+  .filter-bar #services-status-filter { flex: 0 0 150px; min-width: 0; }
+
+  /* --- Unified select component (identical to Medical Records/Patients/
+     Clients) --- same .pc-select treatment as those pages' toolbar
+     filters: warm beige surface, existing border/radius tokens, and one
+     CSS-drawn chevron replacing the browser's native arrow. Applied here
+     to the Category/Status filters only. Purely visual — markup stays a
+     plain native <select>; no id, option, or JS hook is touched. Kept
+     here (page-scoped) since style.css is off-limits. */
+  .pc-select {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    box-sizing: border-box;
+    background-color: var(--surface-sunken);
+    border: 1px solid var(--line-soft);
+    border-radius: 10px;
+    color: var(--ink-900);
+    font: inherit;
+    max-width: 100%;
+    padding: 0 34px 0 12px;
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    background-image:
+      linear-gradient(45deg, transparent 50%, var(--ink-faint) 50%),
+      linear-gradient(135deg, var(--ink-faint) 50%, transparent 50%);
+    background-position:
+      calc(100% - 18px) center,
+      calc(100% - 13px) center;
+    background-size: 5px 5px, 5px 5px;
+    background-repeat: no-repeat;
+    transition: border-color 0.15s ease;
+  }
+  .pc-select::-ms-expand { display: none; }
+  .pc-select:hover { border-color: var(--line-strong); }
+  .pc-select:focus { outline: none; border-color: var(--teal-400); }
+
+  /* Filter-bar selects sit outside any modal height rule, so they get
+     the same fixed 38px control height directly here, same as Medical
+     Records/Patients/Clients. */
+  .filter-bar .pc-select {
+    height: 38px;
+  }
+  /* Keep the chevron visible while focused. style.css's `select:focus`
+     uses the `background` shorthand, which (at higher specificity than
+     .pc-select) resets background-image and made the chevron vanish on
+     focus. Re-declaring the same chevron longhands here, for both the
+     resting and focused states, keeps it drawn — same gradients, size
+     and position as .pc-select above. background-color is intentionally
+     not set here (only background-color, never the background
+     shorthand, is used for any focus override), so the normal and
+     focused fills are unchanged. */
+  .filter-bar .pc-select,
+  .filter-bar .pc-select:focus {
+    background-image:
+      linear-gradient(45deg, transparent 50%, var(--ink-faint) 50%),
+      linear-gradient(135deg, var(--ink-faint) 50%, transparent 50%);
+    background-position:
+      calc(100% - 18px) center,
+      calc(100% - 13px) center;
+    background-size: 5px 5px, 5px 5px;
+    background-repeat: no-repeat;
+  }
+</style>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-mark"><i class="fa-solid fa-paw"></i></div>
+        <div class="brand-text">
+          <div class="brand-name">Pawsitive Care</div>
+          <div class="brand-role">Administrator</div>
+        </div>
+      </div>
+      <div class="sidebar-divider"></div>
+      <nav class="sidebar-nav">
+      <div class="nav-group">
+        <div class="nav-group-label">MAIN</div>
+        <a href="dashboard.html" class="nav-item" data-page="dashboard.html">
+          <span class="nav-icon"><i class="fa-solid fa-house"></i></span>
+          <span class="nav-label">Dashboard</span>
+        </a>
+        <a href="appointments.html" class="nav-item" data-page="appointments.html">
+          <span class="nav-icon"><i class="fa-solid fa-calendar-days"></i></span>
+          <span class="nav-label">Appointments</span>
+        </a>
+        <a href="queue.html" class="nav-item" data-page="queue.html">
+          <span class="nav-icon"><i class="fa-solid fa-hourglass-half"></i></span>
+          <span class="nav-label">Queue</span>
+        </a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">PATIENT MANAGEMENT</div>
+        <a href="patients.html" class="nav-item" data-page="patients.html">
+          <span class="nav-icon"><i class="fa-solid fa-paw"></i></span>
+          <span class="nav-label">Patients</span>
+        </a>
+        <a href="clients.html" class="nav-item" data-page="clients.html">
+          <span class="nav-icon"><i class="fa-solid fa-user"></i></span>
+          <span class="nav-label">Clients</span>
+        </a>
+        <a href="medical-records.html" class="nav-item" data-page="medical-records.html">
+          <span class="nav-icon"><i class="fa-solid fa-notes-medical"></i></span>
+          <span class="nav-label">Medical Records</span>
+        </a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">CLINIC</div>
+        <a href="services.html" class="nav-item" data-page="services.html">
+          <span class="nav-icon"><i class="fa-solid fa-hospital"></i></span>
+          <span class="nav-label">Services</span>
+        </a>
+        <a href="inventory.html" class="nav-item" data-page="inventory.html">
+          <span class="nav-icon"><i class="fa-solid fa-boxes-stacked"></i></span>
+          <span class="nav-label">Inventory</span>
+        </a>
+        <a href="billing.html" class="nav-item" data-page="billing.html">
+          <span class="nav-icon"><i class="fa-solid fa-credit-card"></i></span>
+          <span class="nav-label">Billing</span>
+        </a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">INSIGHTS</div>
+        <a href="predictive-analytics.html" class="nav-item" data-page="predictive-analytics.html">
+          <span class="nav-icon"><i class="fa-solid fa-chart-line"></i></span>
+          <span class="nav-label">Predictive Analytics</span>
+        </a>
+        <a href="reports.html" class="nav-item" data-page="reports.html">
+          <span class="nav-icon"><i class="fa-solid fa-chart-column"></i></span>
+          <span class="nav-label">Reports</span>
+        </a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">SYSTEM</div>
+        <a href="notifications.html" class="nav-item" data-page="notifications.html">
+          <span class="nav-icon"><i class="fa-solid fa-bell"></i></span>
+          <span class="nav-label">Notifications</span>
+        </a>
+        <a href="staff-users.html" class="nav-item" data-page="staff-users.html">
+          <span class="nav-icon"><i class="fa-solid fa-users"></i></span>
+          <span class="nav-label">Staff & Users</span>
+        </a>
+        <a href="settings.html" class="nav-item" data-page="settings.html">
+          <span class="nav-icon"><i class="fa-solid fa-gear"></i></span>
+          <span class="nav-label">Settings</span>
+        </a>
+      </div>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="footer-avatar">A</div>
+        <div>
+          <div class="footer-name">Admin</div>
+          <div class="footer-role">Administrator</div>
+        </div>
+      </div>
+    </aside>
+
+    <div class="main-content">
+      <header class="topbar">
+        <div class="topbar-left">
+          <button class="menu-toggle" aria-label="Toggle navigation"><i class="fa-solid fa-bars"></i></button>
+        </div>
+      </header>
+
+      <main class="page-body">
+        <div class="page-toolbar">
+          <div>
+            <div style="font-size:20px; font-weight:800; margin-bottom:2px;">SERVICES</div>
+          </div>
+          <button type="button" class="btn btn-sm btn-primary" id="btn-add-service">
+            <i class="fa-solid fa-plus"></i> Add Service
+          </button>
+        </div>
+
+        <div class="filter-bar">
+          <div class="search-field">
+            <span><i class="fa-solid fa-magnifying-glass"></i></span>
+            <input type="text" id="services-search" placeholder="Search services by name...">
+          </div>
+          <div class="filter-controls">
+            <select class="filter-select pc-select" id="services-category-filter">
+              <option value="">All Categories</option>
+            </select>
+            <select class="filter-select pc-select" id="services-status-filter">
+              <option value="">All Statuses</option>
+              <option value="Active">Active</option>
+              <option value="Inactive">Inactive</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="services-count-label" id="services-count"></div>
+
+        <div class="services-table-wrap">
+          <table class="services-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Category</th>
+                <th>Price</th>
+                <th>Duration</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="services-table-body">
+              <!-- rows rendered by services.js -->
+            </tbody>
+          </table>
+        </div>
+      </main>
+
+      <!-- Add / Edit Service modal -->
+      <div class="modal-overlay" id="service-modal-overlay">
+        <div class="modal-box">
+          <div class="modal-head">
+            <div class="modal-title" id="service-modal-title">Add Service</div>
+            <button class="modal-close" id="service-modal-close" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+          </div>
+          <p class="modal-sub" id="service-modal-sub"></p>
+          <form id="service-form" novalidate>
+            <input type="hidden" id="service-id">
+
+            <div class="form-grid">
+              <div class="form-field full">
+                <label for="service-name">Service Name *</label>
+                <input type="text" id="service-name" placeholder="e.g. General Consultation">
+                <div class="field-error" id="err-service-name">Service name is required.</div>
+              </div>
+
+              <div class="form-field">
+                <label for="service-category">Category *</label>
+                <input type="text" id="service-category" list="service-category-options" placeholder="e.g. Consultation">
+                <datalist id="service-category-options"></datalist>
+                <div class="field-error" id="err-service-category">Category is required.</div>
+              </div>
+              <div class="form-field">
+                <label for="service-status">Status</label>
+                <select id="service-status">
+                  <option value="Active">Active</option>
+                  <option value="Inactive">Inactive</option>
+                </select>
+              </div>
+
+              <div class="form-field">
+                <label for="service-price">Price (₱) *</label>
+                <input type="text" inputmode="decimal" id="service-price" placeholder="0.00">
+                <div class="field-error" id="err-service-price">Enter a valid price.</div>
+              </div>
+              <div class="form-field">
+                <label for="service-duration">Duration (minutes) *</label>
+                <input type="text" inputmode="numeric" id="service-duration" placeholder="30">
+                <div class="field-error" id="err-service-duration">Enter a valid duration.</div>
+              </div>
+
+              <div class="form-field full">
+                <label for="service-description">Description</label>
+                <textarea id="service-description" placeholder="Optional notes about this service"></textarea>
+              </div>
+            </div>
+
+            <div class="modal-footer">
+              <button type="button" class="btn" id="btn-cancel-service">Cancel</button>
+              <button type="submit" class="btn btn-primary" id="btn-save-service">Save Service</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="sidebar.js"></script>
+  <script src="data-store.js"></script>
+  <script src="services-data-store.js"></script>
+  <script src="services.js"></script>
+</body>
+</html>

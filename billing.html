@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Billing · Pawsitive Care</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+<link rel="stylesheet" href="style.css">
+<style>
+  /* ============================================================
+     Billing — scoped, internal styles only (nothing here touches
+     style.css). Every selector is prefixed "bl-" so it can't
+     collide with existing sitewide classes. Layout classes used
+     above this point (app-shell, sidebar, topbar, page-body, btn,
+     btn-primary) are the existing ones from style.css and are left
+     alone on purpose.
+
+     Phase 3F — visual consistency pass. Every rule below was
+     re-tokenized against the real custom properties in style.css.
+     Most of this file's colors were written as var(--ink,#1f2933),
+     var(--panel,#f9fafb), var(--accent,#2563eb), etc. — but
+     --ink/--panel/--accent are NOT tokens style.css defines, so
+     those declarations were silently falling back to their
+     hardcoded hex every time (never actually reading the design
+     system), which is how the tab underline ended up plain blue
+     and several surfaces ended up a slightly-off white instead of
+     the real ink-900/surface-sunken/teal-600 values. Fixed by
+     pointing every one at the token that already exists:
+     --ink -> --ink-900/--ink-800, --panel -> --surface-sunken,
+     --accent -> --teal-600/--teal-700, plain #fff -> 
+     --surface-card-raised, and the various stray hex reds/greens on
+     badges -> --red/--sage/--amber/--slate families below. Also
+     dropped the now-pointless fallback values (the real token
+     always exists here), and removed the unused .bl-role-* rules
+     (no matching markup — role switching isn't implemented yet, so
+     this was dead CSS carrying the same broken-token bug). Nothing
+     in this section changes structure, behavior, or the Subtotal/
+     Discount/Total math — tokens and reused global classes only. */
+  /* Phase 3I: page header now follows the same convention as the
+     finalized Inventory page — no breadcrumb/title in the global
+     topbar, no redundant subtitle, and the heading block uses the
+     shared .page-toolbar (style.css) instead of a page-only
+     duplicate of the same flex/spacing rules. */
+  .topbar { border-bottom: none; }
+  .page-toolbar { margin-top: 22px; }
+  .bl-page-title { font-size:20px; font-weight:800; color:var(--ink-900); margin-bottom:2px; }
+  .bl-toolbar-actions { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+
+  /* Summary cards — Phase 3F-visual-correction: Billing keeps its own
+     four financial cards (Outstanding / Pending Verification / Total
+     Revenue / Paid Invoices) and their existing data/calculations
+     untouched — this is a VISUAL-ONLY pass. What changed is the card
+     hierarchy: Appointments' finalized summary-strip (appointments.html)
+     gives its lead card ("Today's Appointments") extra width and a
+     dark-teal "primary" treatment while the other four cards stay a
+     neutral, equal-weight secondary style (muted ink-faint icon, warm
+     surface-sunken background). Billing now mirrors that same
+     hierarchy with Outstanding as the primary/lead card and Pending
+     Verification / Total Revenue / Paid Invoices as secondary cards —
+     same clay-flat depth, typography, spacing and card height as
+     before, still page-scoped under the bl- prefix (styles live in
+     billing.html, not style.css, same as Appointments' own
+     summary-metric is scoped to appointments.html). No appointment
+     data is read anywhere in this file; only the visual treatment of
+     Billing's existing four numbers changed. */
+  .bl-summary-grid { display:grid; grid-template-columns:1.3fr repeat(3,1fr); gap:12px; margin-bottom:20px; }
+  @media (max-width:900px){
+    .bl-summary-grid{ grid-template-columns:repeat(2,1fr); }
+    .bl-metric-primary{ grid-column:1 / -1; }
+  }
+  @media (max-width:480px){
+    .bl-summary-grid{ grid-template-columns:1fr; }
+    .bl-metric-primary{ grid-column:auto; }
+  }
+  .bl-metric {
+    box-sizing:border-box; min-width:0; height:100%;
+    padding:16px 18px;
+    display:flex; flex-direction:column; gap:10px;
+    background:var(--surface-sunken);
+    border:1px solid var(--line-soft);
+    border-radius:var(--r-md);
+    box-shadow:var(--clay-flat);
+  }
+  .bl-metric-head { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  .bl-metric-label { font-size:11px; font-weight:600; color:var(--ink-faint); line-height:1.3; }
+  .bl-metric-icon { flex:none; font-size:12px; color:var(--ink-faint); }
+  .bl-metric-value { font-size:26px; font-weight:800; color:var(--ink-900); line-height:1.15; }
+  .bl-metric-desc { font-size:11px; font-weight:500; color:var(--ink-faint); line-height:1.4; }
+  /* Outstanding — primary/lead card, same treatment as Appointments'
+     "Today's Appointments" (.summary-metric-primary): dark teal
+     surface, on-brand text/icon. Label/value/desc content is still
+     Billing's own Outstanding amount + invoice count. */
+  .bl-metric-primary { background:var(--teal-700); border-color:var(--teal-700); }
+  .bl-metric-primary .bl-metric-icon { color:rgba(244,249,247,.78); }
+  .bl-metric-primary .bl-metric-label { color:rgba(244,249,247,.72); }
+  .bl-metric-primary .bl-metric-value { color:var(--ink-on-brand); }
+  .bl-metric-primary .bl-metric-desc { color:rgba(244,249,247,.72); }
+
+
+  /* Tabs — Phase 3F: restyled to match style.css's own .view-tabs/
+     .view-tab pill-tab control (same sunken pressed container,
+     raised active pill, teal-700 active text) instead of an
+     underline tab that depended on the non-existent --accent token.
+     Same markup/click behavior — data-tab, .active toggling in
+     billing.js — untouched. */
+  .bl-tabs { display:inline-flex; gap:3px; max-width:100%; overflow-x:auto; -webkit-overflow-scrolling:touch; background:var(--surface-sunken); border:1px solid var(--line-soft); border-radius:var(--r-sm); padding:3px; box-shadow:var(--clay-pressed); margin-bottom:16px; }
+  .bl-tab { border:none; background:transparent; padding:7px 14px; border-radius:8px; font-weight:700; font-size:12.8px; color:var(--ink-soft); cursor:pointer; transition:background .15s ease, color .15s ease, box-shadow .15s ease; }
+  .bl-tab:hover { color:var(--ink-800); }
+  .bl-tab.active { background:var(--surface-card-raised); color:var(--teal-700); box-shadow:var(--clay-flat); }
+  .bl-tab-count { display:inline-block; min-width:18px; padding:0 5px; margin-left:6px; font-size:11px; font-weight:800; background:var(--amber-100); color:var(--amber-800); border-radius:9px; }
+
+  /* Filters — Phase 3I: Billing's search box and status dropdown now
+     reuse the exact same .filter-bar / .search-field markup and the
+     same .pc-select component Inventory uses (identical height,
+     background, border, radius, chevron and focus treatment), rather
+     than the page's own bespoke .bl-search/#bl-status-filter look.
+     Ids (#bl-search, #bl-status-filter) and their listeners in
+     billing.js are untouched — only the wrapping markup/classes and
+     this styling changed. */
+  .filter-controls { display:flex; flex-wrap:wrap; align-items:center; gap:8px; flex:0 0 auto; max-width:100%; }
+
+  /* Single outer border on .search-field; the input itself is a bare
+     transparent field so the global input[type="text"] rule in
+     style.css (border/background/box-shadow) doesn't double up on
+     top of the search-field's own border, exactly as Inventory does
+     for #inv-search. */
+  #bl-search { flex:1 1 auto; width:100%; box-sizing:border-box; background:transparent; border:none; outline:none; box-shadow:none; font:inherit; color:var(--ink-900); }
+  .search-field:focus-within { border-color: var(--teal-400); }
+
+  /* Unified select component (identical to Inventory/Services/Medical
+     Records/Patients/Clients): warm beige surface, existing border/
+     radius tokens, one CSS-drawn chevron replacing the native arrow. */
+  .pc-select {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    box-sizing: border-box;
+    background-color: var(--surface-sunken);
+    border: 1px solid var(--line-soft);
+    border-radius: 10px;
+    color: var(--ink-900);
+    font: inherit;
+    max-width: 100%;
+    padding: 0 34px 0 12px;
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    background-image:
+      linear-gradient(45deg, transparent 50%, var(--ink-faint) 50%),
+      linear-gradient(135deg, var(--ink-faint) 50%, transparent 50%);
+    background-position:
+      calc(100% - 18px) center,
+      calc(100% - 13px) center;
+    background-size: 5px 5px, 5px 5px;
+    background-repeat: no-repeat;
+    transition: border-color 0.15s ease;
+  }
+  .pc-select::-ms-expand { display: none; }
+  .pc-select:hover { border-color: var(--line-strong); }
+  .pc-select:focus { outline: none; border-color: var(--teal-400); }
+  .filter-bar .pc-select { height: 38px; min-width: 170px; }
+  .filter-bar .pc-select,
+  .filter-bar .pc-select:focus {
+    background-image:
+      linear-gradient(45deg, transparent 50%, var(--ink-faint) 50%),
+      linear-gradient(135deg, var(--ink-faint) 50%, transparent 50%);
+    background-position:
+      calc(100% - 18px) center,
+      calc(100% - 13px) center;
+    background-size: 5px 5px, 5px 5px;
+    background-repeat: no-repeat;
+  }
+
+  /* Result count — same treatment/placement as Inventory's .inv-count. */
+  .bl-count { font-size: 11.4px; font-weight: 700; color: var(--ink-faint); margin: 0 2px 10px; }
+
+  /* Invoice table — Phase 3F: the wrapper's overflow:hidden was
+     clipping the table outright on narrow screens instead of
+     letting it scroll (the previously-flagged issue). Fixed the
+     same way appointments.html's own schedule pane handles a wide
+     inner grid: the OUTER wrap keeps overflow:hidden (so the
+     rounded corners/border still clip correctly) while a new INNER
+     .bl-table-scroll wrapper around just the <table> gets
+     overflow-x:auto, so the table scrolls horizontally inside its
+     border instead of the page doing so. Desktop appearance is
+     unchanged — the inner wrapper is invisible until content
+     actually needs to scroll. Header/row styling re-tokenized to
+     match the finalized queue-table (surface-sunken header, ink-
+     faint uppercase labels, line-soft dividers, surface-card body)
+     instead of the old plain-white/light-gray-header treatment. */
+  .bl-table-wrap { border:1px solid var(--line-soft); border-radius:var(--r-md); overflow:hidden; background:var(--surface-card); box-shadow:var(--clay-flat); }
+  .bl-table-scroll { overflow-x:auto; -webkit-overflow-scrolling:touch; }
+  .bl-table { width:100%; border-collapse:collapse; font-size:13px; }
+  .bl-table th { text-align:left; font-size:10.6px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; color:var(--ink-faint); background:var(--surface-sunken); padding:12px 16px; border-bottom:1px solid var(--line-soft); white-space:nowrap; }
+  .bl-table td { padding:12px 16px; color:var(--ink-900); border-bottom:1px solid var(--line-soft); vertical-align:middle; line-height:1.3; }
+  .bl-table tr:last-child td { border-bottom:none; }
+  .bl-table tbody tr:hover { background:var(--surface-sunken); }
+  .bl-mono { font-weight:700; font-variant-numeric:tabular-nums; }
+  .bl-dim { color:var(--ink-faint); font-size:12px; }
+  .bl-strong { font-weight:800; color:var(--ink-900); }
+  .bl-empty { text-align:center; color:var(--ink-soft); padding:26px; }
+  .bl-empty-note { color:var(--ink-soft); font-size:13.5px; }
+
+  .bl-actions { display:flex; gap:6px; }
+  .bl-icon-btn { width:32px; height:32px; border-radius:9px; border:1px solid var(--line-soft); background:var(--surface-card-raised); color:var(--ink-soft); cursor:pointer; display:inline-flex; align-items:center; justify-content:center; }
+  .bl-icon-btn:hover { background:var(--surface-sunken); color:var(--ink-800); }
+
+  /* Status badges — Phase 3F: re-tokenized onto the same semantic
+     families used across the rest of Pawsitive Care (status-badge/
+     week-chip/month-dot in style.css) instead of one-off hex per
+     status: Paid/Verified -> sage (positive), Pending Verification
+     -> amber (neutral/warm, matches the "pending" meaning used
+     everywhere else), Unpaid -> slate (neutral/awaiting-action, so
+     it reads distinctly from the danger states), Rejected -> red
+     (danger), Refunded -> slate (existing "closed, neutral" meaning
+     preserved). Compact pill shape unchanged; only the color source
+     changed. */
+  .bl-badge { display:inline-block; padding:4px 10px; border-radius:var(--r-pill); font-size:11.5px; font-weight:800; letter-spacing:.02em; }
+  .bl-badge--unpaid { background:var(--slate-100); color:var(--slate-800); }
+  .bl-badge--pending-verification { background:var(--amber-100); color:var(--amber-800); }
+  .bl-badge--paid { background:var(--sage-100); color:var(--sage-600); }
+  .bl-badge--rejected { background:var(--red-100); color:var(--red-800); }
+  .bl-badge--refunded { background:var(--slate-100); color:var(--slate-800); }
+  .bl-badge--pay-pending-verification { background:var(--amber-100); color:var(--amber-800); }
+  .bl-badge--pay-verified { background:var(--sage-100); color:var(--sage-600); }
+  .bl-badge--pay-rejected { background:var(--red-100); color:var(--red-800); }
+
+  /* Phase 3E: Payment Verification row built as a labeled field grid
+     (Invoice #, Client, Pet, Method, Amount, Submitted, Review action)
+     — white surface, soft clay depth, muted uppercase field labels,
+     dark teal for the emphasized amount. Phase 3F: same structure,
+     tokens confirmed/cleaned up (surface-card-raised instead of a
+     bare #fff) so it reads as the same card language as the rest of
+     Billing/Appointments. Data read here (p.amount, not the invoice
+     total) and the verify/reject workflow are unchanged. */
+  .bl-verify-list { display:flex; flex-direction:column; gap:10px; }
+  .bl-verify-row {
+    display:flex; align-items:center; gap:18px; flex-wrap:wrap;
+    background:var(--surface-card-raised); border:1px solid var(--line-soft);
+    border-radius:var(--r-md); padding:14px 18px;
+    box-shadow:var(--clay-flat);
+  }
+  .bl-verify-fields { display:flex; align-items:center; gap:20px; flex-wrap:wrap; flex:1 1 auto; min-width:0; }
+  .bl-verify-field { display:flex; flex-direction:column; gap:2px; min-width:0; }
+  .bl-verify-field-label { font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.03em; color:var(--ink-faint); white-space:nowrap; }
+  .bl-verify-field-value { font-size:13.5px; font-weight:600; color:var(--ink-900); }
+  .bl-verify-field--amount .bl-verify-field-value { font-size:17px; font-weight:800; color:var(--teal-700); }
+  .bl-verify-action { flex:0 0 auto; margin-left:auto; }
+  @media (max-width:768px) {
+    .bl-verify-row { gap:12px; padding:12px 14px; }
+    .bl-verify-fields { gap:14px 18px; }
+  }
+  @media (max-width:480px) {
+    .bl-verify-row { flex-direction:column; align-items:stretch; }
+    .bl-verify-fields { gap:10px 18px; }
+    .bl-verify-action { margin-left:0; }
+    .bl-verify-action .btn { width:100%; }
+  }
+
+  /* Phase 3E: Review Payment modal — the payment amount gets its own
+     emphasized line above the field grid, and section headers (reusing
+     the existing .bl-section-label style from View Invoice) separate
+     Payment Information / Submission Information / Client & Pet. */
+  .bl-section-label--first { margin-top:0; }
+  .bl-verify-amount-emphasis { font-size:24px; font-weight:800; color:var(--teal-700); margin-bottom:2px; }
+
+  /* Modals — Phase 3F: aligned to the same borders/shadow/typography
+     as style.css's own .modal-box/.modal-head/.modal-title/
+     .modal-close (overlay tint, r-lg radius, clay-pop shadow, a
+     real close button instead of a bare transparent-hover icon)
+     without touching structure — New Invoice / View Invoice / Record
+     Payment / Review Payment keep their existing bl-modal-body
+     content and Subtotal/Discount/Total hierarchy exactly as built
+     in Phases 3B–3D. */
+  .bl-modal-overlay { display:none; position:fixed; inset:0; background:rgba(15,25,22,.46); align-items:center; justify-content:center; padding:20px; z-index:1000; }
+  .bl-modal-overlay.open { display:flex; }
+  .bl-modal { width:100%; max-width:560px; max-height:88vh; overflow-y:auto; background:var(--surface-card-raised); border-radius:var(--r-lg); box-shadow:var(--clay-pop); }
+  .bl-modal-head { display:flex; align-items:center; justify-content:space-between; padding:16px 20px; border-bottom:1px solid var(--line-soft); position:sticky; top:0; background:var(--surface-card-raised); z-index:1; }
+  .bl-modal-title { font-size:16.5px; font-weight:800; color:var(--ink-900); }
+  .bl-modal-close { border:1px solid var(--line-soft); background:var(--surface-sunken); font-size:12px; color:var(--ink-soft); cursor:pointer; width:30px; height:30px; border-radius:var(--r-sm); box-shadow:var(--clay-pressed); }
+  .bl-modal-close:hover { color:var(--ink-800); border-color:var(--teal-400); }
+  .bl-modal-body { padding:18px 20px 22px; }
+  .bl-modal-actions { display:flex; justify-content:flex-end; gap:10px; margin-top:16px; flex-wrap:wrap; }
+
+  /* Form fields — Phase 3F: number/file inputs (not covered by
+     style.css's shared input[type=...] selector) keep their own
+     scoped border/background/shadow, retokenized; text/date/select/
+     textarea now fall through to that shared selector instead of a
+     duplicate override, so they automatically get the same sunken
+     surface, focus ring, etc. as every other form control site-wide
+     — one less place for Billing's inputs to drift out of sync. */
+  .bl-form-row { margin-bottom:13px; }
+  .bl-form-row label { display:block; font-size:12px; font-weight:700; color:var(--ink-soft); margin-bottom:5px; text-transform:uppercase; letter-spacing:.02em; }
+  .bl-form-row input[type="text"], .bl-form-row input[type="date"], .bl-form-row select, .bl-form-row textarea {
+    width:100%; box-sizing:border-box;
+  }
+  .bl-form-row input[type="number"], .bl-form-row input[type="file"] {
+    width:100%; box-sizing:border-box; border:1px solid var(--line-soft); background:var(--surface-sunken); border-radius:var(--r-sm); padding:9px 12px; font-size:13.5px; font-family:inherit; color:var(--ink-800); box-shadow:var(--clay-pressed);
+  }
+  .bl-form-row textarea { resize:vertical; }
+  #bl-inv-appt { width:100%; }
+  /* Phase 3J: appointment selector now reuses the same .pc-select
+     component as Inventory's filter dropdowns (warm sunken field,
+     border/radius/chevron/focus tokens) instead of the bare browser
+     select; scoped height since .filter-bar's own 38px rule doesn't
+     reach a select inside .bl-form-row. Options/selection/change
+     handling in billing.js are untouched. */
+  .bl-form-row .pc-select { height:38px; }
+
+  .bl-appt-preview { background:var(--surface-sunken); border:1px solid var(--line-soft); border-radius:var(--r-sm); padding:10px 12px; margin:10px 0 14px; display:flex; flex-direction:column; gap:5px; }
+  .bl-preview-line { font-size:13px; color:var(--ink-800); }
+  .bl-preview-line i { width:16px; color:var(--ink-faint); margin-right:4px; }
+
+  .bl-items-head { display:flex; align-items:center; justify-content:space-between; margin:6px 0 6px; gap:10px; flex-wrap:wrap; }
+  .bl-items-head label { font-size:12px; font-weight:700; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.02em; }
+  .bl-items-head-actions { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  /* Add from Service / Add from Inventory — these are native <select>
+     elements. They now reuse .pc-select unmodified (same background,
+     border, radius, chevron, hover/focus and typography as Billing's
+     own "All Statuses" filter dropdown); this rule adds ONLY sizing
+     for their compact spot in the header actions row — the same
+     sizing-only pattern .filter-bar .pc-select, .bl-form-row .pc-select
+     and .bl-item-row .pc-select already use. No font-size override
+     (so text now matches All Statuses instead of being smaller), no
+     background-image override, no second chevron. */
+  .bl-service-picker.pc-select { height:38px; max-width:220px; }
+  .bl-link-btn { border:none; background:transparent; color:var(--teal-600); font-weight:700; font-size:12.5px; cursor:pointer; }
+  .bl-link-btn:disabled { color:var(--ink-faint); cursor:not-allowed; }
+  .bl-items-scroll { overflow-x:auto; -webkit-overflow-scrolling:touch; }
+  /* Item-row grid: Type/Qty/Unit Price/Amount are compact supporting
+     columns, Name (1fr) takes whatever width is left over and is
+     therefore always the widest column on desktop — this is the same
+     column template the header row (.bl-items-cols) and each
+     .bl-item-row share, so labels and their controls always line up. */
+  /* .bl-items-cols (the label row) and .bl-item-row (each line item)
+     share this exact grid-template-columns and gap — that's what keeps
+     every label sitting directly above its control. Neither rule adds
+     its own horizontal padding, so both grids start and end at the same
+     x-position. Type is a bounded range wide enough to show "Service"/
+     "Medicine" in full; Qty/Unit Price/Amount are fixed compact columns;
+     Name (minmax(0,1fr)) absorbs every bit of width left over — the
+     explicit 0 minimum (rather than a bare 1fr, whose implicit min is
+     "auto"/content-based) is what keeps a long selected option from
+     forcing the column wider than the row and leaving unexplained space
+     elsewhere in the grid. */
+  .bl-items-cols { display:grid; grid-template-columns:minmax(100px,110px) minmax(0,1fr) 52px 84px 92px 32px; gap:8px; font-size:11px; font-weight:700; color:var(--ink-faint); text-transform:uppercase; letter-spacing:.02em; padding:0 0 4px; margin-top:6px; }
+  .bl-item-row { display:grid; grid-template-columns:minmax(100px,110px) minmax(0,1fr) 52px 84px 92px 32px; gap:8px; align-items:center; margin-bottom:10px; padding-bottom:10px; border-bottom:1px solid var(--line-soft); }
+  .bl-item-row:last-child { border-bottom:none; margin-bottom:0; padding-bottom:0; }
+  /* The Amount label sits over a right-aligned currency value
+     (.bl-item-subtotal below), so it's right-aligned too, with the same
+     4px inset — label and value share not just the column but the same
+     text edge, instead of a left-aligned label over a right-aligned
+     number in the same box. */
+  .bl-items-col-amount { text-align:right; padding-right:4px; }
+  .bl-item-row select:not(.pc-select), .bl-item-row input { border:1px solid var(--line-soft); background:var(--surface-sunken); border-radius:8px; padding:7px 8px; font-size:13px; width:100%; min-width:0; box-sizing:border-box; color:var(--ink-800); }
+  /* Type and Name reuse .pc-select completely unmodified — the exact
+     same component as Billing's own "All Statuses" filter dropdown
+     (.filter-bar .pc-select) and the Appointment selector above:
+     background, border, radius, chevron, hover/focus state and text
+     treatment all come from that one shared rule. This line-item rule
+     adds ONLY sizing (a shorter height for the compact row, full width
+     to fill the grid cell, min-width:0 so the track can actually shrink
+     to its column instead of sitting at content width) — the same two
+     sizing-only properties .filter-bar .pc-select and .bl-form-row
+     .pc-select already add for their own contexts. No background-image
+     override, no wrapper element, no second chevron — one dropdown
+     component, reused as-is everywhere it appears. */
+  .bl-item-row .pc-select { height:34px; width:100%; min-width:0; }
+  .bl-item-row .pc-select:disabled { opacity:.6; cursor:not-allowed; }
+  /* Unit Price, when populated from a selected Service/Medicine, reads
+     as a value rather than an editable field: same field shell, muted
+     text, no cursor/spinner affordances suggesting it can be typed
+     into. Amount and its calculation are untouched. */
+  .bl-item-price--readonly { background:var(--surface-card); color:var(--ink-faint); cursor:default; box-shadow:none; }
+  .bl-item-price--readonly::-webkit-outer-spin-button,
+  .bl-item-price--readonly::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
+  .bl-item-subtotal { font-size:13px; font-weight:700; text-align:right; padding-right:4px; color:var(--ink-900); }
+  .bl-item-remove { width:30px; height:30px; }
+  /* Phase 3C: at narrow widths the fixed 6-column item grid no longer
+     has room to compress further without becoming unusable, so it
+     switches to a slightly narrower fixed width and scrolls
+     horizontally inside its own wrapper instead of clipping/crushing
+     (the previous audit flagged plain clipping as the risk here). Name
+     stays the widest column here too, and Type stays wide enough to
+     read "Service"/"Medicine" in full. The rest of the New Invoice
+     modal is unaffected. */
+  @media (max-width:480px) {
+    .bl-items-cols, .bl-item-row { grid-template-columns:90px 210px 40px 66px 72px 26px; min-width:544px; }
+  }
+  /* Notes reads as its own section, separated from the line-item area
+     and its Add Item action above rather than sitting flush under it. */
+  .bl-notes-row { margin-top:22px; }
+
+  .bl-discount-row input { max-width:180px; }
+  .bl-discount-error { font-size:12px; font-weight:600; color:var(--red-600); margin-top:5px; }
+
+  .bl-inv-totals { border-top:1px solid var(--line-soft); margin-top:12px; padding-top:10px; display:flex; flex-direction:column; gap:5px; }
+  .bl-inv-totals-row { display:flex; align-items:baseline; justify-content:space-between; font-size:13.5px; color:var(--ink-800); }
+  .bl-inv-totals-discount span:last-child { color:var(--red-600); }
+  .bl-inv-totals-total { border-top:1px solid var(--line-soft); margin-top:4px; padding-top:8px; font-size:17px; font-weight:800; color:var(--ink-900); }
+
+  .bl-inv-total { text-align:right; font-size:15px; font-weight:800; color:var(--ink-900); margin:10px 0 6px; }
+  .bl-inv-total span { margin-left:6px; }
+
+  .bl-inv-detail-head { display:flex; align-items:center; justify-content:space-between; gap:10px 20px; flex-wrap:wrap; margin-bottom:14px; }
+  .bl-inv-detail-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px 16px; margin-bottom:16px; }
+  .bl-inv-detail-grid > div > div:first-child { margin-bottom:2px; }
+  /* Phase 3D: View Invoice's header/grids now carry more fields (invoice
+     date, species, appointment date+time, reason, vet) than before — at
+     narrow widths they drop to a single column instead of crowding two
+     tight columns, same breakpoint the summary cards already use. */
+  @media (max-width:480px) {
+    .bl-inv-detail-grid { grid-template-columns:1fr; }
+  }
+
+  .bl-mini-table { width:100%; border-collapse:collapse; font-size:13px; margin-bottom:6px; }
+  .bl-mini-table th { text-align:left; font-size:11px; text-transform:uppercase; color:var(--ink-faint); padding:6px 4px; border-bottom:1px solid var(--line-soft); }
+  .bl-mini-table td { padding:8px 4px; border-bottom:1px solid var(--line-soft); }
+
+  .bl-section-label { font-size:12px; font-weight:700; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.02em; margin:16px 0 8px; }
+  .bl-payment-hist-row { padding:10px 0; border-bottom:1px solid var(--line-soft); }
+  .bl-payment-hist-row:last-child { border-bottom:none; }
+  .bl-payment-hist-head { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:4px; }
+  .bl-payment-hist-amount { font-weight:800; color:var(--teal-700); font-variant-numeric:tabular-nums; }
+  .bl-payment-hist-line { font-size:12.5px; color:var(--ink-800); margin-top:2px; }
+  .bl-payment-hist-line.bl-dim { color:var(--ink-faint); }
+
+  /* Phase 3I.1: payment-proof thumbnail (Review Payment) and its
+     full-size lightbox. The thumbnail button renders the SAME
+     p.proofDataUrl the payment record already carries — no second
+     copy of the image is made anywhere. */
+  .bl-proof-block { margin-top:2px; }
+  .bl-proof-thumb-btn {
+    border:1px solid var(--line-soft); background:var(--surface-sunken);
+    border-radius:var(--r-sm); padding:4px; cursor:pointer; display:inline-block;
+    box-shadow:var(--clay-flat); line-height:0;
+  }
+  .bl-proof-thumb-btn:hover { border-color:var(--teal-400); }
+  .bl-proof-thumb-btn:focus-visible { outline:2px solid var(--teal-400); outline-offset:2px; }
+  .bl-proof-thumb { display:block; max-width:220px; max-height:160px; border-radius:6px; object-fit:contain; }
+  .bl-proof-filename { font-size:12px; color:var(--ink-soft); margin-top:6px; word-break:break-all; }
+  .bl-proof-note { font-size:12.5px; color:var(--ink-soft); }
+
+  .bl-lightbox-overlay {
+    display:none; position:fixed; inset:0; background:rgba(15,25,22,.72);
+    align-items:center; justify-content:center; padding:24px; z-index:1100;
+  }
+  .bl-lightbox-overlay.open { display:flex; }
+  .bl-lightbox-box { position:relative; max-width:min(92vw,720px); max-height:88vh; }
+  .bl-lightbox-box img { display:block; max-width:100%; max-height:88vh; border-radius:var(--r-md); box-shadow:var(--clay-pop); background:#fff; }
+  .bl-lightbox-close {
+    position:absolute; top:-14px; right:-14px; width:34px; height:34px; border-radius:50%;
+    border:1px solid var(--line-soft); background:var(--surface-card-raised); color:var(--ink-800);
+    cursor:pointer; box-shadow:var(--clay-raised); display:inline-flex; align-items:center; justify-content:center;
+  }
+  .bl-lightbox-close:hover { color:var(--teal-700); border-color:var(--teal-400); }
+  .bl-lightbox-close:focus-visible { outline:2px solid var(--teal-400); outline-offset:2px; }
+  @media (max-width:480px) {
+    .bl-lightbox-close { top:-12px; right:0; }
+  }
+
+  /* Phase 3I.1: immediate image preview in Record Payment when a
+     supported image type (jpg/png/webp) is selected as proof. */
+  .bl-proof-preview { margin-top:10px; display:flex; align-items:center; gap:10px; background:var(--surface-sunken); border:1px solid var(--line-soft); border-radius:var(--r-sm); padding:8px 10px; }
+  .bl-proof-preview img { width:56px; height:56px; object-fit:cover; border-radius:6px; border:1px solid var(--line-soft); background:#fff; flex:none; }
+  .bl-proof-preview-meta { display:flex; flex-direction:column; gap:2px; min-width:0; flex:1 1 auto; }
+  .bl-proof-preview-name { font-size:12.5px; font-weight:600; color:var(--ink-800); overflow-wrap:anywhere; }
+
+  .bl-hint { font-size:12.5px; color:var(--ink-soft); background:var(--surface-sunken); border-radius:var(--r-sm); padding:9px 11px; margin-top:4px; }
+  .bl-hint i { margin-right:5px; }
+
+  /* View Invoice modal: small, muted functional icons that sit before a
+     label. Secondary to the text; used only in openViewInvoiceModal(). */
+  .bl-ico { font-size:11px; color:var(--teal-600); opacity:.75; width:14px; margin-right:6px; text-align:center; }
+
+  /* ============================================================
+     Print / Receipt — Phase 3H, visual pass in Phase 3J, structure
+     redesign in Phase 3K, reference-matched redesign in Phase 3L.
+     #bl-print-invoice is a plain document
+     (built in billing.js from the SAME getInvoiceDisplayInfo()/
+     getPaymentsForInvoice() records the View Invoice modal already
+     renders, plus the raw patient/client records for a couple of
+     optional fields — no second data model, no recomputed totals)
+     that stays display:none on screen and is the ONLY thing shown
+     under @media print. Deliberately does not reuse the clay/card
+     language above: this is a professional clinic document with its
+     own pale-teal panel language, not a screenshot of the dashboard. */
+  #bl-print-invoice { display:none; }
+
+  /* Phase 3L visual redesign — the approved reference treatment:
+     warm-white paper, pale mint section panels, deep-teal headings,
+     Font Awesome veterinary icons, and a few very light paw accents.
+     Structure/data flow is unchanged; only presentation differs. */
+  .bl-print {
+    --pp-paper:#f8faf7; --pp-panel:#e7f2ee; --pp-panel-line:#d3e6df; --pp-strong:#d3e8e1;
+    --pp-ink:#1d3b36; --pp-muted:#4d6d66; --pp-deco:#a9d3c7;
+    background:var(--pp-paper); color:var(--pp-ink); font-family:var(--font-sans);
+    position:relative; overflow:hidden; font-size:12.5px; line-height:1.4;
+  }
+  .bl-print, .bl-print * { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+
+
+  /* 1. Clinic branding header — LOGO.png + WORDMARK.png only. Both
+     assets carry generous transparent/white padding, so each sits in a
+     cropping box sized to its visible artwork; nothing is stretched. */
+  /* Phase 3O: logo + wordmark are ONE brand group, centred on the page. */
+  .bl-print-header { display:flex; align-items:center; justify-content:center; gap:4mm; padding-bottom:4mm; margin-bottom:4mm; border-bottom:.35mm solid var(--teal-600); }
+  .bl-print-logo-box { position:relative; overflow:hidden; flex:none; width:24mm; height:24mm; }
+  .bl-print-logo { position:absolute; display:block; width:124.8%; height:auto; left:-13.4%; top:-13.4%; }
+  .bl-print-wordmark-box { position:relative; overflow:hidden; flex:none; width:104mm; height:22mm; }
+  .bl-print-wordmark { position:absolute; display:block; width:104.4%; height:auto; left:-2.6%; top:-34.1%; }
+
+  /* Shared panel + icon language. */
+  /* Phase 3M: only Payment Information keeps a filled panel. Every other
+     section is a plain document section separated by a subtle teal rule. */
+  .bl-print-panel { background:var(--pp-panel); border:.25mm solid var(--pp-panel-line); border-radius:3mm; padding:4mm 5.5mm; margin-top:3.5mm; margin-bottom:3.5mm; }
+  .bl-print-sec { padding:3.5mm 0; border-bottom:.25mm solid #b7d3ca; }
+  .bl-print-sec--last { border-bottom:none; padding-bottom:0; }
+  .bl-print-ico { color:var(--teal-700); text-align:center; flex:none; }
+  .bl-print-ico--lg { font-size:21px; width:9mm; }
+  .bl-print-label { font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.11em; color:var(--teal-700); }
+
+  /* 2. Invoice metadata — under the header, two cells with a divider. */
+  /* Metadata and Client/Patient share one two-column grid (equal tracks,
+     divider = left border of the right cell, same 6mm inset) so both
+     dividers sit at the identical x-position. */
+  .bl-print-meta { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); align-items:center; }
+  .bl-print-meta-item { display:flex; align-items:center; gap:5mm; }
+  .bl-print-meta-item + .bl-print-meta-item { border-left:.3mm solid var(--teal-600); padding-left:6mm; }
+  .bl-print-meta-item .bl-print-ico { font-size:22px; width:9mm; }
+  .bl-print-meta-text { display:flex; flex-direction:column; gap:1mm; }
+  .bl-print-meta-text span { font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.09em; color:var(--pp-muted); }
+  .bl-print-meta-text strong { font-size:14px; font-weight:600; color:var(--pp-ink); line-height:1.2; }
+
+  /* 3. Client + Patient / 4. Appointment share one icon-column layout. */
+  .bl-print-twocol { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); }
+  .bl-print-block { display:grid; grid-template-columns:11mm 1fr; column-gap:1mm; align-items:start; min-width:0; }
+  .bl-print-twocol > .bl-print-block + .bl-print-block { border-left:.3mm solid var(--teal-600); padding-left:6mm; }
+  .bl-print-twocol > .bl-print-block:first-child { padding-right:4mm; }
+  .bl-print-block-body { display:flex; flex-direction:column; gap:2mm; min-width:0; }
+  .bl-print-name { font-size:14px; font-weight:600; color:var(--pp-ink); line-height:1.2; }
+  .bl-print-twocol .bl-print-label { font-size:10.5px; font-weight:700; }
+  .bl-print-twocol .bl-print-line { font-size:12px; color:var(--pp-muted); }
+  .bl-print-line { display:flex; align-items:flex-start; gap:3mm; font-size:13px; color:var(--pp-ink); overflow-wrap:anywhere; }
+  .bl-print-line .bl-print-ico { width:5mm; font-size:14px; margin-top:.3mm; }
+  .bl-print-appt-label { font-weight:800; color:var(--pp-ink); }
+
+  /* 5. Services & Treatments. */
+  .bl-print-section-head { display:flex; align-items:center; gap:2.5mm; margin-bottom:3.5mm; }
+  .bl-print-section-head .bl-print-ico { font-size:21px; width:9mm; }
+  .bl-print-table { width:100%; border-collapse:separate; border-spacing:0; font-size:13px; margin-bottom:3mm; }
+  .bl-print-table th { text-align:left; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.09em; color:var(--teal-700); background:var(--pp-strong); padding:3mm 3.5mm; }
+  .bl-print-table th:first-child { border-radius:2.5mm 0 0 2.5mm; }
+  .bl-print-table th:last-child { border-radius:0 2.5mm 2.5mm 0; }
+  .bl-print-table th:nth-child(2), .bl-print-table td:nth-child(2) { text-align:center; width:15%; }
+  .bl-print-table th:nth-child(3), .bl-print-table td:nth-child(3),
+  .bl-print-table th:nth-child(4), .bl-print-table td:nth-child(4) { text-align:right; width:19%; font-variant-numeric:tabular-nums; }
+  .bl-print-table td { padding:3.1mm 3.5mm; border-bottom:.25mm solid #b7d3ca; color:var(--pp-ink); }
+  .bl-print-table thead { display:table-header-group; }
+  .bl-print-table tr { page-break-inside:avoid; }
+  .bl-print-item-tag { font-size:9.5px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--pp-muted); margin-left:5px; }
+
+  /* 6. Financial summary — right-aligned, TOTAL on a pale-teal band. */
+  .bl-print-totals { margin-left:auto; width:92mm; font-size:13px; }
+  .bl-print-totals-row { display:flex; justify-content:space-between; padding:1.2mm 3.5mm; color:var(--pp-ink); font-variant-numeric:tabular-nums; }
+  .bl-print-totals-row span:last-child { font-weight:700; }
+  .bl-print-totals-row.bl-print-discount { border-bottom:.3mm solid var(--teal-600); padding-bottom:2.4mm; margin-bottom:2.4mm; }
+  .bl-print-totals-row.bl-print-total { background:var(--pp-strong); border-radius:2.5mm; padding:3mm 4mm; font-size:19px; font-weight:800; color:var(--teal-700); text-transform:uppercase; letter-spacing:.04em; }
+  .bl-print-totals-row.bl-print-total span:last-child { font-weight:800; text-transform:none; letter-spacing:0; }
+
+  /* 7. Payment information — label / colon / value rows beside a soft
+     pet illustration. Never fabricates a payment; unpaid shows status. */
+  .bl-print-pay { display:grid; grid-template-columns:1.2fr .8fr; align-items:stretch; padding-bottom:4mm; }
+  .bl-print-pay-main { padding-right:5mm; }
+  .bl-print-pay-main .bl-print-section-head { margin-bottom:2.5mm; }
+  .bl-print-pay-rows { padding-left:11.5mm; }
+  .bl-print-payment-row + .bl-print-payment-row { border-top:.25mm dashed #a9cdc2; margin-top:2mm; padding-top:2mm; }
+  .bl-print-field-row { display:grid; grid-template-columns:31mm 5mm 1fr; align-items:center; font-size:13px; padding:.9mm 0; }
+  .bl-print-field-row span:first-child { color:var(--pp-muted); }
+  .bl-print-field-row span:nth-child(2) { color:var(--pp-muted); }
+  .bl-print-pill { display:inline-block; justify-self:start; font-weight:800; font-size:12.5px; padding:.6mm 3mm; border-radius:2mm; background:var(--pp-strong); color:var(--teal-800); }
+  .bl-print-pill--warn { background:#f4e9c9; color:#6b4d0d; }
+  .bl-print-pill--bad { background:#f3d9d4; color:#7f2a1f; }
+  .bl-print-pill--neutral { background:#dde8e4; color:#33524b; }
+  .bl-print-pay-art { border-left:.3mm solid #8fc0b3; display:flex; align-items:center; justify-content:center; padding:0 0 0 4mm; min-width:0; }
+  .bl-print-pay-img { display:block; max-width:100%; max-height:36mm; width:auto; height:auto; object-fit:contain; }
+
+  /* 8. Footer — settles at the bottom of the page. */
+  .bl-print-footer { margin-top:auto; padding-top:4mm; border-top:.3mm solid var(--teal-600); display:flex; align-items:center; justify-content:center; gap:3mm; font-size:11.5px; color:var(--teal-700); }
+
+  @media print {
+    @page { size:A4 portrait; margin:0; }
+    /* Everything on the page is a child of body except this print
+       section — hiding by that direct relationship guarantees nothing
+       from the normal Billing UI can leak into the printed page. */
+    body > *:not(#bl-print-invoice) { display:none !important; }
+    /* Zero page margin lets the paper tint run edge to edge; the
+       container carries the visual margins instead. */
+    html, body { background:#f8faf7 !important; height:auto !important; }
+    #bl-print-invoice { display:block !important; width:100%; min-height:296mm; padding:8mm 12mm 7mm; box-decoration-break:clone; -webkit-box-decoration-break:clone; }
+    /* Phase 3I.2: the container is a plain block (not a flex column) so
+       a panel that continues onto page 2 keeps its bottom padding and
+       margin at the break — in a fragmented flex column those were
+       lost and the next panel overlapped it. The body wrapper's
+       min-height (page height minus padding minus footer) is what keeps
+       the footer at the page bottom on a short invoice; a long invoice
+       simply grows past it and the footer follows the content. */
+    .bl-print-body { min-height:271mm; }
+    /* Never leave the footer alone on its own page: it stays attached to
+       the Payment Information panel above it. */
+    .bl-print-body, .bl-print-panel { break-after:avoid; page-break-after:avoid; }
+    .bl-print-footer { break-before:avoid; page-break-before:avoid; }
+    /* Keep the last line item with the totals so they are never orphaned. */
+    .bl-print-table, .bl-print-table tbody tr:last-child { break-after:avoid; page-break-after:avoid; }
+    .bl-print-panel, .bl-print-sec, .bl-print-totals, .bl-print-twocol { page-break-inside:avoid; break-inside:avoid; }
+    /* The services panel may flow onto a 2nd page on a long invoice
+       (rows and totals still stay whole); every other panel stays intact. */
+    .bl-print-sec.bl-print-sec--last { page-break-inside:auto; break-inside:auto; }
+  }
+</style>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-mark"><i class="fa-solid fa-paw"></i></div>
+        <div class="brand-text">
+          <div class="brand-name">Pawsitive Care</div>
+          <div class="brand-role">Administrator</div>
+        </div>
+      </div>
+      <div class="sidebar-divider"></div>
+      <nav class="sidebar-nav">
+      <div class="nav-group">
+        <div class="nav-group-label">MAIN</div>
+        <a href="dashboard.html" class="nav-item" data-page="dashboard.html">
+          <span class="nav-icon"><i class="fa-solid fa-house"></i></span>
+          <span class="nav-label">Dashboard</span>
+        </a>
+        <a href="appointments.html" class="nav-item" data-page="appointments.html">
+          <span class="nav-icon"><i class="fa-solid fa-calendar-days"></i></span>
+          <span class="nav-label">Appointments</span>
+        </a>
+        <a href="queue.html" class="nav-item" data-page="queue.html">
+          <span class="nav-icon"><i class="fa-solid fa-hourglass-half"></i></span>
+          <span class="nav-label">Queue</span>
+        </a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">PATIENT MANAGEMENT</div>
+        <a href="patients.html" class="nav-item" data-page="patients.html">
+          <span class="nav-icon"><i class="fa-solid fa-paw"></i></span>
+          <span class="nav-label">Patients</span>
+        </a>
+        <a href="clients.html" class="nav-item" data-page="clients.html">
+          <span class="nav-icon"><i class="fa-solid fa-user"></i></span>
+          <span class="nav-label">Clients</span>
+        </a>
+        <a href="medical-records.html" class="nav-item" data-page="medical-records.html">
+          <span class="nav-icon"><i class="fa-solid fa-notes-medical"></i></span>
+          <span class="nav-label">Medical Records</span>
+        </a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">CLINIC</div>
+        <a href="services.html" class="nav-item" data-page="services.html">
+          <span class="nav-icon"><i class="fa-solid fa-hospital"></i></span>
+          <span class="nav-label">Services</span>
+        </a>
+        <a href="inventory.html" class="nav-item" data-page="inventory.html">
+          <span class="nav-icon"><i class="fa-solid fa-boxes-stacked"></i></span>
+          <span class="nav-label">Inventory</span>
+        </a>
+        <a href="billing.html" class="nav-item" data-page="billing.html">
+          <span class="nav-icon"><i class="fa-solid fa-credit-card"></i></span>
+          <span class="nav-label">Billing</span>
+        </a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">INSIGHTS</div>
+        <a href="predictive-analytics.html" class="nav-item" data-page="predictive-analytics.html">
+          <span class="nav-icon"><i class="fa-solid fa-chart-line"></i></span>
+          <span class="nav-label">Predictive Analytics</span>
+        </a>
+        <a href="reports.html" class="nav-item" data-page="reports.html">
+          <span class="nav-icon"><i class="fa-solid fa-chart-column"></i></span>
+          <span class="nav-label">Reports</span>
+        </a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">SYSTEM</div>
+        <a href="notifications.html" class="nav-item" data-page="notifications.html">
+          <span class="nav-icon"><i class="fa-solid fa-bell"></i></span>
+          <span class="nav-label">Notifications</span>
+        </a>
+        <a href="staff-users.html" class="nav-item" data-page="staff-users.html">
+          <span class="nav-icon"><i class="fa-solid fa-users"></i></span>
+          <span class="nav-label">Staff & Users</span>
+        </a>
+        <a href="settings.html" class="nav-item" data-page="settings.html">
+          <span class="nav-icon"><i class="fa-solid fa-gear"></i></span>
+          <span class="nav-label">Settings</span>
+        </a>
+      </div>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="footer-avatar">A</div>
+        <div>
+          <div class="footer-name">Admin</div>
+          <div class="footer-role">Administrator</div>
+        </div>
+      </div>
+    </aside>
+
+    <div class="main-content">
+      <header class="topbar">
+        <div class="topbar-left">
+          <button class="menu-toggle" aria-label="Toggle navigation"><i class="fa-solid fa-bars"></i></button>
+        </div>
+      </header>
+
+      <main class="page-body" id="billing-page-body">
+
+        <div class="page-toolbar">
+          <div>
+            <div class="bl-page-title">BILLING</div>
+          </div>
+          <div class="bl-toolbar-actions">
+            <button type="button" class="btn btn-sm btn-primary" id="bl-new-invoice-btn"><i class="fa-solid fa-plus"></i> New Invoice</button>
+          </div>
+        </div>
+
+        <div class="bl-summary-grid" id="bl-summary-grid"></div>
+
+        <div class="bl-tabs" role="tablist">
+          <button type="button" class="bl-tab active" id="bl-tab-invoices" role="tab" aria-selected="true" aria-controls="bl-panel-invoices" data-tab="invoices">Invoices</button>
+          <button type="button" class="bl-tab" id="bl-tab-verification" role="tab" aria-selected="false" aria-controls="bl-panel-verification" data-tab="verification">Payment Verification<span class="bl-tab-count" id="bl-pending-count"></span></button>
+        </div>
+
+        <div class="bl-panel" id="bl-panel-invoices" role="tabpanel" aria-labelledby="bl-tab-invoices" tabindex="0">
+          <div class="filter-bar">
+            <div class="search-field">
+              <span><i class="fa-solid fa-magnifying-glass"></i></span>
+              <input type="text" id="bl-search" placeholder="Search invoice #, client, or pet" aria-label="Search invoice number, client, or pet">
+            </div>
+            <div class="filter-controls">
+              <select id="bl-status-filter" class="filter-select pc-select" aria-label="Filter by payment status"></select>
+            </div>
+          </div>
+          <div id="bl-count" class="bl-count"></div>
+          <div class="bl-table-wrap">
+            <!-- Phase 3F: inner scroll wrapper fixes the previously-flagged
+                 overflow:hidden clipping issue — the outer .bl-table-wrap
+                 keeps overflow:hidden purely so its rounded corners/border
+                 still clip correctly, while this inner element is what
+                 actually scrolls horizontally on narrow screens. Columns
+                 unchanged. Phase 3G: tabindex so keyboard users without a
+                 pointer device can scroll this region when it overflows. -->
+            <div class="bl-table-scroll" tabindex="0" role="region" aria-label="Invoice table, scrollable horizontally if needed">
+              <table class="bl-table">
+                <thead>
+                  <tr>
+                    <th>Invoice #</th>
+                    <th>Client</th>
+                    <th>Pet</th>
+                    <th>Appointment</th>
+                    <th>Total Amount</th>
+                    <th>Payment Status</th>
+                    <th>Invoice Date</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="bl-invoice-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div class="bl-panel" id="bl-panel-verification" role="tabpanel" aria-labelledby="bl-tab-verification" tabindex="0" style="display:none;">
+          <div class="bl-verify-list" id="bl-verify-list"></div>
+        </div>
+
+      </main>
+    </div>
+  </div>
+
+  <div class="bl-modal-overlay" id="bl-modal-overlay">
+    <div class="bl-modal" role="dialog" aria-modal="true" aria-labelledby="bl-modal-title">
+      <div class="bl-modal-head">
+        <div class="bl-modal-title" id="bl-modal-title"></div>
+        <button type="button" class="bl-modal-close" id="bl-modal-close" aria-label="Close"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+      </div>
+      <div class="bl-modal-body" id="bl-modal-body"></div>
+    </div>
+  </div>
+
+  <!-- Phase 3I.1: full-size preview of a submitted payment-proof image,
+       opened from the Review Payment modal. Shows the exact same image
+       (no second copy) — src is set from the payment's own proofDataUrl
+       right before opening. Closable via the button, Escape, or backdrop
+       click, same conventions as the existing modal overlay. -->
+  <div class="bl-lightbox-overlay" id="bl-proof-lightbox" aria-hidden="true">
+    <div class="bl-lightbox-box" role="dialog" aria-modal="true" aria-label="Payment proof, full size">
+      <button type="button" class="bl-lightbox-close" id="bl-proof-lightbox-close" aria-label="Close full-size preview"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+      <img id="bl-proof-lightbox-img" src="" alt="">
+    </div>
+  </div>
+
+  <!-- Phase 3H: print-only invoice document. Populated by printInvoice()
+       in billing.js right before window.print() is called; empty/hidden
+       the rest of the time. A sibling of .app-shell and .bl-modal-overlay
+       (not nested in either) so the print CSS above can hide everything
+       else with one "body > *:not(#bl-print-invoice)" rule. -->
+  <div id="bl-print-invoice" class="bl-print" aria-hidden="true"></div>
+
+  <script src="sidebar.js"></script>
+  <script src="data-store.js"></script>
+  <script src="services-data-store.js"></script>
+  <script src="billing-data-store.js"></script>
+  <script src="billing.js"></script>
+</body>
+</html>

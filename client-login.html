@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pet Owner Login — Pawsitive Care</title>
+
+<!-- Shared stylesheet, same as the Administrator pages. Not modified. -->
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+<style>
+  /*
+    Page-scoped styles only — style.css is untouched. Colors reuse the
+    CSS variables the rest of the app already defines (--teal-600, the
+    dark sidebar green, the cream page background) with fallbacks
+    matched to the Pawsitive Care admin screenshot, so this still looks
+    right even if a variable name differs.
+  */
+  * { box-sizing: border-box; }
+
+  .client-auth-page {
+    min-height: 100vh;
+    display: flex;
+    background: var(--cream, #f5f1e6);
+    font-family: inherit;
+  }
+
+  /* ---------------- left brand panel ---------------- */
+
+  .client-auth-brand {
+    flex: 1 1 44%;
+    max-width: 520px;
+    background: var(--sidebar-bg, #0c2d22);
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 64px 56px;
+  }
+
+  .client-auth-brand-logo {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 36px;
+  }
+
+  .client-auth-brand-logo .icon-badge {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    background: var(--teal-600, #1f6d57);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    flex-shrink: 0;
+  }
+
+  .client-auth-brand-logo .brand-text .name {
+    font-weight: 800;
+    font-size: 19px;
+    line-height: 1.2;
+  }
+
+  .client-auth-brand-logo .brand-text .role {
+    font-size: 13px;
+    color: var(--teal-300, #7fd6b8);
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+
+  .client-auth-brand h1 {
+    font-size: 34px;
+    font-weight: 800;
+    line-height: 1.25;
+    margin: 0 0 14px;
+    color: #ffffff;
+  }
+
+  .client-auth-brand h1 .accent {
+    color: var(--teal-300, #7fd6b8);
+  }
+
+  .client-auth-brand > p.tagline {
+    opacity: 0.8;
+    line-height: 1.6;
+    max-width: 380px;
+    margin: 0 0 44px;
+    font-size: 15.5px;
+  }
+
+  .client-auth-brand-divider {
+    border: none;
+    border-top: 1px solid rgba(255, 255, 255, 0.14);
+    margin: 0 0 24px;
+  }
+
+  .client-auth-brand-footer-label {
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.55);
+    margin-bottom: 8px;
+  }
+
+  .client-auth-brand-footer-cols {
+    display: flex;
+    gap: 48px;
+  }
+
+  .client-auth-dev-badge {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .client-auth-dev-badge .code-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 7px;
+    background: rgba(255, 255, 255, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    color: var(--teal-300, #7fd6b8);
+    flex-shrink: 0;
+  }
+
+  .client-auth-dev-badge .dev-name {
+    font-size: 14px;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+  }
+
+  .client-auth-team-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .client-auth-team-list .member {
+    font-size: 14px;
+    font-weight: 600;
+    opacity: 0.9;
+  }
+
+  .client-auth-brand-footer-value {
+    font-size: 14px;
+    font-weight: 700;
+  }
+
+  /* ---------------- right form panel ---------------- */
+
+  .client-auth-form-side {
+    flex: 1 1 56%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 24px;
+  }
+
+  .client-auth-card {
+    width: 100%;
+    max-width: 400px;
+  }
+
+  .client-auth-card h2 {
+    margin: 0 0 6px;
+    font-size: 26px;
+    font-weight: 800;
+    color: #1a2b23;
+  }
+
+  .client-auth-card .subtitle {
+    color: #6b7280;
+    font-size: 14.5px;
+    margin-bottom: 28px;
+  }
+
+  .client-auth-field {
+    margin-bottom: 18px;
+  }
+
+  .client-auth-field label {
+    display: block;
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 6px;
+    color: #33403a;
+  }
+
+  .client-auth-input-wrap {
+    position: relative;
+  }
+
+  .client-auth-input-wrap .input-icon {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #9a9484;
+    font-size: 14px;
+    pointer-events: none;
+  }
+
+  .client-auth-field input {
+    width: 100%;
+    padding: 12px 14px 12px 40px;
+    border: 1px solid #d8d2c4;
+    border-radius: 10px;
+    font-size: 14px;
+    background: #fbf9f4;
+    color: #1a2b23;
+  }
+
+  .client-auth-field input::placeholder {
+    color: #a8a396;
+  }
+
+  .client-auth-field input:focus {
+    outline: none;
+    border-color: var(--teal-600, #1f6d57);
+    background: #fff;
+    box-shadow: 0 0 0 3px rgba(31, 109, 87, 0.12);
+  }
+
+  .client-auth-error {
+    display: none;
+    background: #fdecec;
+    color: #b3261e;
+    border: 1px solid #f4c7c3;
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 13px;
+    margin-bottom: 18px;
+  }
+
+  .client-auth-submit {
+    width: 100%;
+    padding: 13px 16px;
+    border: none;
+    border-radius: 10px;
+    background: var(--teal-600, #1f6d57);
+    color: #fff;
+    font-weight: 700;
+    font-size: 14.5px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .client-auth-submit:hover {
+    filter: brightness(1.08);
+  }
+
+  .client-auth-helper-line {
+    margin-top: 22px;
+    font-size: 13.5px;
+    color: #6b7280;
+    text-align: center;
+  }
+
+  .client-auth-divider {
+    border: none;
+    border-top: 1px solid #e7e2d5;
+    margin: 28px 0 18px;
+  }
+
+  .client-auth-copyright {
+    font-size: 12px;
+    color: #a39d8d;
+    text-align: center;
+  }
+
+  @media (max-width: 900px) {
+    .client-auth-brand { display: none; }
+    .client-auth-form-side { flex: 1 1 100%; }
+  }
+</style>
+</head>
+<body>
+
+<div class="client-auth-page">
+  <div class="client-auth-brand">
+    <div class="client-auth-brand-logo">
+      <div class="icon-badge"><i class="fa-solid fa-paw"></i></div>
+      <div class="brand-text">
+        <div class="name">Pawsitive Care</div>
+        <div class="role">PET OWNER PORTAL</div>
+      </div>
+    </div>
+
+    <h1>A simpler way to care for your <span class="accent">pet</span>.</h1>
+    <p class="tagline">Access your pet’s health records, appointments, vaccinations, and billing through one convenient, connected portal.</p>
+
+    <hr class="client-auth-brand-divider">
+
+    <div class="client-auth-brand-footer-cols">
+      <div>
+        <div class="client-auth-brand-footer-label">Developed By</div>
+        <div class="client-auth-dev-badge">
+          <span class="code-icon"><i class="fa-solid fa-code"></i></span>
+          <span class="dev-name">NEXORA</span>
+        </div>
+      </div>
+      <div>
+        <div class="client-auth-brand-footer-label">TEAM</div>
+        <div class="client-auth-team-list">
+          <div class="member">NAME</div>
+          <div class="member">NAME</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="client-auth-form-side">
+    <div class="client-auth-card">
+      <h2>Welcome back</h2>
+      <div class="subtitle">Please enter your details to sign in.</div>
+
+      <div id="login-error" class="client-auth-error"></div>
+
+      <form id="login-form" novalidate>
+        <div class="client-auth-field">
+          <label for="login-input">Email Address or Contact Number</label>
+          <div class="client-auth-input-wrap">
+            <i class="fa-solid fa-envelope input-icon"></i>
+            <input type="text" id="login-input" autocomplete="username" placeholder="you@example.com or 0917 000 0000">
+          </div>
+        </div>
+        <div class="client-auth-field">
+          <label for="password-input">Password</label>
+          <div class="client-auth-input-wrap">
+            <i class="fa-solid fa-lock input-icon"></i>
+            <input type="password" id="password-input" autocomplete="current-password" placeholder="Enter your password">
+          </div>
+        </div>
+        <button type="submit" class="client-auth-submit"><i class="fa-solid fa-right-to-bracket"></i> Sign In</button>
+      </form>
+
+      <div class="client-auth-helper-line">
+        Don't have portal access yet? Ask the clinic front desk to set up your account.
+      </div>
+
+      <hr class="client-auth-divider">
+      <div class="client-auth-copyright">© 2026 Pawsitive Care</div>
+    </div>
+  </div>
+</div>
+
+<!-- data-store.js first (owns PCData / Accounts / Clients), then the
+     client session helper, then this page's own DOM wiring. -->
+<script src="data-store.js"></script>
+<script src="client-session.js"></script>
+<script src="client-login.js"></script>
+</body>
+</html>
