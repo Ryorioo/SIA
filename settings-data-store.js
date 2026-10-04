@@ -29,7 +29,12 @@
         address: '',
         phone: '',
         email: '',
-        hours: 'Mon\u2013Sat, 8:00 AM \u2013 6:00 PM'
+        website: '' // optional
+        // NOTE: the old free-text `clinic.hours` was retired in Phase 2B.
+        // Operating hours now live ONLY in appointments.openingTime /
+        // appointments.closingTime. A legacy `hours` value that is still in
+        // localStorage is left untouched (withDefaults/updateSettings carry
+        // unknown keys through) and is simply ignored by the UI.
       },
       appointments: {
         defaultDuration: 30, // minutes
@@ -48,7 +53,15 @@
         vaccinationDueAlerts: true,
         appointmentAlerts: true,
         predictiveAnalyticsAlerts: true
-      }
+      },
+      // Structural placeholders for sections that are not built yet.
+      // They are empty on purpose; they only exist so these sections
+      // are kept (not dropped) whenever settings are saved.
+      inventory: {},
+      billing: {},
+      appearance: {},
+      dataPrivacy: {},
+      system: {}
     };
   }
 
@@ -65,11 +78,18 @@
     }
   }
 
+  // Returns true if the write worked, false if the browser refused it
+  // (storage full, blocked, private mode...). Never throws.
   function writeRaw(value) {
-    localStorage.setItem(SETTINGS_KEY, JSON.stringify(value));
+    try {
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify(value));
+    } catch (e) {
+      return false;
+    }
     // Fires 'storage' in OTHER tabs automatically. Also notify listeners
     // in THIS tab/page, since the storage event does not fire locally.
     global.dispatchEvent(new CustomEvent(CHANGE_EVENT));
+    return true;
   }
 
   // Merge stored settings over the defaults, section by section, so any
@@ -101,15 +121,19 @@
     return withDefaults(readRaw());
   }
 
-  // Persists a full settings object (already merged with defaults).
+  // The three write functions below return { ok, settings }.
+  // ok is false when the browser could not store the data; settings is
+  // then what we tried to save, so the caller can keep it on screen.
+
+  // Persists a FULL settings object. Any section missing from it is
+  // replaced with defaults, so prefer updateSettings() for section saves.
   function saveSettings(settings) {
     var safe = withDefaults(settings);
-    writeRaw(safe);
-    return safe;
+    return { ok: writeRaw(safe), settings: safe };
   }
 
   // Shallow-patches one or more sections without requiring the full
-  // object, e.g. updateSettings({ queue: { prefix: 'B' } }).
+  // object; sections not in the patch are left untouched, e.g. updateSettings({ queue: { prefix: 'B' } }).
   function updateSettings(patch) {
     var current = getSettings();
     var next = {};
@@ -121,14 +145,12 @@
         (patchSection && typeof patchSection === 'object') ? patchSection : {}
       );
     });
-    writeRaw(next);
-    return next;
+    return { ok: writeRaw(next), settings: next };
   }
 
   function resetSettings() {
     var defaults = getDefaultSettings();
-    writeRaw(defaults);
-    return defaults;
+    return { ok: writeRaw(defaults), settings: defaults };
   }
 
   // ------------------------------------------------------------------

@@ -8,157 +8,362 @@
 <link rel="stylesheet" href="style.css">
 
 <!--
-  Page-scoped styles only — style.css is untouched. Colors reuse the
-  same CSS variables (with the same fallbacks) as client-login.html,
-  so this looks consistent with the rest of the app even if a
-  variable name differs from what style.css actually defines.
+  Page-scoped styles only — style.css is untouched. Every selector is
+  su- prefixed and every color/radius/shadow comes from the design
+  tokens defined in style.css (--teal-*, --surface-*, --ink-*, --line-*,
+  --r-*, --clay-*). Shared components (.btn, .view-tabs, .filter-bar,
+  .search-field, .filter-select, .modal-*, .form-*, .empty-state) are
+  reused as-is.
 -->
 <style>
-  .su-page { padding: 4px 2px 32px; }
+  .su-page { padding: 2px 0 8px; }
 
   .su-header {
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
     gap: 16px;
-    margin-bottom: 24px;
-  }
-  .su-title { margin: 0 0 6px; font-size: 24px; font-weight: 800; color: #1a2b23; }
-  .su-subtitle { margin: 0; max-width: 560px; color: #6b7280; font-size: 14px; line-height: 1.5; }
-
-  .su-btn {
-    display: inline-flex; align-items: center; gap: 8px;
-    padding: 10px 16px; border-radius: 10px; border: none;
-    font-weight: 700; font-size: 13.5px; cursor: pointer; white-space: nowrap;
-  }
-  .su-btn-primary { background: var(--teal-600, #1f6d57); color: #fff; }
-  .su-btn-primary:hover { filter: brightness(1.08); }
-  .su-btn-ghost { background: #f1efe6; color: #33403a; }
-  .su-btn-ghost:hover { background: #e7e2d5; }
-
-  .su-summary-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 16px;
     margin-bottom: 20px;
   }
-  .su-card {
-    background: #fff;
-    border: 1px solid #e7e2d5;
-    border-radius: 14px;
-    padding: 18px;
-    display: flex;
-    align-items: center;
-    gap: 14px;
+  .su-header-main { display: flex; align-items: flex-start; gap: 12px; min-width: 0; }
+  .su-header-main .menu-toggle { margin-top: 2px; flex-shrink: 0; }
+  .su-title {
+    margin: 0 0 4px;
+    font-size: 26px;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    color: var(--teal-900);
+    line-height: 1.2;
   }
-  .su-card-icon {
-    width: 42px; height: 42px; border-radius: 10px;
-    background: rgba(31, 109, 87, 0.1);
-    color: var(--teal-600, #1f6d57);
-    display: flex; align-items: center; justify-content: center;
-    font-size: 17px; flex-shrink: 0;
-  }
-  .su-card-value { font-size: 22px; font-weight: 800; color: #1a2b23; line-height: 1.1; }
-  .su-card-label { font-size: 12.5px; color: #6b7280; margin-top: 2px; }
+  .su-subtitle { margin: 0; color: var(--ink-soft); font-size: 13.5px; font-weight: 500; }
 
-  .su-toolbar {
-    display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap;
+  .su-header-actions { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: 10px; flex-shrink: 0; }
+  @media (max-width: 640px) {
+    .su-header { flex-wrap: wrap; }
+    .su-header-actions { width: 100%; justify-content: flex-start; }
   }
-  .su-search-wrap {
-    position: relative; flex: 1 1 260px; min-width: 220px;
+
+  .su-tabs-row { margin-bottom: 14px; }
+
+  /* Filter card: search + role + status on one row, count line beneath. */
+  .su-filter-bar { margin-bottom: 18px; }
+  /* style.css's global text-input rule outranks .search-field input; keep the
+     search field a single inset surface rather than a box inside a box. */
+  .su-filter-bar .search-field input {
+    border: none; background: transparent; box-shadow: none; padding: 0; border-radius: 0;
   }
-  .su-search-wrap i {
-    position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
-    color: #9a9484; font-size: 13px;
+  .su-count-line {
+    flex: 0 0 100%;
+    padding: 2px 4px 0;
+    font-size: 12.2px;
+    font-weight: 600;
+    color: var(--ink-soft);
   }
-  .su-search-wrap input {
-    width: 100%; padding: 10px 14px 10px 38px;
-    border: 1px solid #d8d2c4; border-radius: 10px;
-    font-size: 13.5px; background: #fbf9f4; color: #1a2b23;
-  }
-  .su-select {
-    padding: 10px 14px; border: 1px solid #d8d2c4; border-radius: 10px;
-    font-size: 13.5px; background: #fbf9f4; color: #1a2b23; min-width: 150px;
-  }
+  .su-count-sep { margin: 0 6px; color: var(--ink-faint); }
 
   .su-table-card {
-    background: #fff; border: 1px solid #e7e2d5; border-radius: 14px;
+    background: var(--surface-card);
+    border: 1px solid var(--line-soft);
+    border-radius: var(--r-lg);
+    box-shadow: var(--clay-flat);
     overflow: hidden;
   }
-  .su-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  .su-table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .su-table { width: 100%; min-width: 880px; border-collapse: collapse; }
   .su-table th {
-    text-align: left; padding: 12px 16px; font-size: 11.5px;
-    text-transform: uppercase; letter-spacing: 0.04em; color: #8a8474;
-    border-bottom: 1px solid #e7e2d5; background: #fbf9f4;
+    text-align: left;
+    padding: 11px 18px;
+    font-size: 11.2px;
+    font-weight: 800;
+    letter-spacing: 0.03em;
+    color: var(--ink-faint);
+    background: var(--surface-sunken);
+    border-bottom: 1px solid var(--line-soft);
+    white-space: nowrap;
   }
-  .su-table td { padding: 12px 16px; border-bottom: 1px solid #f0ede3; color: #33403a; }
-  .su-table tr:last-child td { border-bottom: none; }
-
-  .su-tag {
-    font-size: 10.5px; font-weight: 700; color: #6b7280;
-    background: #f1efe6; padding: 2px 7px; border-radius: 6px; margin-left: 4px;
+  .su-table td {
+    padding: 13px 18px;
+    font-size: 12.8px;
+    font-weight: 500;
+    color: var(--ink-800);
+    border-bottom: 1px solid var(--line-soft);
+    vertical-align: middle;
+    white-space: nowrap;
   }
-  .su-badge { padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; }
-  .su-badge-active { background: #e6f4ee; color: #1f6d57; }
-  .su-badge-inactive { background: #fdecec; color: #b3261e; }
+  .su-table tbody tr:last-child td { border-bottom: none; }
+  .su-table tbody tr:hover { background: var(--surface-bg); }
+  /* Column proportions (table-layout stays auto so narrow screens scroll). */
+  .su-col-user { width: 32%; }
+  .su-col-type { width: 10%; }
+  .su-col-role { width: 16%; }
+  .su-col-status { width: 13%; }
+  .su-col-last { width: 13%; }
+  .su-col-actions { width: 16%; }
 
-  .su-actions { white-space: nowrap; }
+  .su-user { display: flex; align-items: center; gap: 12px; min-width: 0; }
+  .su-avatar {
+    width: 34px; height: 34px; flex-shrink: 0;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 800; letter-spacing: 0.02em;
+    background: var(--teal-100); color: var(--teal-800);
+  }
+  .su-avatar-client { background: var(--sage-100); }
+  .su-avatar-inactive { background: var(--slate-100); color: var(--slate-600); }
+  .su-user-text { min-width: 0; }
+  .su-user-name {
+    font-size: 13.2px; font-weight: 700; color: var(--ink-900); line-height: 1.3;
+    max-width: 280px; overflow: hidden; text-overflow: ellipsis;
+  }
+  .su-user-sub {
+    font-size: 11.5px; color: var(--ink-soft); font-weight: 500; line-height: 1.3;
+    max-width: 280px; overflow: hidden; text-overflow: ellipsis;
+  }
+
+  /* Type: quiet outlined tag, only a hint of hue between Staff and Client. */
+  .su-type {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: var(--r-pill);
+    font-size: 11.5px;
+    font-weight: 700;
+    color: var(--teal-800);
+    background: var(--teal-50);
+    border: 1px solid var(--teal-100);
+  }
+  .su-type-client { background: var(--sage-50); border-color: var(--sage-100); }
+
+  /* Status: shared .status-badge supplies size/shape; these add the dot
+     and the colors. Inactive is neutral slate on purpose (not red). */
+  .su-status { gap: 6px; padding: 3px 10px 3px 9px; font-weight: 700; }
+  .su-status::before {
+    content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor;
+  }
+  .su-status-active { background: var(--teal-50); color: var(--teal-700); }
+  .su-status-active::before { background: var(--teal-500); }
+  .su-status-inactive { background: var(--slate-100); color: var(--slate-800); }
+  .su-status-inactive::before { background: var(--slate-600); }
+
+  .su-muted { color: var(--ink-faint); }
+
+  .su-actions { display: flex; align-items: center; gap: 14px; }
   .su-link-btn {
-    background: none; border: none; color: var(--teal-600, #1f6d57);
-    font-weight: 700; font-size: 12.5px; cursor: pointer; padding: 0; margin-right: 14px;
+    background: none; border: none; padding: 0;
+    color: var(--teal-700); font-weight: 700; font-size: 12.3px; cursor: pointer;
   }
   .su-link-btn:hover { text-decoration: underline; }
-  .su-link-danger { color: #b3261e; }
+  .su-link-danger { color: var(--ink-soft); }
+  .su-link-danger:hover { color: var(--red-600); }
 
-  .su-empty { padding: 32px; text-align: center; color: #9a9484; font-size: 13.5px; }
+  .su-empty-title { font-weight: 800; font-size: 13.5px; color: var(--ink-700); }
+  .su-empty-sub { margin-top: 3px; font-size: 12.3px; font-weight: 500; }
 
-  .su-modal-overlay {
-    display: none; position: fixed; inset: 0; background: rgba(12, 45, 34, 0.45);
-    align-items: center; justify-content: center; z-index: 1000; padding: 20px;
-  }
-  .su-modal {
-    background: #fff; border-radius: 14px; width: 100%; max-width: 440px;
-    max-height: 90vh; overflow-y: auto;
-  }
-  .su-modal-header {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 18px 20px; border-bottom: 1px solid #e7e2d5;
-  }
-  .su-modal-header h3 { margin: 0; font-size: 16.5px; font-weight: 800; color: #1a2b23; }
-  .su-modal-close { background: none; border: none; font-size: 20px; color: #9a9484; cursor: pointer; line-height: 1; }
-  .su-modal-body { padding: 20px; }
-  .su-modal-footer {
-    display: flex; justify-content: flex-end; gap: 10px;
-    padding: 16px 20px; border-top: 1px solid #e7e2d5;
-  }
-  .su-modal-note { font-size: 12px; color: #9a9484; margin: 4px 0 0; }
-
-  .su-field { margin-bottom: 14px; }
-  .su-field label { display: block; font-size: 12.5px; font-weight: 700; color: #33403a; margin-bottom: 6px; }
-  .su-field input, .su-field select {
-    width: 100%; padding: 10px 12px; border: 1px solid #d8d2c4; border-radius: 9px;
-    font-size: 13.5px; background: #fbf9f4; color: #1a2b23;
-  }
-
+  .su-modal { max-width: 460px; }
   .su-form-error {
-    background: #fdecec; color: #b3261e; border: 1px solid #f4c7c3;
-    border-radius: 9px; padding: 9px 12px; font-size: 12.5px; margin-bottom: 14px;
+    background: var(--red-100); color: var(--red-800);
+    border: 1px solid #e4c9c2; border-radius: var(--r-sm);
+    padding: 9px 12px; font-size: 12.5px; font-weight: 600; margin-bottom: 14px;
   }
-
+  .su-modal-note { font-size: 12px; color: var(--ink-faint); margin: 0; }
+  /* View modal (read-only) */
+  body.su-modal-open { overflow: hidden; }
+  .su-view-head { align-items: flex-start; gap: 12px; }
+  .su-view-id { display: flex; align-items: center; gap: 12px; min-width: 0; }
+  .su-view-id-text { min-width: 0; }
+  .su-view-id .modal-title { overflow-wrap: anywhere; line-height: 1.25; }
+  .su-view-sub { font-size: 12.3px; font-weight: 600; color: var(--ink-soft); margin-top: 1px; }
+  .su-avatar-lg { width: 44px; height: 44px; font-size: 14px; }
+  .su-view-head .modal-close { flex-shrink: 0; }
+  .su-view-section-title {
+    font-size: 11px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--ink-faint); margin: 18px 0 2px;
+  }
+  .su-view-section-title:first-child { margin-top: 0; }
+  .su-view-note { font-size: 12.8px; font-weight: 500; color: var(--ink-soft); padding: 9px 0; }
   .su-info-row {
-    display: flex; justify-content: space-between; gap: 12px;
-    padding: 9px 0; border-bottom: 1px solid #f0ede3; font-size: 13.5px;
+    display: grid; grid-template-columns: 130px minmax(0, 1fr); gap: 12px;
+    padding: 9px 0; border-bottom: 1px solid var(--line-soft); font-size: 13px; align-items: baseline;
   }
   .su-info-row:last-child { border-bottom: none; }
-  .su-info-label { color: #6b7280; }
-  .su-info-value { color: #1a2b23; font-weight: 600; text-align: right; }
+  .su-info-label { color: var(--ink-soft); font-weight: 600; }
+  .su-info-value { color: var(--ink-900); font-weight: 600; overflow-wrap: anywhere; min-width: 0; }
+  .su-pre { white-space: pre-wrap; font-weight: 500; }
 
-  @media (max-width: 900px) {
-    .su-summary-grid { grid-template-columns: repeat(2, 1fr); }
+  @media (max-width: 480px) {
+    #su-modal-overlay { padding: 12px; }
+    .su-modal { padding: 18px 16px 16px; }
+    .su-info-row { grid-template-columns: 1fr; gap: 2px; }
   }
+
   @media (max-width: 560px) {
-    .su-summary-grid { grid-template-columns: 1fr; }
-    .su-header { flex-direction: column; }
+    .su-title { font-size: 22px; }
+    .su-header .btn { padding: 8px 12px; }
+  }
+
+  /* ---- Add User modal (Phase 4A, frontend only) ---- */
+  .su-modal.su-modal-add {
+    max-width: 600px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    max-height: 88vh;
+    max-height: 88dvh;
+  }
+  .su-modal-add .modal-head { flex-shrink: 0; }
+  .su-add-form { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
+  .su-add-body {
+    flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+    margin: 0 -8px; padding: 4px 8px 6px;
+  }
+  .su-modal-add .modal-footer { flex-shrink: 0; margin-top: 12px; }
+  .su-modal [hidden] { display: none !important; }
+
+  .su-sec-title {
+    font-size: 11px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--ink-faint); margin: 20px 0 10px;
+  }
+  .su-sec-title.su-sec-first { margin-top: 0; margin-bottom: 8px; }
+  .su-req { color: var(--red-600); font-weight: 800; }
+
+  /* Account Type: the shared .view-tabs control, stretched to two equal halves. */
+  .su-type-switch.view-tabs { display: grid; grid-template-columns: 1fr 1fr; width: 100%; box-sizing: border-box; }
+  .su-type-switch .view-tab { justify-content: center; text-align: center; padding: 8px 14px; }
+
+  .su-modal .form-field input,
+  .su-modal .form-field select { width: 100%; box-sizing: border-box; min-width: 0; }
+  .su-modal .form-field input,
+  .su-modal .form-field select { height: 38px; }
+
+  /* Password inputs are type=password, which the shared text-input rule does
+     not cover, so mirror its tokens here. */
+  .su-pw-wrap { position: relative; }
+  .su-pw-wrap input {
+    width: 100%; box-sizing: border-box; padding: 9px 40px 9px 12px;
+    border: 1px solid var(--line-soft); background: var(--surface-sunken);
+    border-radius: var(--r-sm); color: var(--ink-800); font-weight: 500;
+    box-shadow: var(--clay-pressed);
+    transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+  }
+  .su-pw-wrap input:focus {
+    border-color: var(--teal-400); background: var(--surface-card-raised);
+    box-shadow: 0 0 0 3px var(--teal-100); outline: none;
+  }
+  .su-pw-toggle {
+    position: absolute; top: 50%; right: 5px; transform: translateY(-50%);
+    width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;
+    background: none; border: none; border-radius: var(--r-xs);
+    color: var(--ink-soft); cursor: pointer; font-size: 13px;
+  }
+  .su-pw-toggle:hover { color: var(--teal-700); }
+
+  /* Account Status select with a status dot (teal = Active, slate = Inactive). */
+  .su-select-wrap { position: relative; }
+  .su-select-wrap select { padding-left: 30px; }
+  .su-status-dot {
+    position: absolute; left: 12px; top: 50%; width: 8px; height: 8px; margin-top: -4px;
+    border-radius: 50%; pointer-events: none; z-index: 1;
+  }
+  .su-dot-active { background: var(--teal-500); }
+  .su-dot-inactive { background: var(--slate-600); }
+
+  /* Inline validation */
+  .su-field-error { font-size: 12px; font-weight: 600; color: var(--red-600); line-height: 1.35; }
+  .su-field-error.su-field-ok { color: var(--teal-700); }
+  .su-modal [aria-invalid="true"] { border-color: var(--red-600) !important; }
+  .su-modal [aria-invalid="true"]:focus { box-shadow: 0 0 0 3px var(--red-100) !important; }
+
+  /* Client selector */
+  .su-combo { position: relative; }
+  .su-combo .su-combo-input { padding: 9px 36px 9px 34px; }
+  .su-combo-icon {
+    position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+    color: var(--ink-faint); font-size: 12.5px; pointer-events: none; display: flex;
+  }
+  .su-combo-clear {
+    position: absolute; top: 50%; right: 5px; transform: translateY(-50%);
+    width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;
+    background: none; border: none; border-radius: var(--r-xs); color: var(--ink-soft); cursor: pointer; font-size: 12px;
+  }
+  .su-combo-clear:hover { color: var(--teal-700); }
+  .su-combo-list {
+    position: absolute; z-index: 5; left: 0; right: 0; top: calc(100% + 4px);
+    margin: 0; padding: 4px; list-style: none; max-height: 200px; overflow-y: auto;
+    background: var(--surface-card-raised); border: 1px solid var(--line);
+    border-radius: var(--r-sm); box-shadow: var(--clay-raised);
+  }
+  .su-combo-list li { padding: 8px 10px; border-radius: var(--r-xs); cursor: pointer; display: flex; flex-direction: column; gap: 1px; }
+  .su-combo-list li.active, .su-combo-list li:hover { background: var(--teal-50); }
+  .su-combo-list .su-combo-none { cursor: default; color: var(--ink-soft); font-size: 12.5px; font-weight: 600; }
+  .su-combo-list .su-combo-none:hover { background: none; }
+  .su-opt-name { font-size: 13px; font-weight: 700; color: var(--ink-900); overflow-wrap: anywhere; }
+  .su-opt-sub { font-size: 11.5px; font-weight: 500; color: var(--ink-soft); overflow-wrap: anywhere; }
+
+  .su-preview {
+    grid-column: 1 / -1;
+    background: var(--surface-card); border: 1px solid var(--line-soft);
+    border-radius: var(--r-md); padding: 12px 14px 4px;
+  }
+  .su-preview-title {
+    font-size: 11px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--ink-faint); margin-bottom: 2px;
+  }
+  .su-preview-empty { font-size: 12.8px; font-weight: 600; color: var(--ink-faint); padding: 8px 0 12px; }
+  .su-preview .su-info-row:last-child { border-bottom: none; }
+
+  @media (max-width: 480px) {
+    .su-add-body { margin: 0 -4px; padding: 4px 4px 6px; }
+  }
+
+  /* ---- View Account modal (Phase 4C) ---- */
+  .su-modal.su-modal-view {
+    max-width: 560px;
+    display: flex; flex-direction: column; overflow: hidden;
+    max-height: 88vh; max-height: 88dvh;
+    padding-bottom: 0;
+  }
+  .su-view-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-shrink: 0; margin-bottom: 14px; }
+  .su-view-eyebrow { font-size: 11px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint); }
+  .su-view-top .modal-close { flex-shrink: 0; }
+  .su-view-profile {
+    display: flex; align-items: center; gap: 14px; flex-shrink: 0;
+    padding: 14px 16px; background: var(--surface-card);
+    border: 1px solid var(--line-soft); border-radius: var(--r-md);
+  }
+  .su-view-profile .su-avatar-lg { width: 52px; height: 52px; font-size: 16px; }
+  .su-view-profile .modal-title { overflow-wrap: anywhere; line-height: 1.25; }
+  .su-view-profile .su-view-sub { overflow-wrap: anywhere; }
+  .su-view-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 7px; }
+  .su-view-role { font-size: 12.3px; font-weight: 700; color: var(--ink-700); }
+  .su-modal-view .su-view-body {
+    flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+    margin: 0 -8px; padding: 0 8px 4px;
+  }
+  .su-modal-view .modal-footer { flex-shrink: 0; margin-top: 8px; padding-bottom: 16px; }
+  .su-view-section { padding: 16px 0 14px; border-bottom: 1px solid var(--line-soft); }
+  .su-view-section:last-child { border-bottom: none; }
+  .su-view-section .su-view-section-title { margin: 0 0 6px; }
+  .su-kv-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 20px; padding-top: 4px; }
+  .su-kv { min-width: 0; }
+  .su-kv-full { grid-column: 1 / -1; }
+  .su-kv-label { font-size: 11.8px; font-weight: 600; color: var(--ink-soft); margin-bottom: 2px; }
+  .su-kv-value { font-size: 13px; font-weight: 600; color: var(--ink-900); overflow-wrap: anywhere; min-width: 0; }
+  .su-status-panel {
+    display: flex; align-items: center; justify-content: space-between; gap: 14px;
+    padding: 12px 14px; background: var(--surface-card);
+    border: 1px solid var(--line-soft); border-radius: var(--r-md);
+  }
+  .su-status-panel-text { min-width: 0; }
+  .su-status-panel-title { display: flex; align-items: center; gap: 8px; font-size: 13.5px; font-weight: 800; color: var(--ink-900); }
+  .su-status-dot-inline { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .su-status-panel-desc { margin-top: 3px; font-size: 12.3px; font-weight: 500; color: var(--ink-soft); }
+  .su-status-panel .btn { flex-shrink: 0; }
+
+  @media (max-width: 480px) {
+    .su-kv-grid { grid-template-columns: 1fr; }
+    .su-status-panel { flex-direction: column; align-items: stretch; }
+    .su-status-panel .btn { justify-content: center; }
+    .su-view-profile { padding: 12px; gap: 12px; }
+    .su-view-profile .su-avatar-lg { width: 44px; height: 44px; font-size: 14px; }
   }
 </style>
 </head>
@@ -256,67 +461,82 @@
     </aside>
 
     <div class="main-content">
-      <header class="topbar">
-        <div class="topbar-left">
-          <button class="menu-toggle" aria-label="Toggle navigation"><i class="fa-solid fa-bars"></i></button>
-          <div>
-            <div class="topbar-title">Staff & Users</div>
-            <div class="topbar-crumb">Pawsitive Care / Staff & Users</div>
-          </div>
-        </div>
-      </header>
-
       <main class="page-body">
         <div class="su-page">
           <div class="su-header">
-            <div>
-              <h1 class="su-title">Staff & Users</h1>
-              <p class="su-subtitle">Manage every account that can sign in to Pawsitive Care — Administrators, Veterinarians, Receptionists, Staff, and Pet Owners.</p>
+            <div class="su-header-main">
+              <!-- sidebar.js binds to .menu-toggle for the mobile sidebar;
+                   it lives here now that the topbar is gone. -->
+              <button class="menu-toggle" aria-label="Toggle navigation"><i class="fa-solid fa-bars"></i></button>
+              <div>
+                <h1 class="su-title">STAFF &amp; USERS</h1>
+                <p class="su-subtitle">Manage staff and client accounts, roles, access, and security.</p>
+              </div>
             </div>
-            <button id="su-add-staff-btn" class="su-btn su-btn-primary" type="button">
-              <i class="fa-solid fa-plus"></i> Add Staff User
-            </button>
+            <div class="su-header-actions">
+              <button id="su-add-staff-btn" class="btn btn-primary" type="button">
+                <i class="fa-solid fa-plus"></i> Add User
+              </button>
+              <a href="access-management.html" class="btn" id="su-access-mgmt-link">
+                <i class="fa-solid fa-shield-halved"></i> Access Management
+              </a>
+              <a href="security-activity.html" class="btn" id="su-security-activity-link">
+                <i class="fa-solid fa-user-shield"></i> Security &amp; Activity
+              </a>
+            </div>
           </div>
 
-          <div id="su-summary-grid" class="su-summary-grid"></div>
+          <div class="su-tabs-row">
+            <div class="view-tabs" id="su-type-tabs" role="tablist" aria-label="Account type">
+              <button class="view-tab active" type="button" role="tab" aria-selected="true" data-type="all">All Users</button>
+              <button class="view-tab" type="button" role="tab" aria-selected="false" data-type="staff">Staff</button>
+              <button class="view-tab" type="button" role="tab" aria-selected="false" data-type="client">Clients</button>
+            </div>
+          </div>
 
-          <div class="su-toolbar">
-            <div class="su-search-wrap">
-              <i class="fa-solid fa-magnifying-glass"></i>
+          <div class="filter-bar su-filter-bar">
+            <div class="search-field">
+              <span><i class="fa-solid fa-magnifying-glass"></i></span>
               <input type="text" id="su-search-input" placeholder="Search users...">
             </div>
-            <select id="su-role-filter" class="su-select"></select>
-            <select id="su-status-filter" class="su-select"></select>
+            <select id="su-role-filter" class="filter-select" aria-label="Filter by role"></select>
+            <select id="su-status-filter" class="filter-select" aria-label="Filter by status"></select>
+            <div id="su-summary-grid" class="su-count-line"></div>
           </div>
 
-          <div class="su-table-card">
-            <table class="su-table">
-              <thead>
-                <tr>
-                  <th>User</th>
-                  <th>Login</th>
-                  <th>Role</th>
-                  <th>Status</th>
-                  <th>Created</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody id="su-table-body"></tbody>
-            </table>
-            <div id="su-empty-state" class="su-empty" style="display:none;">No users match your search or filters.</div>
+          <div class="su-table-card" id="su-table-card">
+            <div class="su-table-scroll">
+              <table class="su-table">
+                <thead>
+                  <tr>
+                    <th class="su-col-user">User</th>
+                    <th class="su-col-type">Type</th>
+                    <th class="su-col-role">Role</th>
+                    <th class="su-col-status">Status</th>
+                    <th class="su-col-last">Last Active</th>
+                    <th class="su-col-actions">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="su-table-body"></tbody>
+              </table>
+            </div>
+          </div>
+          <div id="su-empty-state" class="empty-state" style="display:none;">
+            <div id="su-empty-title" class="su-empty-title">No users yet</div>
+            <div id="su-empty-sub" class="su-empty-sub"></div>
           </div>
         </div>
       </main>
     </div>
   </div>
 
-  <div id="su-modal-overlay" class="su-modal-overlay">
-    <div class="su-modal" id="su-modal"></div>
+  <div id="su-modal-overlay" class="modal-overlay">
+    <div class="modal-box su-modal" id="su-modal" role="dialog" aria-modal="true" aria-labelledby="su-modal-title" tabindex="-1"></div>
   </div>
 
   <!-- data-store.js first (owns PCData / Accounts / Clients), then the
-       Staff & Users domain layer built on top of it, then this page's
-       DOM/rendering logic, then sidebar.js. -->
+       Staff & Users domain layer built on top of PCData, then this page's
+       DOM/rendering logic, then sidebar.js. No page-level login guard. -->
   <script src="data-store.js"></script>
   <script src="staff-users-data-store.js"></script>
   <script src="staff-users.js"></script>

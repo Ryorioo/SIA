@@ -178,23 +178,27 @@ i.fa-solid, i.fa-regular { line-height: 1; }
 }
 
 .brand-mark {
+  position: relative;
   width: 38px;
   height: 38px;
   flex-shrink: 0;
-  border-radius: var(--r-sm);
-  background: linear-gradient(150deg, var(--teal-500), var(--teal-700) 65%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 16px;
-  color: var(--ink-on-brand);
-  box-shadow: 0 1px 1px rgba(0,0,0,0.25), 0 6px 14px -6px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.18);
+}
+
+/* Sidebar logo: the real logo image (img/LOGO.png) replaces the paw icon.
+   The image has built-in transparent margins, so it is drawn slightly larger
+   than the 38px slot (56px, centered, no layout shift). Aspect ratio preserved. */
+.brand-mark i { display: none; }
+.brand-mark::before {
+  content: '';
+  position: absolute;
+  inset: -9px;
+  background: url('img/LOGO.png') center / contain no-repeat;
 }
 
 .brand-name {
   font-weight: 800;
   font-size: 14.5px;
-  color: var(--ink-on-brand);
+  color: var(--teal-400);   /* brand teal; 5.2:1 contrast on the dark sidebar */
   letter-spacing: -0.01em;
 }
 

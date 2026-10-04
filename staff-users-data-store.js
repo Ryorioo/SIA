@@ -76,14 +76,22 @@
     });
   }
 
-  // filters: { search, role, status } — role/status of 'all' means no filter.
+  // filters: { search, role, status, type } — a value of 'all' (or an
+  // omitted key) means no filter. `type` is 'all' | 'staff' | 'client',
+  // derived from the existing role field (role === 'client' -> client,
+  // anything else -> staff); no new stored field is involved.
   function filterRows(rows, filters) {
     filters = filters || {};
     var role = filters.role || 'all';
     var status = filters.status || 'all';
+    var type = filters.type || 'all';
     var search = (filters.search || '').trim().toLowerCase();
 
     return rows.filter(function (row) {
+      if (type !== 'all') {
+        var rowType = row.account.role === 'client' ? 'client' : 'staff';
+        if (rowType !== type) return false;
+      }
       if (role !== 'all' && row.account.role !== role) return false;
       if (status !== 'all' && row.account.status !== status) return false;
       if (search) {

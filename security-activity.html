@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Security &amp; Activity · Pawsitive Care</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+<link rel="stylesheet" href="style.css">
+
+<!--
+  Page-scoped styles only — style.css is untouched. Every selector is
+  sa- prefixed and every color/radius/shadow comes from the design
+  tokens in style.css (--teal-*, --sage-*, --surface-*, --ink-*, --line-*,
+  --r-*, --clay-*). Shared components (.btn, .btn-sm, .view-tabs,
+  .filter-bar, .search-field, .filter-select, .status-badge, .modal-*,
+  .empty-state) are reused as-is.
+-->
+<style>
+  .sa-page { padding: 2px 0 8px; }
+
+  /* ---------- header ---------- */
+  .sa-back { margin-bottom: 14px; }
+  .sa-header { display: flex; align-items: flex-start; gap: 12px; min-width: 0; margin-bottom: 20px; }
+  .sa-header .menu-toggle { margin-top: 2px; flex-shrink: 0; }
+  .sa-title {
+    margin: 0 0 4px;
+    font-size: 26px;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    color: var(--teal-900);
+    line-height: 1.2;
+  }
+  .sa-subtitle { margin: 0; color: var(--ink-soft); font-size: 13.5px; font-weight: 500; }
+
+  .sa-tabs-row { margin-bottom: 14px; max-width: 100%; }
+  .sa-tabs-row .view-tabs { max-width: 100%; }
+
+  /* ---------- filters ---------- */
+  .sa-filter-bar { margin-bottom: 18px; }
+  .sa-filter-bar > * { min-width: 0; }
+  /* style.css's global text-input rule outranks .search-field input; keep the
+     search field a single inset surface rather than a box inside a box. */
+  .sa-filter-bar .search-field input {
+    border: none; background: transparent; box-shadow: none; padding: 0; border-radius: 0;
+  }
+  .sa-filter-bar .filter-select { max-width: 100%; }
+  .sa-filter-bar input[type="date"] {
+    height: 37px; padding: 0 12px; font-size: 12.8px; font-weight: 600; max-width: 100%;
+  }
+  .sa-count-line {
+    flex: 0 0 100%;
+    display: flex; align-items: center; flex-wrap: wrap; gap: 4px 12px;
+    padding: 2px 4px 0;
+    font-size: 12.2px;
+    font-weight: 600;
+    color: var(--ink-soft);
+  }
+  .sa-clear {
+    background: none; border: none; padding: 0; cursor: pointer;
+    font-size: 12.2px; font-weight: 700; color: var(--teal-700);
+  }
+  .sa-clear:hover { text-decoration: underline; }
+
+  /* ---------- event table ---------- */
+  .sa-table-card {
+    background: var(--surface-card);
+    border: 1px solid var(--line-soft);
+    border-radius: var(--r-lg);
+    box-shadow: var(--clay-flat);
+    overflow: hidden;
+    container-type: inline-size;
+  }
+  .sa-table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .sa-table { width: 100%; min-width: 760px; border-collapse: collapse; }
+  .sa-table th {
+    text-align: left;
+    padding: 11px 14px;
+    font-size: 11.2px;
+    font-weight: 800;
+    letter-spacing: 0.03em;
+    color: var(--ink-faint);
+    background: var(--surface-sunken);
+    border-bottom: 1px solid var(--line-soft);
+    white-space: nowrap;
+  }
+  .sa-table td {
+    padding: 12px 14px;
+    font-size: 12.8px;
+    font-weight: 500;
+    color: var(--ink-800);
+    border-bottom: 1px solid var(--line-soft);
+    vertical-align: middle;
+  }
+  .sa-table th:first-child, .sa-table td:first-child { padding-left: 18px; }
+  .sa-table th:last-child, .sa-table td:last-child { padding-right: 18px; }
+  .sa-table tbody tr:last-child td { border-bottom: none; }
+  .sa-table tbody tr:hover { background: var(--surface-bg); }
+  .sa-c-when, .sa-c-type, .sa-c-status { white-space: nowrap; }
+  .sa-c-action { width: 1%; white-space: nowrap; }
+
+  /* user cell */
+  .sa-user { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .sa-avatar {
+    width: 32px; height: 32px; flex-shrink: 0; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11.5px; font-weight: 800; letter-spacing: 0.02em;
+    background: var(--teal-100); color: var(--teal-800);
+  }
+  .sa-user-name { font-size: 13px; font-weight: 700; color: var(--ink-900); line-height: 1.3; overflow-wrap: anywhere; min-width: 0; }
+
+  /* event cell: small icon + name + optional related account */
+  .sa-event { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .sa-ev-icon {
+    width: 30px; height: 30px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: var(--r-xs);
+    background: var(--teal-50); color: var(--teal-700);
+    border: 1px solid var(--teal-100);
+    font-size: 12.5px;
+  }
+  /* Security events: a quiet sage tint, so they read as a different kind of
+     entry without looking like an alert. */
+  .sa-ev-icon-security { background: var(--sage-50); color: var(--sage-600); border-color: var(--sage-100); }
+  .sa-ev-icon-failed { background: var(--amber-100); color: var(--amber-800); border-color: var(--amber-100); }
+  .sa-ev-text { min-width: 0; }
+  .sa-ev-name { font-size: 13px; font-weight: 700; color: var(--ink-900); line-height: 1.3; overflow-wrap: anywhere; }
+  .sa-ev-sub { font-size: 11.6px; font-weight: 500; color: var(--ink-soft); line-height: 1.3; overflow-wrap: anywhere; }
+
+  /* date & time */
+  .sa-date { font-weight: 600; color: var(--ink-800); }
+  .sa-time { font-size: 11.6px; font-weight: 500; color: var(--ink-soft); }
+
+  /* type tag — same quiet outlined look as the Type tag in Staff & Users */
+  .sa-tag {
+    display: inline-block; padding: 2px 9px; border-radius: var(--r-pill);
+    font-size: 11.5px; font-weight: 700; color: var(--teal-800);
+    background: var(--teal-50); border: 1px solid var(--teal-100);
+  }
+  .sa-tag-security { background: var(--sage-50); border-color: var(--sage-100); color: var(--teal-800); }
+
+  /* status: shared .status-badge supplies size/shape; restrained colors */
+  .sa-status { gap: 6px; padding: 3px 10px 3px 9px; font-weight: 700; }
+  .sa-status::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .sa-status-completed { background: var(--teal-50); color: var(--teal-700); }
+  .sa-status-completed::before { background: var(--teal-500); }
+  .sa-status-failed { background: var(--amber-100); color: var(--amber-800); }
+  .sa-status-failed::before { background: var(--amber-600); }
+
+  .sa-empty-title { font-weight: 800; font-size: 13.5px; color: var(--ink-700); }
+  .sa-empty-sub { margin-top: 3px; font-size: 12.3px; font-weight: 500; }
+
+  /* Narrow table card (phones, tablets, or desktop with the sidebar open and
+     a small window): each row becomes a compact stacked entry instead of
+     scrolling sideways. Keyed to the card's own width via a container query. */
+  @container (max-width: 859px) {
+    .sa-table { min-width: 0; }
+    .sa-table, .sa-table tbody { display: block; }
+    .sa-table thead {
+      position: absolute; width: 1px; height: 1px; overflow: hidden;
+      clip: rect(0 0 0 0); white-space: nowrap;
+    }
+    .sa-table tbody tr {
+      display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px;
+      padding: 14px 16px; border-bottom: 1px solid var(--line-soft);
+    }
+    .sa-table tbody tr:last-child { border-bottom: none; }
+    .sa-table td, .sa-table td:first-child, .sa-table td:last-child {
+      display: block; padding: 0; border: none; width: auto;
+    }
+    .sa-c-event  { order: 1; flex: 1 1 0; min-width: 0; }
+    .sa-c-action { order: 2; flex: 0 0 auto; }
+    .sa-c-user   { order: 3; flex: 0 0 100%; }
+    .sa-c-when   { order: 4; }
+    .sa-c-type   { order: 5; }
+    .sa-c-status { order: 6; }
+    .sa-user .sa-avatar { width: 24px; height: 24px; font-size: 9.5px; }
+    .sa-user-name { font-size: 12.5px; font-weight: 600; }
+    .sa-c-when { font-size: 12px; }
+    .sa-date, .sa-time { display: inline; font-size: 12px; }
+    .sa-date::after { content: ' \00b7 '; color: var(--ink-faint); font-weight: 500; }
+  }
+
+  /* ---------- Security Events table (8 columns) ---------- */
+  .sa-evt .sa-table th, .sa-evt .sa-table td { padding-left: 10px; padding-right: 10px; }
+  .sa-evt .sa-table th:first-child, .sa-evt .sa-table td:first-child { padding-left: 16px; }
+  .sa-evt .sa-table th:last-child, .sa-evt .sa-table td:last-child { padding-right: 16px; }
+  .sa-evt td.sa-c-ip, .sa-evt td.sa-c-dev { font-size: 12.5px; font-weight: 500; color: var(--ink-800); overflow-wrap: anywhere; }
+  .sa-evt .sa-c-ip { min-width: 96px; }
+  .sa-evt .sa-c-dev { min-width: 104px; }
+  .sa-evt .sa-c-sev { white-space: nowrap; }
+  .sa-evt .sa-c-when .sa-date, .sa-evt .sa-c-when .sa-time { display: block; }
+
+  /* Security Events, narrow card: the extra columns join the existing stacked entry. */
+  @container (max-width: 859px) {
+    .sa-evt .sa-c-type { order: 5; }
+    .sa-evt .sa-c-sev  { order: 6; }
+    .sa-evt .sa-c-ip   { order: 7; flex: 0 0 auto; min-width: 0; }
+    .sa-evt .sa-c-dev  { order: 8; flex: 0 0 auto; min-width: 0; }
+    .sa-evt td.sa-c-ip::before  { content: 'IP '; color: var(--ink-faint); font-weight: 700; font-style: normal; font-size: 11px; letter-spacing: 0.03em; }
+    .sa-evt td.sa-c-dev::before { content: 'Device '; color: var(--ink-faint); font-weight: 700; font-style: normal; font-size: 11px; letter-spacing: 0.03em; }
+    .sa-evt .sa-c-when .sa-date, .sa-evt .sa-c-when .sa-time { display: inline; }
+    .sa-evt td.sa-c-ip, .sa-evt td.sa-c-dev { font-size: 12px; }
+  }
+
+  /* ---------- detail modal (read-only) ---------- */
+  body.sa-modal-open { overflow: hidden; }
+  .sa-modal {
+    max-width: 540px;
+    display: flex; flex-direction: column; overflow: hidden;
+    max-height: 88vh; max-height: 88dvh;
+  }
+  .sa-modal-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-shrink: 0; padding-bottom: 12px; border-bottom: 1px solid var(--line-soft); }
+  .sa-modal-top .modal-title { display: flex; align-items: center; gap: 10px; margin: 0; color: var(--teal-900); font-weight: 800; letter-spacing: 0.01em; text-transform: uppercase; font-size: 14.5px; min-width: 0; }
+  .sa-title-icon { width: 28px; height: 28px; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: var(--r-xs); background: var(--teal-50); border: 1px solid var(--teal-100); color: var(--teal-700); font-size: 12.5px; }
+  .sa-modal-top .modal-close { flex-shrink: 0; }
+  .sa-modal-body {
+    flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain;
+    margin: 0 -8px; padding: 0 8px 4px;
+  }
+  .sa-modal .modal-footer { flex-shrink: 0; margin-top: 12px; }
+  .sa-sec { padding: 14px 0; border-bottom: 1px solid var(--line-soft); }
+  .sa-sec:last-child { border-bottom: none; }
+  .sa-sec-title { margin: 0 0 8px; font-size: 11px; font-weight: 800; letter-spacing: 0.07em; text-transform: uppercase; color: var(--teal-700); }
+  .sa-person { display: flex; align-items: center; gap: 12px; min-width: 0; margin-bottom: 12px; }
+  .sa-avatar-lg { width: 40px; height: 40px; font-size: 13px; }
+  .sa-person-text { min-width: 0; }
+  .sa-person-name { font-size: 14px; font-weight: 800; color: var(--ink-900); line-height: 1.3; overflow-wrap: anywhere; }
+  .sa-person-role { font-size: 12.2px; font-weight: 600; color: var(--ink-soft); }
+  .sa-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; font-size: 13px; }
+  .sa-info-row {
+    display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 12px;
+    padding: 7px 0; font-size: 13px; align-items: baseline;
+  }
+  .sa-info-label { color: var(--ink-soft); font-weight: 600; font-size: 12.3px; }
+  .sa-pair .sa-info-label { margin-bottom: 2px; }
+  .sa-info-value { color: var(--ink-900); font-weight: 600; overflow-wrap: anywhere; min-width: 0; }
+  .sa-desc-sub { margin-top: 2px; font-size: 12.2px; font-weight: 500; line-height: 1.45; color: var(--ink-soft); }
+  .sa-missing { color: var(--ink-faint); font-weight: 500; font-style: italic; }
+  .sa-missing-block { font-size: 12.8px; padding: 2px 0; }
+  .sa-change + .sa-change { margin-top: 12px; }
+  .sa-change-field { font-size: 13px; font-weight: 700; color: var(--ink-900); margin-bottom: 6px; }
+  .sa-change-pair { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: stretch; gap: 8px; }
+  .sa-change-cell { padding: 7px 10px; border-radius: var(--r-xs); font-size: 13px; font-weight: 700; overflow-wrap: anywhere; min-width: 0; }
+  .sa-change-cap { display: block; font-size: 10.5px; font-weight: 700; letter-spacing: 0.03em; margin-bottom: 1px; opacity: 0.8; }
+  .sa-change-from { background: color-mix(in srgb, var(--red-100) 55%, var(--surface-card)); color: var(--red-800); border: 1px solid var(--red-100); }
+  .sa-change-to { background: var(--sage-50); color: var(--teal-800); border: 1px solid var(--sage-100); }
+  .sa-change-arrow { align-self: center; color: var(--ink-faint); font-size: 12px; }
+
+  /* security severity: restrained, same pill shape as status */
+  .sa-sev-low { background: var(--slate-100); color: var(--slate-800); }
+  .sa-sev-low::before { background: var(--slate-600); }
+  .sa-sev-medium { background: var(--amber-100); color: var(--amber-800); }
+  .sa-sev-medium::before { background: var(--amber-600); }
+  .sa-sev-high { background: var(--red-100); color: var(--red-800); }
+  .sa-sev-high::before { background: var(--red-600); }
+
+  /* event timeline: small markers on one thin connecting line */
+  .sa-timeline { list-style: none; margin: 2px 0 0; padding: 0; }
+  .sa-tl-item { position: relative; display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 4px 10px; padding: 0 0 14px 22px; font-size: 13px; line-height: 1.4; }
+  .sa-tl-item:last-child { padding-bottom: 2px; }
+  .sa-tl-item::before { content: ''; position: absolute; left: 0; top: 4px; width: 9px; height: 9px; box-sizing: border-box; border-radius: 50%; background: var(--teal-600); box-shadow: 0 0 0 3px var(--teal-50); }
+  .sa-tl-item::after { content: ''; position: absolute; left: 4px; top: 17px; bottom: -1px; width: 1px; background: var(--line-strong); }
+  .sa-tl-item:last-child::after { display: none; }
+  .sa-tl-time { font-weight: 700; color: var(--ink-900); white-space: nowrap; }
+  .sa-tl-text { color: var(--ink-700); font-weight: 500; overflow-wrap: anywhere; min-width: 0; }
+
+  /* ---------- responsive ---------- */
+  @media (max-width: 640px) {
+    .sa-title { font-size: 22px; }
+    .sa-info-row { grid-template-columns: 1fr; gap: 2px; }
+  }
+  @media (max-width: 480px) {
+    .sa-pair { grid-template-columns: 1fr; }
+    .sa-tl-item { grid-template-columns: minmax(0, 1fr); gap: 0; }
+    .sa-change-pair { grid-template-columns: 1fr; gap: 4px; }
+    .sa-change-arrow { justify-self: start; padding-left: 10px; }
+    .sa-change-arrow i { transform: rotate(90deg); }
+    .sa-modal-top .modal-title { font-size: 13.5px; }
+  }
+  @media (max-width: 560px) {
+    /* Filters stack to full-width controls instead of overflowing. */
+    .sa-filter-bar .search-field { flex: 1 1 100%; min-width: 0; }
+    .sa-filter-bar .filter-select, .sa-filter-bar input[type="date"] { flex: 1 1 100%; width: 100%; }
+    .sa-tabs-row .view-tabs { display: grid; grid-template-columns: 1fr 1fr; width: 100%; }
+    .sa-tabs-row .view-tab { justify-content: center; }
+  }
+  @media (max-width: 480px) {
+    #sa-modal-overlay { padding: 12px; }
+    .sa-modal { padding: 18px 16px 16px; }
+  }
+</style>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-mark"><i class="fa-solid fa-paw"></i></div>
+        <div class="brand-text">
+          <div class="brand-name">Pawsitive Care</div>
+          <div class="brand-role">Administrator</div>
+        </div>
+      </div>
+      <div class="sidebar-divider"></div>
+      <nav class="sidebar-nav">
+      <div class="nav-group">
+        <div class="nav-group-label">MAIN</div>
+        <a href="dashboard.html" class="nav-item" data-page="dashboard.html">
+          <span class="nav-icon"><i class="fa-solid fa-house"></i></span>
+          <span class="nav-label">Dashboard</span>
+        </a>
+        <a href="appointments.html" class="nav-item" data-page="appointments.html">
+          <span class="nav-icon"><i class="fa-solid fa-calendar-days"></i></span>
+          <span class="nav-label">Appointments</span>
+        </a>
+        <a href="queue.html" class="nav-item" data-page="queue.html">
+          <span class="nav-icon"><i class="fa-solid fa-hourglass-half"></i></span>
+          <span class="nav-label">Queue</span>
+        </a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">PATIENT MANAGEMENT</div>
+        <a href="patients.html" class="nav-item" data-page="patients.html">
+          <span class="nav-icon"><i class="fa-solid fa-paw"></i></span>
+          <span class="nav-label">Patients</span>
+        </a>
+        <a href="clients.html" class="nav-item" data-page="clients.html">
+          <span class="nav-icon"><i class="fa-solid fa-user"></i></span>
+          <span class="nav-label">Clients</span>
+        </a>
+        <a href="medical-records.html" class="nav-item" data-page="medical-records.html">
+          <span class="nav-icon"><i class="fa-solid fa-notes-medical"></i></span>
+          <span class="nav-label">Medical Records</span>
+        </a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">CLINIC</div>
+        <a href="services.html" class="nav-item" data-page="services.html">
+          <span class="nav-icon"><i class="fa-solid fa-hospital"></i></span>
+          <span class="nav-label">Services</span>
+        </a>
+        <a href="inventory.html" class="nav-item" data-page="inventory.html">
+          <span class="nav-icon"><i class="fa-solid fa-boxes-stacked"></i></span>
+          <span class="nav-label">Inventory</span>
+        </a>
+        <a href="billing.html" class="nav-item" data-page="billing.html">
+          <span class="nav-icon"><i class="fa-solid fa-credit-card"></i></span>
+          <span class="nav-label">Billing</span>
+        </a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">INSIGHTS</div>
+        <a href="predictive-analytics.html" class="nav-item" data-page="predictive-analytics.html">
+          <span class="nav-icon"><i class="fa-solid fa-chart-line"></i></span>
+          <span class="nav-label">Predictive Analytics</span>
+        </a>
+        <a href="reports.html" class="nav-item" data-page="reports.html">
+          <span class="nav-icon"><i class="fa-solid fa-chart-column"></i></span>
+          <span class="nav-label">Reports</span>
+        </a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">SYSTEM</div>
+        <a href="notifications.html" class="nav-item" data-page="notifications.html">
+          <span class="nav-icon"><i class="fa-solid fa-bell"></i></span>
+          <span class="nav-label">Notifications</span>
+        </a>
+        <!-- data-page points at this page so sidebar.js highlights Staff &amp; Users while here -->
+        <a href="staff-users.html" class="nav-item" data-page="security-activity.html">
+          <span class="nav-icon"><i class="fa-solid fa-users"></i></span>
+          <span class="nav-label">Staff & Users</span>
+        </a>
+        <a href="settings.html" class="nav-item" data-page="settings.html">
+          <span class="nav-icon"><i class="fa-solid fa-gear"></i></span>
+          <span class="nav-label">Settings</span>
+        </a>
+      </div>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="footer-avatar">A</div>
+        <div>
+          <div class="footer-name">Admin</div>
+          <div class="footer-role">Administrator</div>
+        </div>
+      </div>
+    </aside>
+
+    <div class="main-content">
+      <main class="page-body">
+        <div class="sa-page">
+          <a href="staff-users.html" class="btn btn-sm sa-back">
+            <i class="fa-solid fa-arrow-left"></i> Back to Staff &amp; Users
+          </a>
+
+          <div class="sa-header">
+            <!-- sidebar.js binds to .menu-toggle for the mobile sidebar. -->
+            <button class="menu-toggle" aria-label="Toggle navigation"><i class="fa-solid fa-bars"></i></button>
+            <div>
+              <h1 class="sa-title">SECURITY &amp; ACTIVITY</h1>
+              <p class="sa-subtitle">Review account sign-ins, changes, and security events.</p>
+            </div>
+          </div>
+
+          <div class="sa-tabs-row">
+            <div class="view-tabs" id="sa-tabs" role="tablist" aria-label="Record type">
+              <button class="view-tab active" type="button" role="tab" id="sa-tab-activity" aria-selected="true" aria-controls="sa-panel" data-tab="activity">
+                <i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i> Activity
+              </button>
+              <button class="view-tab" type="button" role="tab" id="sa-tab-security" aria-selected="false" aria-controls="sa-panel" tabindex="-1" data-tab="security">
+                <i class="fa-solid fa-user-shield" aria-hidden="true"></i> Security Events
+              </button>
+            </div>
+          </div>
+
+          <div id="sa-panel" role="tabpanel" aria-labelledby="sa-tab-activity">
+            <div class="filter-bar sa-filter-bar">
+              <div class="search-field">
+                <span><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i></span>
+                <input type="text" id="sa-search" placeholder="Search activity..." aria-label="Search activity" autocomplete="off">
+              </div>
+              <select id="sa-user-filter" class="filter-select" aria-label="Filter by user"></select>
+              <select id="sa-event-filter" class="filter-select" aria-label="Filter by event type"></select>
+              <input type="date" id="sa-date-filter" aria-label="Filter by date">
+              <div class="sa-count-line" id="sa-count" aria-live="polite"></div>
+            </div>
+
+            <div class="sa-table-card" id="sa-table-card">
+              <div class="sa-table-scroll">
+                <table class="sa-table" role="table">
+                  <thead id="sa-thead"></thead>
+                  <tbody id="sa-tbody"></tbody>
+                </table>
+              </div>
+            </div>
+            <div id="sa-empty" class="empty-state" style="display:none;">
+              <div id="sa-empty-title" class="sa-empty-title"></div>
+              <div id="sa-empty-sub" class="sa-empty-sub"></div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <div id="sa-modal-overlay" class="modal-overlay">
+    <div class="modal-box sa-modal" id="sa-modal" role="dialog" aria-modal="true" aria-labelledby="sa-modal-title" tabindex="-1"></div>
+  </div>
+
+  <!-- FRONTEND ONLY: no data-store.js / PCData here. All sample records live in
+       security-activity.js (SA_MOCK). sidebar.js stays last, as on every other page. -->
+  <script src="security-activity.js"></script>
+  <script src="sidebar.js"></script>
+</body>
+</html>

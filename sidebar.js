@@ -8,6 +8,7 @@
 document.addEventListener('DOMContentLoaded', function () {
   highlightActiveNavItem();
   setupMobileToggle();
+  setBrandSubtitle();
 });
 
 function highlightActiveNavItem() {
@@ -46,4 +47,11 @@ function setupMobileToggle() {
       sidebar.classList.remove('open');
     });
   });
+}
+
+// Sidebar branding subtitle (top of the sidebar only; the profile section
+// at the bottom uses .footer-role and is not touched).
+function setBrandSubtitle() {
+  var role = document.querySelector('.sidebar-brand .brand-role');
+  if (role) role.textContent = 'Veterinary Clinic';
 }

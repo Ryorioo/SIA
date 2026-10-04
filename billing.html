@@ -46,23 +46,13 @@
   .bl-page-title { font-size:20px; font-weight:800; color:var(--ink-900); margin-bottom:2px; }
   .bl-toolbar-actions { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
 
-  /* Summary cards — Phase 3F-visual-correction: Billing keeps its own
-     four financial cards (Outstanding / Pending Verification / Total
-     Revenue / Paid Invoices) and their existing data/calculations
-     untouched — this is a VISUAL-ONLY pass. What changed is the card
-     hierarchy: Appointments' finalized summary-strip (appointments.html)
-     gives its lead card ("Today's Appointments") extra width and a
-     dark-teal "primary" treatment while the other four cards stay a
-     neutral, equal-weight secondary style (muted ink-faint icon, warm
-     surface-sunken background). Billing now mirrors that same
-     hierarchy with Outstanding as the primary/lead card and Pending
-     Verification / Total Revenue / Paid Invoices as secondary cards —
-     same clay-flat depth, typography, spacing and card height as
-     before, still page-scoped under the bl- prefix (styles live in
-     billing.html, not style.css, same as Appointments' own
-     summary-metric is scoped to appointments.html). No appointment
-     data is read anywhere in this file; only the visual treatment of
-     Billing's existing four numbers changed. */
+  /* Summary cards — Phase 3: four payment-status cards (Pending
+     Payments / Today's Collections / Completed Transactions /
+     Refunded Payments). Pending Payments is the lead card (dark-teal
+     treatment, same as Appointments' "Today's Appointments" lead
+     card) because it is the one that needs action; the other three
+     use the neutral secondary treatment. Values come from the
+     billing-data-store.js selectors, never calculated in the UI. */
   .bl-summary-grid { display:grid; grid-template-columns:1.3fr repeat(3,1fr); gap:12px; margin-bottom:20px; }
   @media (max-width:900px){
     .bl-summary-grid{ grid-template-columns:repeat(2,1fr); }
@@ -84,12 +74,11 @@
   .bl-metric-head { display:flex; align-items:center; justify-content:space-between; gap:8px; }
   .bl-metric-label { font-size:11px; font-weight:600; color:var(--ink-faint); line-height:1.3; }
   .bl-metric-icon { flex:none; font-size:12px; color:var(--ink-faint); }
-  .bl-metric-value { font-size:26px; font-weight:800; color:var(--ink-900); line-height:1.15; }
+  .bl-metric-value { font-size:26px; font-weight:800; color:var(--ink-900); line-height:1.15; overflow-wrap:anywhere; }
   .bl-metric-desc { font-size:11px; font-weight:500; color:var(--ink-faint); line-height:1.4; }
-  /* Outstanding — primary/lead card, same treatment as Appointments'
-     "Today's Appointments" (.summary-metric-primary): dark teal
-     surface, on-brand text/icon. Label/value/desc content is still
-     Billing's own Outstanding amount + invoice count. */
+  /* Pending Payments — primary/lead card, same treatment as
+     Appointments' "Today's Appointments" (.summary-metric-primary):
+     dark teal surface, on-brand text/icon. */
   .bl-metric-primary { background:var(--teal-700); border-color:var(--teal-700); }
   .bl-metric-primary .bl-metric-icon { color:rgba(244,249,247,.78); }
   .bl-metric-primary .bl-metric-label { color:rgba(244,249,247,.72); }
@@ -107,6 +96,9 @@
   .bl-tab { border:none; background:transparent; padding:7px 14px; border-radius:8px; font-weight:700; font-size:12.8px; color:var(--ink-soft); cursor:pointer; transition:background .15s ease, color .15s ease, box-shadow .15s ease; }
   .bl-tab:hover { color:var(--ink-800); }
   .bl-tab.active { background:var(--surface-card-raised); color:var(--teal-700); box-shadow:var(--clay-flat); }
+  /* Phase 3: the tablist scrolls (overflow-x:auto), which would clip a
+     normal outside focus ring, so the ring is drawn inside the tab. */
+  .bl-tab:focus-visible { outline:2px solid var(--teal-400); outline-offset:-2px; }
   .bl-tab-count { display:inline-block; min-width:18px; padding:0 5px; margin-left:6px; font-size:11px; font-weight:800; background:var(--amber-100); color:var(--amber-800); border-radius:9px; }
 
   /* Filters — Phase 3I: Billing's search box and status dropdown now
@@ -191,6 +183,7 @@
      instead of the old plain-white/light-gray-header treatment. */
   .bl-table-wrap { border:1px solid var(--line-soft); border-radius:var(--r-md); overflow:hidden; background:var(--surface-card); box-shadow:var(--clay-flat); }
   .bl-table-scroll { overflow-x:auto; -webkit-overflow-scrolling:touch; }
+  .bl-table-scroll:focus-visible { outline-offset:-2px; }
   .bl-table { width:100%; border-collapse:collapse; font-size:13px; }
   .bl-table th { text-align:left; font-size:10.6px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; color:var(--ink-faint); background:var(--surface-sunken); padding:12px 16px; border-bottom:1px solid var(--line-soft); white-space:nowrap; }
   .bl-table td { padding:12px 16px; color:var(--ink-900); border-bottom:1px solid var(--line-soft); vertical-align:middle; line-height:1.3; }
@@ -202,7 +195,13 @@
   .bl-empty { text-align:center; color:var(--ink-soft); padding:26px; }
   .bl-empty-note { color:var(--ink-soft); font-size:13.5px; }
 
-  .bl-actions { display:flex; gap:6px; }
+  .bl-actions { display:flex; align-items:center; gap:6px; white-space:nowrap; }
+  .bl-amount { font-weight:800; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .bl-nowrap { white-space:nowrap; }
+  .bl-empty-title { font-weight:700; color:var(--ink-800); margin-bottom:2px; }
+  /* Visually hidden, still read by assistive tech (table caption and the
+     status-message live region). */
+  .bl-sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
   .bl-icon-btn { width:32px; height:32px; border-radius:9px; border:1px solid var(--line-soft); background:var(--surface-card-raised); color:var(--ink-soft); cursor:pointer; display:inline-flex; align-items:center; justify-content:center; }
   .bl-icon-btn:hover { background:var(--surface-sunken); color:var(--ink-800); }
 
@@ -225,38 +224,6 @@
   .bl-badge--pay-pending-verification { background:var(--amber-100); color:var(--amber-800); }
   .bl-badge--pay-verified { background:var(--sage-100); color:var(--sage-600); }
   .bl-badge--pay-rejected { background:var(--red-100); color:var(--red-800); }
-
-  /* Phase 3E: Payment Verification row built as a labeled field grid
-     (Invoice #, Client, Pet, Method, Amount, Submitted, Review action)
-     — white surface, soft clay depth, muted uppercase field labels,
-     dark teal for the emphasized amount. Phase 3F: same structure,
-     tokens confirmed/cleaned up (surface-card-raised instead of a
-     bare #fff) so it reads as the same card language as the rest of
-     Billing/Appointments. Data read here (p.amount, not the invoice
-     total) and the verify/reject workflow are unchanged. */
-  .bl-verify-list { display:flex; flex-direction:column; gap:10px; }
-  .bl-verify-row {
-    display:flex; align-items:center; gap:18px; flex-wrap:wrap;
-    background:var(--surface-card-raised); border:1px solid var(--line-soft);
-    border-radius:var(--r-md); padding:14px 18px;
-    box-shadow:var(--clay-flat);
-  }
-  .bl-verify-fields { display:flex; align-items:center; gap:20px; flex-wrap:wrap; flex:1 1 auto; min-width:0; }
-  .bl-verify-field { display:flex; flex-direction:column; gap:2px; min-width:0; }
-  .bl-verify-field-label { font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.03em; color:var(--ink-faint); white-space:nowrap; }
-  .bl-verify-field-value { font-size:13.5px; font-weight:600; color:var(--ink-900); }
-  .bl-verify-field--amount .bl-verify-field-value { font-size:17px; font-weight:800; color:var(--teal-700); }
-  .bl-verify-action { flex:0 0 auto; margin-left:auto; }
-  @media (max-width:768px) {
-    .bl-verify-row { gap:12px; padding:12px 14px; }
-    .bl-verify-fields { gap:14px 18px; }
-  }
-  @media (max-width:480px) {
-    .bl-verify-row { flex-direction:column; align-items:stretch; }
-    .bl-verify-fields { gap:10px 18px; }
-    .bl-verify-action { margin-left:0; }
-    .bl-verify-action .btn { width:100%; }
-  }
 
   /* Phase 3E: Review Payment modal — the payment amount gets its own
      emphasized line above the field grid, and section headers (reusing
@@ -400,6 +367,57 @@
   .bl-inv-totals-discount span:last-child { color:var(--red-600); }
   .bl-inv-totals-total { border-top:1px solid var(--line-soft); margin-top:4px; padding-top:8px; font-size:17px; font-weight:800; color:var(--ink-900); }
 
+  /* Phase 4A: New Invoice modal organisation. Everything here is scoped to
+     classes used only inside openNewInvoiceModal() and built from the
+     existing tokens/patterns above (.bl-appt-preview panel, .bl-section-label,
+     .bl-link-btn, .bl-inv-totals, .bl-badge-style pills) — no new colors,
+     shadows or fonts, and style.css is untouched. */
+  .bl-modal.bl-modal--invoice { max-width:720px; }
+  .bl-inv-appt-row { margin-bottom:0; }
+  .bl-inv-cp { margin:0 0 14px; }
+  .bl-inv-cp .bl-inv-detail-grid, .bl-appt-preview .bl-inv-detail-grid { margin-bottom:0; }
+  .bl-inv-cp-title { font-size:11px; font-weight:800; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.04em; margin-bottom:6px; }
+  .bl-inv-iconrow, .bl-inv-appt-main { display:flex; align-items:flex-start; gap:2px; min-width:0; margin-bottom:8px; }
+  .bl-inv-iconrow:last-child { margin-bottom:0; }
+  .bl-inv-iconrow > .bl-ico, .bl-inv-appt-main > .bl-ico { margin-top:3px; flex:none; }
+  .bl-inv-iconrow-text { min-width:0; overflow-wrap:anywhere; }
+  .bl-inv-iconrow-main { font-size:13px; font-weight:700; color:var(--ink-900); }
+  .bl-inv-iconrow-sub { font-size:12.5px; color:var(--ink-soft); margin-top:1px; }
+  .bl-items-add { text-align:center; margin-top:8px; }
+  .bl-inv-info { min-width:0; overflow-wrap:anywhere; margin-bottom:6px; font-size:13px; color:var(--ink-900); }
+  .bl-inv-info:last-child { margin-bottom:0; }
+  .bl-inv-notes-wrap { position:relative; }
+  .bl-inv-notes-wrap textarea { padding-bottom:24px; }
+  .bl-inv-count { position:absolute; right:20px; bottom:7px; font-size:11.5px; color:var(--ink-faint); pointer-events:none; }
+  /* Line items read as one invoice table: bordered container, sunken
+     header band, ruled rows. Same grid columns as before. */
+  .bl-modal--invoice .bl-items-scroll { border:1px solid var(--line-soft); border-radius:var(--r-sm); background:var(--surface-card-raised); }
+  .bl-modal--invoice .bl-items-cols { margin:0; padding:9px 10px; background:var(--surface-sunken); border-bottom:1px solid var(--line-soft); border-radius:var(--r-sm) var(--r-sm) 0 0; align-items:center; }
+  .bl-modal--invoice .bl-item-row { margin:0; padding:8px 10px; }
+  .bl-modal--invoice .bl-item-row:last-child { border-bottom:none; }
+  .bl-items-col-remove { text-align:center; font-size:0; }
+  .bl-items-col-remove::before { content:"\00d7"; font-size:13px; }
+  .bl-inv-bottom { display:grid; grid-template-columns:minmax(0,1.15fr) minmax(0,1fr); gap:18px; align-items:stretch; margin-top:4px; }
+  .bl-inv-bottom-left .bl-form-row { margin-bottom:12px; }
+  .bl-inv-bottom-left .bl-notes-row { margin-top:18px; }
+  .bl-inv-bottom-left .bl-discount-row input { max-width:none; height:38px; }
+  .bl-inv-bottom-left .bl-form-row input[type="text"] { height:38px; }
+  .bl-inv-bottom-left .bl-form-row:last-child { margin-bottom:0; }
+  .bl-inv-bottom-right { display:flex; padding-top:18px; }
+  .bl-inv-summary { background:var(--surface-sunken); border:1px solid var(--line-soft); border-radius:var(--r-sm); padding:14px 16px; margin-top:0; gap:8px; flex:1 1 auto; }
+  .bl-inv-summary-title { font-size:12px; font-weight:700; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.02em; }
+  .bl-inv-summary .bl-inv-totals-total { align-items:center; margin-top:auto; }
+  .bl-inv-summary #bl-inv-total-val { color:var(--teal-700); font-size:20px; }
+  .bl-inv-form-error { margin-top:12px; }
+  @media (max-width:640px) {
+    .bl-inv-bottom { grid-template-columns:minmax(0,1fr); gap:6px; }
+    .bl-inv-bottom-right { padding-top:0; }
+  }
+  @media (max-width:480px) {
+    .bl-modal.bl-modal--invoice .bl-modal-body { padding:14px 14px 18px; }
+    .bl-modal.bl-modal--invoice .bl-modal-actions .btn { flex:1 1 auto; }
+  }
+
   .bl-inv-total { text-align:right; font-size:15px; font-weight:800; color:var(--ink-900); margin:10px 0 6px; }
   .bl-inv-total span { margin-left:6px; }
 
@@ -462,10 +480,14 @@
 
   /* Phase 3I.1: immediate image preview in Record Payment when a
      supported image type (jpg/png/webp) is selected as proof. */
-  .bl-proof-preview { margin-top:10px; display:flex; align-items:center; gap:10px; background:var(--surface-sunken); border:1px solid var(--line-soft); border-radius:var(--r-sm); padding:8px 10px; }
-  .bl-proof-preview img { width:56px; height:56px; object-fit:cover; border-radius:6px; border:1px solid var(--line-soft); background:#fff; flex:none; }
+  /* Payment proof card (shown instead of the drop zone once a proof exists):
+     thumbnail or file icon, filename + type, and a subtle Remove Proof. */
+  .bl-proof-preview { display:flex; align-items:center; gap:12px; background:var(--surface-sunken); border:1px solid var(--line-soft); border-radius:var(--r-sm); padding:10px 12px; }
+  .bl-proof-card-thumb { flex:none; width:64px; height:64px; border-radius:6px; border:1px solid var(--line-soft); background:#fff; display:flex; align-items:center; justify-content:center; overflow:hidden; }
+  .bl-proof-card-thumb img { width:100%; height:100%; object-fit:cover; display:block; }
   .bl-proof-preview-meta { display:flex; flex-direction:column; gap:2px; min-width:0; flex:1 1 auto; }
-  .bl-proof-preview-name { font-size:12.5px; font-weight:600; color:var(--ink-800); overflow-wrap:anywhere; }
+  .bl-proof-preview-name { font-size:13.5px; font-weight:700; color:var(--ink-900); overflow-wrap:anywhere; }
+  .bl-proof-preview-type { font-size:12px; color:var(--ink-soft); }
 
   .bl-hint { font-size:12.5px; color:var(--ink-soft); background:var(--surface-sunken); border-radius:var(--r-sm); padding:9px 11px; margin-top:4px; }
   .bl-hint i { margin-right:5px; }
@@ -473,6 +495,203 @@
   /* View Invoice modal: small, muted functional icons that sit before a
      label. Secondary to the text; used only in openViewInvoiceModal(). */
   .bl-ico { font-size:11px; color:var(--teal-600); opacity:.75; width:14px; margin-right:6px; text-align:center; }
+
+  /* Record Payment — two-column layout (entry on the left, status /
+     verification summary on the right). Layout only: every colour,
+     border, radius and type token is the existing Pawsitive Care one. */
+  .bl-modal.bl-modal--payment { max-width:1040px; }
+  .bl-pay-layout { display:grid; grid-template-columns:minmax(0,1.6fr) minmax(0,1fr); gap:22px; align-items:start; }
+  .bl-pay-main, .bl-pay-side { min-width:0; }
+  .bl-pay-side { display:flex; flex-direction:column; gap:14px; }
+  .bl-pay-summary { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:8px 20px; background:var(--surface-sunken); border:1px solid var(--line-soft); border-radius:var(--r-sm); padding:12px 14px; margin-bottom:16px; }
+  .bl-pay-summary-list, .bl-pay-summary-side { display:flex; flex-direction:column; gap:6px; min-width:0; }
+  .bl-pay-summary-side { align-items:flex-end; text-align:right; }
+  .bl-pay-sumline { font-size:13px; color:var(--ink-800); overflow-wrap:anywhere; }
+  .bl-pay-sumline strong { color:var(--ink-900); }
+  .bl-pay-sumline i { width:16px; color:var(--ink-faint); margin-right:4px; }
+  .bl-pay-method-row { margin-bottom:10px; }
+  /* Clinic payment panel: heading row, then the QR image BESIDE the account
+     details (stacks under 540px). All tokens are the existing ones. */
+  .bl-pay-method-panel { background:var(--surface-sunken); border:1px solid var(--line-soft); border-radius:var(--r-sm); padding:12px 14px 14px; margin-bottom:16px; }
+  .bl-pay-mp-head { display:flex; align-items:center; gap:12px; }
+  .bl-pay-mp-body { display:grid; grid-template-columns:minmax(0,190px) minmax(0,1fr); gap:16px; align-items:start; margin-top:12px; padding-top:12px; border-top:1px solid var(--line-soft); }
+  .bl-pay-mp-body--noqr { grid-template-columns:minmax(0,1fr); }
+  .bl-pay-qr { margin:0; min-width:0; text-align:center; }
+  .bl-pay-qr img { display:block; width:100%; max-width:190px; height:auto; margin:0 auto; background:#fff; border:1px solid var(--line-soft); border-radius:var(--r-sm); padding:6px; box-sizing:border-box; }
+  .bl-pay-qr-cap { font-size:11.5px; color:var(--ink-faint); margin-top:6px; }
+  .bl-pay-qr-cap:empty { display:none; }
+  .bl-pay-mp-info { display:flex; flex-direction:column; gap:10px; min-width:0; }
+  .bl-pay-mp-field { min-width:0; }
+  .bl-pay-mp-label { display:block; font-size:12px; font-weight:700; color:var(--ink-soft); margin-bottom:2px; }
+  .bl-pay-mp-value { font-size:13.5px; font-weight:600; color:var(--ink-900); overflow-wrap:anywhere; }
+  /* Payment Proof drop zone (one hidden real file input behind it). */
+  .bl-pay-proof-block { margin-bottom:16px; }
+  .bl-dropzone { position:relative; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; text-align:center; min-height:132px; padding:18px 14px; cursor:pointer; background:var(--surface-sunken); border:2px dashed var(--line-strong); border-radius:var(--r-sm); transition:border-color .15s, background-color .15s; }
+  .bl-dropzone:hover { border-color:var(--teal-400); }
+  .bl-dropzone:focus-within { outline:2px solid var(--teal-400); outline-offset:2px; }
+  .bl-dropzone.is-dragover { border-color:var(--teal-600); border-style:solid; background:var(--teal-50, var(--surface-card-raised)); }
+  .bl-dropzone-ico { font-size:22px; color:var(--teal-600); }
+  .bl-dropzone-text { font-size:13.5px; font-weight:700; color:var(--ink-900); }
+  .bl-dropzone-or { font-size:12px; color:var(--ink-soft); }
+  .bl-proof-preview-pdf { font-size:30px; color:var(--teal-600); text-align:center; flex:none; }
+  .bl-proof-preview-actions { display:flex; gap:12px; flex:none; }
+  /* Removal confirmation is a state of the proof card itself: the card wraps,
+     takes a subtle red tint + thin border, and the confirm row spans its width. */
+  .bl-proof-preview { flex-wrap:wrap; transition:background-color .15s, border-color .15s; }
+  .bl-proof-preview.is-confirming { background:var(--red-100); border-color:var(--red-600); }
+  .bl-proof-preview.is-confirming .bl-proof-card-thumb { border-color:var(--line-soft); }
+  .bl-proof-confirm { flex:1 1 100%; display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px 12px; margin-top:2px; padding-top:10px; border-top:1px solid var(--red-600); }
+  .bl-proof-confirm-text { flex:1 1 auto; font-size:13px; font-weight:700; color:var(--red-800); }
+  .bl-proof-confirm-actions { display:flex; gap:8px; flex:none; }
+  .bl-pay-form-error { font-size:13px; font-weight:600; color:var(--red-600); margin-top:12px; }
+  .bl-pay-form-error:empty { display:none; }
+  .bl-pay-form-note { font-size:12.5px; font-weight:600; color:var(--ink-soft); margin-top:10px; }
+  .bl-pay-form-note:empty { display:none; }
+  /* Read-only Payment Information inputs (Amount Due, Processed By): same
+     surface as the other fields, clearly not editable. */
+  .bl-pay-info-grid input.bl-pay-locked { cursor:default; color:var(--ink-800); font-weight:600; box-shadow:none; }
+  @media (max-width:540px) {
+    .bl-pay-mp-body { grid-template-columns:minmax(0,1fr); }
+    .bl-pay-qr img { max-width:220px; }
+  }
+  .bl-pay-method-ico { width:36px; height:36px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; flex:none; background:var(--surface-card-raised); border:1px solid var(--line-soft); color:var(--teal-600); }
+  .bl-pay-method-text { min-width:0; }
+  .bl-pay-method-title { font-size:14px; font-weight:800; color:var(--ink-900); }
+  .bl-pay-method-sub { font-size:12.5px; color:var(--ink-soft); margin-top:1px; }
+  .bl-pay-help { font-size:12px; color:var(--ink-soft); margin-top:6px; }
+  .bl-pay-main .bl-section-label { margin-top:4px; }
+  .bl-pay-info-grid { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:12px 16px; margin-bottom:16px; }
+  .bl-pay-info-grid .bl-form-row { margin-bottom:0; min-width:0; }
+  .bl-pay-readonly { box-sizing:border-box; min-height:38px; display:flex; align-items:center; padding:8px 12px; border:1px solid var(--line-soft); border-radius:var(--r-sm); background:var(--surface-sunken); font-size:13.5px; font-weight:600; color:var(--ink-800); overflow-wrap:anywhere; }
+  .bl-pay-notes-row { margin-bottom:0; }
+  .bl-pay-card { background:var(--surface-sunken); border:1px solid var(--line-soft); border-radius:var(--r-sm); padding:14px 16px; }
+  .bl-pay-card--muted .bl-pay-card-title, .bl-pay-card--muted .bl-pay-card-note { color:var(--ink-faint); }
+  .bl-pay-card-title { display:flex; align-items:center; gap:8px; font-size:14px; font-weight:800; color:var(--ink-900); margin-bottom:10px; }
+  .bl-pay-card-title i { color:var(--teal-600); }
+  .bl-pay-card--muted .bl-pay-card-title i { color:var(--ink-faint); }
+  .bl-pay-card-note { font-size:12.5px; color:var(--ink-soft); margin:8px 0 0; }
+  .bl-pay-card--muted .bl-pay-card-note { margin-top:0; }
+  .bl-pay-vrow { display:flex; justify-content:space-between; align-items:baseline; gap:12px; padding:7px 0; font-size:13px; }
+  .bl-pay-vlabel { color:var(--ink-soft); flex:none; }
+  .bl-pay-vvalue { color:var(--ink-900); font-weight:600; text-align:right; min-width:0; overflow-wrap:anywhere; }
+  .bl-pay-vproof { margin-top:6px; padding-top:10px; border-top:1px solid var(--line-soft); font-size:13px; }
+  .bl-pay-vproof-body { margin-top:8px; }
+  .bl-pay-vproof-row { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+  .bl-pay-vproof .bl-proof-thumb { max-width:96px; max-height:110px; }
+  .bl-pay-vproof .bl-proof-note { margin:0; }
+  .bl-pay-actions { grid-column:1 / -1; margin-top:18px; }
+  /* Approve / Reject sit inside the Payment Verification card (unified payment modal). */
+  .bl-pay-decision { display:flex; flex-direction:column; gap:10px; margin-top:14px; padding-top:14px; border-top:1px solid var(--line-soft); }
+  .bl-pay-decision .bl-pay-reason-row { margin-bottom:0; }
+  .bl-pay-decision .bl-pay-card-note { margin:0; }
+  .bl-pay-decision-btn { width:100%; justify-content:center; }
+  .bl-pay-decision-btn i { margin-right:6px; }
+  .bl-pay-decision-btn:disabled { opacity:.55; cursor:not-allowed; }
+  .bl-pay-decision-hint { margin-top:14px; }
+  .bl-pay-reason-error { font-size:12.5px; color:var(--red-600); min-height:0; margin-top:4px; }
+  .bl-pay-reason-error:empty { display:none; }
+  .bl-pay-reason-row textarea[aria-invalid="true"] { border-color:var(--red-600); }
+  /* Review Notes: reads as a real input -- lighter surface than the card, a
+     defined border, comfortable padding and a visible focus ring. */
+  .bl-pay-decision .bl-pay-reason-row label { margin-bottom:1px; }
+  .bl-pay-reason-help { font-size:12px; font-weight:500; color:var(--ink-faint); margin-bottom:6px; }
+  .bl-pay-decision .bl-pay-reason-input { display:block; min-height:72px; padding:10px 12px; font-size:13.5px; line-height:1.4; font-family:inherit; color:var(--ink-900); background:var(--surface-card-raised); border:1px solid var(--line-strong); border-radius:var(--r-sm); box-shadow:none; resize:vertical; }
+  .bl-pay-decision .bl-pay-reason-input::placeholder { color:var(--ink-faint); opacity:1; }
+  .bl-pay-decision .bl-pay-reason-input:hover:not(:disabled) { border-color:var(--teal-400); }
+  .bl-pay-decision .bl-pay-reason-input:focus { outline:none; border-color:var(--teal-600); box-shadow:0 0 0 3px rgba(60,140,130,.22); }
+  .bl-pay-decision .bl-pay-reason-input:disabled { background:var(--surface-sunken); cursor:not-allowed; }
+  .bl-pay-decision .bl-pay-reason-input[aria-invalid="true"] { border-color:var(--red-600); box-shadow:none; }
+  /* Locked (pending-payment) fields: still readable, clearly not editable. */
+  .bl-pay-layout--pending .bl-pay-main input:disabled,
+  .bl-pay-layout--pending .bl-pay-main select:disabled,
+  .bl-pay-layout--pending .bl-pay-main textarea:disabled { background-color:var(--surface-sunken); color:var(--ink-800); -webkit-text-fill-color:var(--ink-800); opacity:1; cursor:default; }
+  @media (max-width:860px) {
+    .bl-pay-layout { grid-template-columns:minmax(0,1fr); gap:16px; }
+    /* Pending payment: verification (proof + Approve/Reject) first when stacked. */
+    .bl-pay-layout--pending .bl-pay-side { order:-1; }
+  }
+  @media (max-width:480px) {
+    .bl-modal.bl-modal--payment .bl-modal-body { padding:14px 14px 18px; }
+    .bl-pay-summary { grid-template-columns:minmax(0,1fr); }
+    .bl-pay-summary-side { align-items:flex-start; text-align:left; padding-left:20px; }
+    .bl-pay-info-grid { grid-template-columns:minmax(0,1fr); }
+    .bl-modal.bl-modal--payment .bl-modal-actions .btn { flex:1 1 auto; }
+    .bl-proof-preview-actions { flex:1 1 100%; }
+    .bl-proof-preview-actions .btn { width:100%; justify-content:center; }
+    .bl-proof-confirm-actions { flex:1 1 100%; }
+    .bl-proof-confirm-actions .btn { flex:1 1 0; justify-content:center; }
+  }
+
+  /* ============================================================
+     View Invoice (view-only). Existing tokens only: sunken cream panels,
+     soft sage for the Payment Summary, thin line-soft borders, teal for
+     emphasis. Two-column sections stack at 640px; the line-item table
+     scrolls inside its own container so the page never overflows.
+     ============================================================ */
+  .bl-vi { display:flex; flex-direction:column; gap:16px; min-width:0; }
+  .bl-vi-label { font-size:11.5px; font-weight:700; color:var(--ink-soft); }
+  .bl-vi-value { font-size:13.5px; color:var(--ink-900); overflow-wrap:anywhere; }
+  .bl-vi-gap { margin-top:10px; }
+  .bl-vi-cell { min-width:0; }
+  .bl-vi-summary { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px 16px; padding-bottom:14px; border-bottom:1px solid var(--line-soft); }
+  .bl-vi-summary .bl-vi-label { margin-bottom:4px; }
+  .bl-vi-summary strong { font-weight:800; color:var(--ink-900); }
+  .bl-vi-method { display:inline-flex; align-items:center; gap:7px; }
+  .bl-vi-method i { color:var(--teal-600); font-size:13px; }
+  .bl-vi-two { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:16px 24px; }
+  .bl-vi-block { min-width:0; }
+  .bl-vi-title { display:flex; align-items:center; gap:2px; font-size:11.5px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; color:var(--ink-soft); margin-bottom:8px; }
+  .bl-vi-title .bl-ico { opacity:1; }
+  .bl-vi-strong { font-size:14px; font-weight:700; color:var(--ink-900); overflow-wrap:anywhere; }
+  .bl-vi-line { display:flex; align-items:center; gap:2px; margin-top:6px; font-size:13.5px; color:var(--ink-900); overflow-wrap:anywhere; }
+  .bl-vi-sub { font-size:12.5px; color:var(--ink-soft); margin:2px 0 0 20px; }
+  .bl-vi-table-wrap { border:1px solid var(--line-soft); border-radius:var(--r-sm); background:var(--surface-card-raised); }
+  .bl-vi-table { width:100%; min-width:460px; border-collapse:collapse; font-size:13px; }
+  .bl-vi-table th { text-align:left; font-size:10.6px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; color:var(--ink-faint); background:var(--surface-sunken); padding:9px 10px; border-bottom:1px solid var(--line-soft); white-space:nowrap; }
+  .bl-vi-table td { padding:9px 10px; color:var(--ink-900); border-bottom:1px solid var(--line-soft); vertical-align:top; }
+  .bl-vi-table tbody tr:last-child td { border-bottom:none; }
+  .bl-vi-table .bl-vi-num { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .bl-vi-table .bl-vi-item { overflow-wrap:anywhere; }
+  .bl-vi-table td.bl-vi-none { text-align:center; color:var(--ink-soft); padding:16px 10px; }
+  .bl-vi-totals { margin:10px 0 0 auto; width:100%; max-width:320px; display:flex; flex-direction:column; gap:5px; font-size:13.5px; color:var(--ink-800); }
+  .bl-vi-totals-row { display:flex; justify-content:space-between; gap:12px; font-variant-numeric:tabular-nums; }
+  .bl-vi-totals-total { margin-top:4px; padding-top:9px; border-top:1px solid var(--line-strong); font-size:18px; font-weight:800; color:var(--teal-700); }
+  .bl-vi-paysum { background:var(--sage-100); border:1px solid var(--line-soft); border-radius:var(--r-sm); padding:12px 14px 14px; }
+  .bl-vi-paysum .bl-vi-title { color:var(--sage-600); }
+  .bl-vi-paysum-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(110px,1fr)); gap:10px 14px; }
+  .bl-vi-paysum-grid .bl-vi-value { font-weight:700; font-variant-numeric:tabular-nums; }
+  .bl-vi-balance .bl-vi-value { font-weight:800; color:var(--teal-700); }
+  .bl-vi-empty { display:flex; flex-direction:column; align-items:center; gap:3px; text-align:center; padding:20px 14px; background:var(--surface-sunken); border:1px solid var(--line-soft); border-radius:var(--r-sm); }
+  .bl-vi-empty i { font-size:22px; color:var(--ink-faint); margin-bottom:4px; }
+  .bl-vi-empty-main { font-size:13.5px; color:var(--ink-800); }
+  .bl-vi-empty-sub { font-size:12px; color:var(--ink-soft); }
+  .bl-vi-history { display:flex; flex-direction:column; gap:10px; }
+  .bl-vi-pay { background:var(--surface-sunken); border:1px solid var(--line-soft); border-radius:var(--r-sm); padding:12px 14px; min-width:0; }
+  .bl-vi-pay-head { display:flex; align-items:center; flex-wrap:wrap; gap:8px 10px; margin-bottom:10px; }
+  .bl-vi-pay-method { font-size:13.5px; font-weight:800; color:var(--ink-900); }
+  .bl-vi-pay-amount { margin-left:auto; font-size:15px; font-weight:800; color:var(--teal-700); font-variant-numeric:tabular-nums; }
+  .bl-vi-pay-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:8px 14px; }
+  .bl-vi-pay-grid .bl-vi-value { font-size:13px; }
+  .bl-vi-reject { margin-top:10px; font-size:13px; color:var(--red-800); overflow-wrap:anywhere; }
+  /* Payment Proof is a subsection of its payment entry: a clearly visible
+     divider (line-strong, not the near-invisible line-soft), the shared small
+     uppercase section heading, then a compact thumbnail + View Image + filename. */
+  .bl-vi-proof { margin-top:14px; padding-top:14px; border-top:1px solid var(--line-strong); min-width:0; }
+  .bl-vi-proof-title { margin-bottom:10px; }
+  .bl-vi-proof-row { display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+  .bl-vi-proof .bl-proof-thumb-btn { padding:3px; line-height:0; }
+  .bl-vi-proof .bl-proof-thumb { width:auto; height:auto; max-width:96px; max-height:104px; object-fit:contain; border-radius:4px; }
+  .bl-vi-proof-name { margin-top:8px; font-size:12.5px; color:var(--ink-soft); overflow-wrap:anywhere; }
+  .bl-vi-actions { margin-top:24px; }
+  @media (max-width:640px) {
+    .bl-vi-summary { grid-template-columns:repeat(2,minmax(0,1fr)); }
+    .bl-vi-two { grid-template-columns:minmax(0,1fr); }
+  }
+  @media (max-width:420px) {
+    .bl-vi-summary { grid-template-columns:minmax(0,1fr); }
+    .bl-vi-paysum-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+    .bl-vi-pay-amount { margin-left:0; flex:1 1 100%; }
+  }
 
   /* ============================================================
      Print / Receipt — Phase 3H, visual pass in Phase 3J, structure
@@ -724,61 +943,58 @@
 
         <div class="page-toolbar">
           <div>
-            <div class="bl-page-title">BILLING</div>
+            <div class="bl-page-title" role="heading" aria-level="1">BILLING</div>
           </div>
           <div class="bl-toolbar-actions">
             <button type="button" class="btn btn-sm btn-primary" id="bl-new-invoice-btn"><i class="fa-solid fa-plus"></i> New Invoice</button>
           </div>
         </div>
 
-        <div class="bl-summary-grid" id="bl-summary-grid"></div>
+        <div class="bl-sr-only" id="bl-status-msg" role="status" aria-live="polite"></div>
 
-        <div class="bl-tabs" role="tablist">
-          <button type="button" class="bl-tab active" id="bl-tab-invoices" role="tab" aria-selected="true" aria-controls="bl-panel-invoices" data-tab="invoices">Invoices</button>
-          <button type="button" class="bl-tab" id="bl-tab-verification" role="tab" aria-selected="false" aria-controls="bl-panel-verification" data-tab="verification">Payment Verification<span class="bl-tab-count" id="bl-pending-count"></span></button>
+        <div class="bl-summary-grid" id="bl-summary-grid" role="group" aria-label="Billing summary"></div>
+
+        <div class="bl-tabs" role="tablist" aria-label="Payments by status" id="bl-tablist">
+          <button type="button" class="bl-tab active" id="bl-tab-pending" role="tab" aria-selected="true" aria-controls="bl-panel" tabindex="0" data-tab="pending">Pending<span class="bl-tab-count" id="bl-pending-count"></span></button>
+          <button type="button" class="bl-tab" id="bl-tab-completed" role="tab" aria-selected="false" aria-controls="bl-panel" tabindex="-1" data-tab="completed">Completed</button>
+          <button type="button" class="bl-tab" id="bl-tab-refunded" role="tab" aria-selected="false" aria-controls="bl-panel" tabindex="-1" data-tab="refunded">Refunded</button>
         </div>
 
-        <div class="bl-panel" id="bl-panel-invoices" role="tabpanel" aria-labelledby="bl-tab-invoices" tabindex="0">
+        <!-- One shared panel for the three payment views: the tabs only
+             change which payment list fills this table, so the columns,
+             search and scroll region are identical for all of them.
+             billing.js keeps aria-labelledby pointed at the active tab. -->
+        <div class="bl-panel" id="bl-panel" role="tabpanel" aria-labelledby="bl-tab-pending">
           <div class="filter-bar">
             <div class="search-field">
-              <span><i class="fa-solid fa-magnifying-glass"></i></span>
-              <input type="text" id="bl-search" placeholder="Search invoice #, client, or pet" aria-label="Search invoice number, client, or pet">
-            </div>
-            <div class="filter-controls">
-              <select id="bl-status-filter" class="filter-select pc-select" aria-label="Filter by payment status"></select>
+              <span><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i></span>
+              <input type="text" id="bl-search" placeholder="Search invoice #, client, or patient" aria-label="Search invoice number, client, or patient">
             </div>
           </div>
-          <div id="bl-count" class="bl-count"></div>
+          <div id="bl-count" class="bl-count" aria-live="polite"></div>
           <div class="bl-table-wrap">
-            <!-- Phase 3F: inner scroll wrapper fixes the previously-flagged
-                 overflow:hidden clipping issue — the outer .bl-table-wrap
-                 keeps overflow:hidden purely so its rounded corners/border
-                 still clip correctly, while this inner element is what
-                 actually scrolls horizontally on narrow screens. Columns
-                 unchanged. Phase 3G: tabindex so keyboard users without a
-                 pointer device can scroll this region when it overflows. -->
-            <div class="bl-table-scroll" tabindex="0" role="region" aria-label="Invoice table, scrollable horizontally if needed">
+            <!-- The inner scroll wrapper keeps horizontal scrolling inside
+                 the table's own border (the outer wrap clips for the
+                 rounded corners); tabindex lets keyboard users scroll it. -->
+            <div class="bl-table-scroll" tabindex="0" role="region" aria-label="Payments table, scrollable horizontally if needed">
               <table class="bl-table">
+                <caption class="bl-sr-only" id="bl-table-caption">Pending payments</caption>
                 <thead>
                   <tr>
-                    <th>Invoice #</th>
-                    <th>Client</th>
-                    <th>Pet</th>
-                    <th>Appointment</th>
-                    <th>Total Amount</th>
-                    <th>Payment Status</th>
-                    <th>Invoice Date</th>
-                    <th>Actions</th>
+                    <th scope="col">Invoice #</th>
+                    <th scope="col">Client</th>
+                    <th scope="col">Patient</th>
+                    <th scope="col">Amount</th>
+                    <th scope="col">Payment Method</th>
+                    <th scope="col">Payment Date</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">Actions</th>
                   </tr>
                 </thead>
-                <tbody id="bl-invoice-tbody"></tbody>
+                <tbody id="bl-payment-tbody"></tbody>
               </table>
             </div>
           </div>
-        </div>
-
-        <div class="bl-panel" id="bl-panel-verification" role="tabpanel" aria-labelledby="bl-tab-verification" tabindex="0" style="display:none;">
-          <div class="bl-verify-list" id="bl-verify-list"></div>
         </div>
 
       </main>
@@ -817,6 +1033,7 @@
   <script src="sidebar.js"></script>
   <script src="data-store.js"></script>
   <script src="services-data-store.js"></script>
+  <script src="patient-data-store.js"></script>
   <script src="billing-data-store.js"></script>
   <script src="billing.js"></script>
 </body>

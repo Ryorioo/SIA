@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Access Management · Pawsitive Care</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+<link rel="stylesheet" href="style.css">
+
+<!--
+  Page-scoped styles only — style.css is untouched. Every selector is
+  am- prefixed and every color/radius/shadow comes from the design
+  tokens in style.css (--teal-*, --sage-*, --surface-*, --ink-*, --line-*,
+  --r-*, --clay-*). Shared components (.btn, .btn-primary, .btn-sm,
+  .status-badge, .modal-*, .form-*) are reused as-is.
+-->
+<style>
+  .am-page { padding: 2px 0 8px; }
+
+  /* ---------- header ---------- */
+  .am-back { margin-bottom: 14px; }
+  .am-header { display: flex; align-items: flex-start; gap: 12px; min-width: 0; margin-bottom: 22px; }
+  .am-header .menu-toggle { margin-top: 2px; flex-shrink: 0; }
+  .am-title {
+    margin: 0 0 4px;
+    font-size: 26px;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    color: var(--teal-900);
+    line-height: 1.2;
+  }
+  .am-subtitle { margin: 0; color: var(--ink-soft); font-size: 13.5px; font-weight: 500; }
+
+  /* ---------- layout ----------
+     Desktop (>=1280px): Roles | Main (role header + module permissions) | Side
+     (users with this role + access summary). All three columns start at the
+     same top edge. Below 1280px the columns stack: Roles, Main, Side. */
+  .am-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 18px;
+    align-items: start;
+  }
+  .am-layout > * { min-width: 0; }
+  @media (min-width: 1280px) {
+    .am-layout { grid-template-columns: minmax(232px, 24fr) minmax(0, 48fr) minmax(256px, 28fr); gap: 18px; }
+    .am-roles { position: sticky; top: 20px; }
+  }
+  .am-panel {
+    background: var(--surface-card);
+    border: 1px solid var(--line-soft);
+    border-radius: var(--r-lg);
+    box-shadow: var(--clay-flat);
+  }
+  .am-eyebrow {
+    margin: 0;
+    font-size: 11px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+
+  /* ---------- left: role list ---------- */
+  .am-roles { padding: 16px 10px 10px; }
+  .am-roles-label { padding: 0 10px 10px; }
+  #am-role-list { display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px; }
+  @media (max-width: 1279px) {
+    #am-role-list { grid-template-columns: repeat(auto-fit, minmax(min(230px, 100%), 1fr)); }
+  }
+
+  .am-role {
+    position: relative;
+    display: flex; align-items: center; gap: 10px;
+    width: 100%; text-align: left;
+    padding: 10px 10px; margin: 0;
+    border: 1px solid transparent;
+    border-radius: var(--r-md);
+    background: transparent;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  .am-role:hover { background: var(--surface-bg); }
+  .am-role.active {
+    background: var(--teal-50);
+    border-color: var(--teal-200);
+    box-shadow: var(--clay-flat);
+  }
+  .am-role.active::before {
+    content: ''; position: absolute; left: -1px; top: 12px; bottom: 12px; width: 3px;
+    border-radius: 0 3px 3px 0; background: var(--teal-600);
+  }
+
+  .am-icon {
+    width: 34px; height: 34px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: var(--r-sm);
+    background: var(--teal-50); color: var(--teal-700);
+    border: 1px solid var(--teal-100);
+    box-shadow: var(--clay-flat);
+    font-size: 14px;
+  }
+  .am-role.active .am-icon {
+    background: var(--teal-600); border-color: var(--teal-700); color: var(--ink-on-brand);
+    box-shadow: var(--clay-raised);
+  }
+  .am-role-text { min-width: 0; flex: 1; }
+  .am-role-name { font-size: 13.5px; font-weight: 800; color: var(--ink-900); line-height: 1.3; }
+  .am-role.active .am-role-name { color: var(--teal-900); }
+  .am-role-desc { margin-top: 1px; font-size: 12px; font-weight: 500; color: var(--ink-soft); line-height: 1.35; }
+  .am-role-count {
+    flex-shrink: 0; min-width: 24px; padding: 2px 8px; border-radius: var(--r-pill);
+    font-size: 11.5px; font-weight: 800; text-align: center;
+    background: var(--surface-sunken); color: var(--ink-soft);
+  }
+  .am-role.active .am-role-count { background: var(--teal-100); color: var(--teal-800); }
+
+  /* ---------- center: role header + module permissions (one surface) ---------- */
+  .am-main { overflow: hidden; }
+
+  .am-role-head {
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr) auto;
+    column-gap: 14px; row-gap: 12px; align-items: center;
+    padding: 18px 20px;
+  }
+  .am-role-head .btn { justify-self: end; }
+  .am-icon-lg {
+    width: 44px; height: 44px; font-size: 17px; border-radius: var(--r-sm);
+    background: var(--teal-600); border-color: var(--teal-700); color: var(--ink-on-brand);
+    box-shadow: var(--clay-raised);
+  }
+  .am-role-head-text { min-width: 0; }
+  .am-role-head-top { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; }
+  .am-role-title { font-size: 19px; font-weight: 800; letter-spacing: -0.01em; color: var(--teal-900); line-height: 1.2; }
+  .am-level {
+    display: inline-block; padding: 2px 10px; border-radius: var(--r-pill);
+    font-size: 11.5px; font-weight: 700; color: var(--teal-800);
+    background: var(--teal-50); border: 1px solid var(--teal-100);
+  }
+  .am-role-blurb { margin-top: 4px; font-size: 13px; font-weight: 500; color: var(--ink-soft); }
+  .am-btn-locked, .am-btn-locked:hover {
+    cursor: not-allowed; opacity: 0.6; color: var(--ink-soft);
+    border-color: var(--line); box-shadow: var(--clay-flat); transform: none;
+  }
+  /* In the narrower 3-column desktop range the button sits under the text. */
+  @media (min-width: 1280px) and (max-width: 1439px) {
+    .am-role-head .btn { grid-column: 2 / -1; justify-self: start; }
+  }
+
+  .am-perm { padding: 16px 20px 20px; border-top: 1px solid var(--line-soft); }
+  .am-perm-title { margin-bottom: 12px; }
+  .am-section-note { margin: 0 0 12px; font-size: 12.5px; font-weight: 500; color: var(--ink-soft); }
+
+  /* Protected (Administrator) notice */
+  .am-protected {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 14px; margin-bottom: 14px;
+    background: var(--teal-50); border: 1px solid var(--teal-100); border-radius: var(--r-md);
+  }
+  .am-protected-icon {
+    width: 32px; height: 32px; flex-shrink: 0; border-radius: var(--r-sm);
+    display: flex; align-items: center; justify-content: center;
+    background: var(--surface-card-raised); color: var(--teal-700);
+    box-shadow: var(--clay-flat); font-size: 13px;
+  }
+  .am-protected-title { font-size: 13.5px; font-weight: 800; color: var(--teal-900); }
+  .am-protected-desc { margin-top: 1px; font-size: 12.3px; font-weight: 500; color: var(--ink-soft); }
+
+  /* Module permissions table: fixed columns Module | View | Create | Edit | Manage */
+  .am-table-card {
+    background: var(--surface-card);
+    border: 1px solid var(--line-soft);
+    border-radius: var(--r-md);
+    overflow: hidden;
+  }
+  .am-table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .am-table { width: 100%; table-layout: fixed; border-collapse: collapse; }
+  .am-col-act { width: 60px; }
+  .am-table th, .am-table td { padding: 9px 6px; }
+  .am-table td { position: relative; text-align: center; font-size: 12.5px; }
+  .am-table thead th {
+    text-align: center;
+    font-size: 11.2px; font-weight: 800; letter-spacing: 0.02em;
+    color: var(--ink-faint);
+    background: var(--surface-sunken);
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .am-table thead th:first-child { text-align: left; padding-left: 14px; }
+  .am-table tbody tr + tr > th, .am-table tbody tr + tr > td,
+  .am-table tbody + tbody tr:first-child > th { border-top: 1px solid var(--line-soft); }
+  .am-table tbody th[scope="row"] {
+    text-align: left; padding-left: 14px;
+    font-size: 13px; font-weight: 600; color: var(--ink-900);
+    overflow-wrap: anywhere;
+  }
+  /* Category rows: a quiet caption above each group, not a banded header. */
+  .am-table th[scope="rowgroup"] {
+    text-align: left; padding: 14px 14px 5px;
+    font-size: 10.8px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--teal-700);
+  }
+  .am-table tbody tr:nth-child(2) > * { border-top: none; }
+  .am-yes { color: var(--teal-600); font-size: 12px; }
+  .am-no { color: var(--ink-faint); }
+  .am-sr {
+    position: absolute; width: 1px; height: 1px; overflow: hidden;
+    clip: rect(0 0 0 0); white-space: nowrap;
+  }
+
+  /* modal reuse: group label + module name */
+  .am-group-title {
+    margin-bottom: 2px;
+    font-size: 11.5px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--teal-700);
+  }
+  .am-mod-name { font-size: 13px; font-weight: 700; color: var(--ink-900); }
+
+  /* ---------- right: users with this role + access summary ---------- */
+  .am-side { display: flex; flex-direction: column; gap: 16px; }
+  .am-side-card { padding: 16px 16px 14px; container-type: inline-size; }
+  .am-side-head { margin-bottom: 12px; }
+
+  .am-users { list-style: none; margin: 0; padding: 0; }
+  /* One grid for every width; the text wrapper uses display: contents so its
+     children sit directly in the grid. Container-query tiers (by card width):
+       narrow  - name / role / status on three lines
+       medium  - name, then role + status on the second line
+       wide    - avatar | name + role | status | View on a single row */
+  .am-user {
+    display: grid;
+    grid-template-columns: 32px minmax(0, 1fr) auto;
+    grid-template-areas: "avatar name action" "avatar role action" "avatar status action";
+    column-gap: 10px; row-gap: 2px; align-items: center;
+    padding: 10px 0; border-bottom: 1px solid var(--line-soft);
+  }
+  .am-user-text { display: contents; }
+  .am-user .am-avatar { grid-area: avatar; }
+  .am-user-name { grid-area: name; min-width: 0; }
+  .am-user-sub { grid-area: role; }
+  .am-user > .am-status { grid-area: status; justify-self: start; margin-top: 2px; }
+  .am-user > .btn { grid-area: action; }
+  @container (min-width: 268px) {
+    .am-user {
+      grid-template-columns: 32px auto minmax(0, 1fr) auto;
+      grid-template-areas: "avatar name name action" "avatar role status action";
+    }
+    .am-user > .am-status { margin-top: 0; }
+  }
+  @container (min-width: 300px) {
+    .am-user {
+      grid-template-columns: 32px minmax(0, 1fr) auto auto;
+      grid-template-areas: "avatar name status action" "avatar role status action";
+      column-gap: 12px;
+    }
+    .am-user > .am-status { justify-self: end; }
+  }
+  .am-user:first-child { padding-top: 0; }
+  .am-user:last-child { border-bottom: none; }
+  .am-avatar {
+    width: 32px; height: 32px; flex-shrink: 0; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11.5px; font-weight: 800; letter-spacing: 0.02em;
+    background: var(--teal-100); color: var(--teal-800);
+  }
+  .am-avatar-client { background: var(--sage-100); }
+  .am-avatar-inactive { background: var(--slate-100); color: var(--slate-600); }
+  .am-user-name { font-size: 13px; font-weight: 700; color: var(--ink-900); line-height: 1.3; overflow-wrap: anywhere; }
+  .am-user-sub {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 3px 8px;
+    font-size: 11.8px; font-weight: 500; color: var(--ink-soft); line-height: 1.3;
+  }
+  .am-user .btn { flex-shrink: 0; }
+  .am-empty { font-size: 12.8px; font-weight: 600; color: var(--ink-faint); }
+  .am-card-foot { margin-top: 4px; padding-top: 12px; border-top: 1px solid var(--line-soft); }
+  .am-link {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 12.5px; font-weight: 700; color: var(--teal-700);
+  }
+  .am-link i { font-size: 10.5px; }
+  .am-link:hover { text-decoration: underline; }
+
+  .am-status { gap: 5px; padding: 1px 8px 1px 7px; font-size: 10.8px; font-weight: 700; }
+  .am-status::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .am-status-active { background: var(--teal-50); color: var(--teal-700); }
+  .am-status-active::before { background: var(--teal-500); }
+  .am-status-inactive { background: var(--slate-100); color: var(--slate-800); }
+  .am-status-inactive::before { background: var(--slate-600); }
+
+  .am-sum-row { padding: 10px 0; border-bottom: 1px solid var(--line-soft); }
+  .am-sum-row:first-of-type { padding-top: 0; }
+  .am-sum-row:last-child { border-bottom: none; padding-bottom: 0; }
+  .am-sum-row .am-eyebrow {
+    font-size: 12px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--ink-soft);
+  }
+  .am-sum-value { margin-top: 2px; font-size: 13.5px; font-weight: 700; color: var(--ink-900); overflow-wrap: anywhere; }
+  .am-sum-num { font-size: 20px; font-weight: 800; color: var(--teal-800); line-height: 1.2; }
+
+  /* ---------- modals ---------- */
+  body.am-modal-open { overflow: hidden; }
+  .am-modal {
+    max-width: 600px;
+    display: flex; flex-direction: column; overflow: hidden;
+    max-height: 88vh; max-height: 88dvh;
+  }
+  .am-modal.am-modal-sm { max-width: 460px; }
+  .am-modal .modal-head { flex-shrink: 0; }
+  .am-modal-body {
+    flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+    margin: 0 -8px; padding: 0 8px 4px;
+  }
+  .am-modal .modal-footer { flex-shrink: 0; margin-top: 12px; }
+  .am-modal-role {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 14px; margin-bottom: 6px;
+    background: var(--surface-card); border: 1px solid var(--line-soft); border-radius: var(--r-md);
+  }
+  .am-modal-role .am-icon { background: var(--teal-600); border-color: var(--teal-700); color: var(--ink-on-brand); }
+  .am-modal-role-name { font-size: 14px; font-weight: 800; color: var(--ink-900); }
+  .am-modal-role-sub { font-size: 12px; font-weight: 500; color: var(--ink-soft); }
+  .am-modal-group-title { margin: 18px 0 2px; }
+  .am-modal-mod {
+    display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 18px;
+    padding: 11px 0; border-bottom: 1px solid var(--line-soft);
+  }
+  .am-modal-group .am-modal-mod:last-child { border-bottom: none; }
+  .am-switches { display: flex; flex-wrap: wrap; gap: 8px 20px; }
+
+  /* Toggle switch (style.css has none): real checkbox, visually hidden, so it
+     stays keyboard- and screen-reader-accessible. */
+  .am-switch {
+    position: relative; display: inline-flex; align-items: center; gap: 9px;
+    cursor: pointer; font-size: 12.5px; font-weight: 700; color: var(--ink-700);
+  }
+  .am-switch input { position: absolute; opacity: 0; width: 1px; height: 1px; margin: 0; }
+  .am-switch-track {
+    position: relative; width: 34px; height: 20px; flex-shrink: 0;
+    border-radius: var(--r-pill);
+    background: var(--slate-100); border: 1px solid var(--line-strong);
+    box-shadow: var(--clay-pressed);
+    transition: background 0.15s ease, border-color 0.15s ease;
+  }
+  .am-switch-track::after {
+    content: ''; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px;
+    border-radius: 50%; background: var(--surface-card-raised); box-shadow: var(--clay-flat);
+    transition: transform 0.15s ease;
+  }
+  .am-switch input:checked + .am-switch-track { background: var(--teal-600); border-color: var(--teal-700); }
+  .am-switch input:checked + .am-switch-track::after { transform: translateX(14px); }
+  .am-switch input:focus-visible + .am-switch-track { outline: 2px solid var(--teal-400); outline-offset: 2px; }
+
+  /* View user modal */
+  .am-profile {
+    display: flex; align-items: center; gap: 14px; padding: 14px 16px; margin-bottom: 8px;
+    background: var(--surface-card); border: 1px solid var(--line-soft); border-radius: var(--r-md);
+  }
+  .am-profile .am-avatar { width: 48px; height: 48px; font-size: 15px; }
+  .am-info-row {
+    display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 12px;
+    padding: 10px 0; border-bottom: 1px solid var(--line-soft); font-size: 13px; align-items: baseline;
+  }
+  .am-info-row:last-of-type { border-bottom: none; }
+  .am-info-label { color: var(--ink-soft); font-weight: 600; }
+  .am-info-value { color: var(--ink-900); font-weight: 600; }
+  .am-modal-note { margin: 10px 0 0; font-size: 12px; color: var(--ink-faint); }
+
+  /* ---------- responsive ---------- */
+  @media (max-width: 640px) {
+    .am-title { font-size: 22px; }
+    .am-role-head { grid-template-columns: 54px minmax(0, 1fr); padding: 16px; }
+    .am-role-head .btn { grid-column: 1 / -1; justify-self: stretch; }
+    .am-perm { padding: 16px 12px 16px; }
+    .am-info-row { grid-template-columns: 1fr; gap: 2px; }
+  }
+  @media (max-width: 480px) {
+    #am-modal-overlay { padding: 12px; }
+    .am-modal { padding: 18px 16px 16px; }
+    .am-col-act { width: 44px; }
+    .am-table th, .am-table td { padding: 8px 0; }
+    .am-table thead th { font-size: 10.5px; letter-spacing: 0; }
+    .am-table thead th:first-child, .am-table tbody th[scope="row"], .am-table th[scope="rowgroup"] { padding-left: 10px; }
+    .am-table tbody th[scope="row"] { font-size: 12px; }
+  }
+</style>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-mark"><i class="fa-solid fa-paw"></i></div>
+        <div class="brand-text">
+          <div class="brand-name">Pawsitive Care</div>
+          <div class="brand-role">Administrator</div>
+        </div>
+      </div>
+      <div class="sidebar-divider"></div>
+      <nav class="sidebar-nav">
+      <div class="nav-group">
+        <div class="nav-group-label">MAIN</div>
+        <a href="dashboard.html" class="nav-item" data-page="dashboard.html">
+          <span class="nav-icon"><i class="fa-solid fa-house"></i></span>
+          <span class="nav-label">Dashboard</span>
+        </a>
+        <a href="appointments.html" class="nav-item" data-page="appointments.html">
+          <span class="nav-icon"><i class="fa-solid fa-calendar-days"></i></span>
+          <span class="nav-label">Appointments</span>
+        </a>
+        <a href="queue.html" class="nav-item" data-page="queue.html">
+          <span class="nav-icon"><i class="fa-solid fa-hourglass-half"></i></span>
+          <span class="nav-label">Queue</span>
+        </a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">PATIENT MANAGEMENT</div>
+        <a href="patients.html" class="nav-item" data-page="patients.html">
+          <span class="nav-icon"><i class="fa-solid fa-paw"></i></span>
+          <span class="nav-label">Patients</span>
+        </a>
+        <a href="clients.html" class="nav-item" data-page="clients.html">
+          <span class="nav-icon"><i class="fa-solid fa-user"></i></span>
+          <span class="nav-label">Clients</span>
+        </a>
+        <a href="medical-records.html" class="nav-item" data-page="medical-records.html">
+          <span class="nav-icon"><i class="fa-solid fa-notes-medical"></i></span>
+          <span class="nav-label">Medical Records</span>
+        </a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">CLINIC</div>
+        <a href="services.html" class="nav-item" data-page="services.html">
+          <span class="nav-icon"><i class="fa-solid fa-hospital"></i></span>
+          <span class="nav-label">Services</span>
+        </a>
+        <a href="inventory.html" class="nav-item" data-page="inventory.html">
+          <span class="nav-icon"><i class="fa-solid fa-boxes-stacked"></i></span>
+          <span class="nav-label">Inventory</span>
+        </a>
+        <a href="billing.html" class="nav-item" data-page="billing.html">
+          <span class="nav-icon"><i class="fa-solid fa-credit-card"></i></span>
+          <span class="nav-label">Billing</span>
+        </a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">INSIGHTS</div>
+        <a href="predictive-analytics.html" class="nav-item" data-page="predictive-analytics.html">
+          <span class="nav-icon"><i class="fa-solid fa-chart-line"></i></span>
+          <span class="nav-label">Predictive Analytics</span>
+        </a>
+        <a href="reports.html" class="nav-item" data-page="reports.html">
+          <span class="nav-icon"><i class="fa-solid fa-chart-column"></i></span>
+          <span class="nav-label">Reports</span>
+        </a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">SYSTEM</div>
+        <a href="notifications.html" class="nav-item" data-page="notifications.html">
+          <span class="nav-icon"><i class="fa-solid fa-bell"></i></span>
+          <span class="nav-label">Notifications</span>
+        </a>
+        <!-- data-page points at this page so sidebar.js highlights Staff & Users while here -->
+        <a href="staff-users.html" class="nav-item" data-page="access-management.html">
+          <span class="nav-icon"><i class="fa-solid fa-users"></i></span>
+          <span class="nav-label">Staff & Users</span>
+        </a>
+        <a href="settings.html" class="nav-item" data-page="settings.html">
+          <span class="nav-icon"><i class="fa-solid fa-gear"></i></span>
+          <span class="nav-label">Settings</span>
+        </a>
+      </div>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="footer-avatar">A</div>
+        <div>
+          <div class="footer-name">Admin</div>
+          <div class="footer-role">Administrator</div>
+        </div>
+      </div>
+    </aside>
+
+    <div class="main-content">
+      <main class="page-body">
+        <div class="am-page">
+          <a href="staff-users.html" class="btn btn-sm am-back">
+            <i class="fa-solid fa-arrow-left"></i> Back to Staff &amp; Users
+          </a>
+
+          <div class="am-header">
+            <!-- sidebar.js binds to .menu-toggle for the mobile sidebar. -->
+            <button class="menu-toggle" aria-label="Toggle navigation"><i class="fa-solid fa-bars"></i></button>
+            <div>
+              <h1 class="am-title">ACCESS MANAGEMENT</h1>
+              <p class="am-subtitle">Manage roles, permissions, and account access.</p>
+            </div>
+          </div>
+
+          <div class="am-layout">
+            <aside class="am-panel am-roles" aria-label="Roles">
+              <div class="am-eyebrow am-roles-label">Roles</div>
+              <div id="am-role-list" role="group" aria-label="Select a role"></div>
+            </aside>
+
+            <section class="am-panel am-main" id="am-main" aria-live="polite"></section>
+            <aside class="am-side" id="am-side" aria-label="Role summary" aria-live="polite"></aside>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <div id="am-modal-overlay" class="modal-overlay">
+    <div class="modal-box am-modal" id="am-modal" role="dialog" aria-modal="true" aria-labelledby="am-modal-title" tabindex="-1"></div>
+  </div>
+
+  <!-- FRONTEND ONLY: no data-store.js / PCData here. All mock data lives in
+       access-management.js. sidebar.js stays last, as on every other page. -->
+  <script src="access-management.js"></script>
+  <script src="sidebar.js"></script>
+</body>
+</html>
