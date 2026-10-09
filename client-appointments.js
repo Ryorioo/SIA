@@ -49,21 +49,21 @@
     var service = (typeof D.getServiceForAppointment === 'function') ? D.getServiceForAppointment(a) : null;
     return (
       '<div class="appt-row">' +
-        '<div class="appt-row-when">' +
-          '<div class="appt-row-date">' + D.formatDateLabel(a.date) + '</div>' +
-          '<div class="appt-row-time">' + D.formatTimeLabel(a.time) + '</div>' +
-        '</div>' +
-        '<div class="appt-row-main">' +
-          '<div class="appt-row-pet"><span class="species-icon">' + icon + '</span>' + esc(a.pet) +
-            (a.queueCode ? ' <span class="status-badge status-arrived">' + esc(a.queueCode) + '</span>' : '') +
-          '</div>' +
-          '<div class="appt-row-meta">' +
-            '<span><i class="fa-solid fa-notes-medical"></i> ' + esc(a.vet) + '</span>' +
-            '<span><i class="fa-solid fa-file-lines"></i> ' + esc(a.reason || 'General visit') + '</span>' +
-            (service ? '<span><i class="fa-solid fa-briefcase-medical"></i> ' + esc(service.name) + '</span>' : '') +
-          '</div>' +
-        '</div>' +
-        '<span class="status-badge status-' + a.status + '">' + esc(D.STATUS_LABELS[a.status] || a.status) + '</span>' +
+      '<div class="appt-row-when">' +
+      '<div class="appt-row-date">' + D.formatDateLabel(a.date) + '</div>' +
+      '<div class="appt-row-time">' + D.formatTimeLabel(a.time) + '</div>' +
+      '</div>' +
+      '<div class="appt-row-main">' +
+      '<div class="appt-row-pet"><span class="species-icon">' + icon + '</span>' + esc(a.pet) +
+      (a.queueCode ? ' <span class="status-badge status-arrived">' + esc(a.queueCode) + '</span>' : '') +
+      '</div>' +
+      '<div class="appt-row-meta">' +
+      '<span><i class="fa-solid fa-notes-medical"></i> ' + esc(a.vet) + '</span>' +
+      '<span><i class="fa-solid fa-file-lines"></i> ' + esc(a.reason || 'General visit') + '</span>' +
+      (service ? '<span><i class="fa-solid fa-briefcase-medical"></i> ' + esc(service.name) + '</span>' : '') +
+      '</div>' +
+      '</div>' +
+      '<span class="status-badge status-' + a.status + '">' + esc(D.STATUS_LABELS[a.status] || a.status) + '</span>' +
       '</div>'
     );
   }
@@ -239,9 +239,18 @@
   // ------------------------------------------------------------------
 
   document.addEventListener('DOMContentLoaded', function () {
-    // Bounces to client-login.html automatically if there's no valid
-    // session — everything below only runs for an authenticated Client.
-    var client = window.PCClientAuth.requireClientLogin();
+    // AUTHENTICATION TEMPORARILY DISABLED
+    // This frontend prototype does not have a backend yet, so the
+    // login requirement is skipped (same approach as client-dashboard.js).
+    //
+    // Original guarded logic (restore once the backend exists):
+    //
+    // var client = window.PCClientAuth.requireClientLogin();
+    // if (!client) return;
+    //
+    // Temporary stand-in for "whoever is logged in".
+    var DEV_CLIENT_ID = 'cl_mto10o7c_jczmqx'; // Kyle · kyle@gmail.com
+    var client = window.PCData.getClientById(DEV_CLIENT_ID);
     if (!client) return;
 
     var D = window.PCData;

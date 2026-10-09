@@ -51,8 +51,8 @@
   function vaccinationStatusBadgeClass(status) {
     return status === 'Up to date' ? 'status-confirmed'
       : status === 'Overdue' ? 'status-cancelled'
-      : status === 'Due soon' ? 'status-pending'
-      : 'status-completed';
+        : status === 'Due soon' ? 'status-pending'
+          : 'status-completed';
   }
 
   function renderSidebarFooter(client) {
@@ -87,9 +87,9 @@
         var active = (state.selectedPatientId === p.id);
         return '<button type="button" class="pet-filter-pill' + (active ? ' active' : '') + '" data-id="' + (p.id ? esc(p.id) : '') + '">' +
           p.icon + ' ' + esc(p.label) +
-        '</button>';
+          '</button>';
       }).join('') +
-    '</div>';
+      '</div>';
 
     row.querySelectorAll('.pet-filter-pill').forEach(function (btn) {
       btn.addEventListener('click', function () {
@@ -118,12 +118,12 @@
         var status = D.computeVaccinationStatus(v.nextDue);
         return (
           '<div class="history-row">' +
-            '<div class="history-main">' +
-              '<span class="h-reason">' + esc(v.vaccineName || 'Vaccine') + '</span>' +
-              '<span class="h-meta">Date given: ' + formatVaxDate(D, v.dateGiven) + ' \u00b7 Next due: ' + formatVaxDate(D, v.nextDue) +
-                (v.notes ? ' \u00b7 ' + esc(v.notes) : '') + '</span>' +
-            '</div>' +
-            '<span class="status-badge ' + vaccinationStatusBadgeClass(status) + '">' + esc(status) + '</span>' +
+          '<div class="history-main">' +
+          '<span class="h-reason">' + esc(v.vaccineName || 'Vaccine') + '</span>' +
+          '<span class="h-meta">Date given: ' + formatVaxDate(D, v.dateGiven) + ' \u00b7 Next due: ' + formatVaxDate(D, v.nextDue) +
+          (v.notes ? ' \u00b7 ' + esc(v.notes) : '') + '</span>' +
+          '</div>' +
+          '<span class="status-badge ' + vaccinationStatusBadgeClass(status) + '">' + esc(status) + '</span>' +
           '</div>'
         );
       }).join('');
@@ -136,17 +136,17 @@
     // real records, same as the Administrator Patient Profile does.
     var generalStatus = patient.vaccinationStatus && patient.vaccinationStatus !== 'Unknown'
       ? '<div class="vx-general-status">General status on file: ' +
-          '<span class="status-badge ' + vaccinationStatusBadgeClass(patient.vaccinationStatus) + '" style="margin-left:4px;">' + esc(patient.vaccinationStatus) + '</span></div>'
+      '<span class="status-badge ' + vaccinationStatusBadgeClass(patient.vaccinationStatus) + '" style="margin-left:4px;">' + esc(patient.vaccinationStatus) + '</span></div>'
       : '';
 
     return (
       '<div class="vx-pet-group">' +
-        '<div class="vx-pet-group-head">' +
-          '<div class="vx-pet-avatar">' + icon + '</div>' +
-          '<div class="vx-pet-name">' + esc(patient.pet) + '</div>' +
-        '</div>' +
-        body +
-        generalStatus +
+      '<div class="vx-pet-group-head">' +
+      '<div class="vx-pet-avatar">' + icon + '</div>' +
+      '<div class="vx-pet-name">' + esc(patient.pet) + '</div>' +
+      '</div>' +
+      body +
+      generalStatus +
       '</div>'
     );
   }
@@ -183,9 +183,18 @@
   // ------------------------------------------------------------------
 
   document.addEventListener('DOMContentLoaded', function () {
-    // Bounces to client-login.html automatically if there's no valid
-    // session — everything below only runs for an authenticated Client.
-    var client = window.PCClientAuth.requireClientLogin();
+    // AUTHENTICATION TEMPORARILY DISABLED
+    // This frontend prototype does not have a backend yet, so the
+    // login requirement is skipped (same approach as client-dashboard.js).
+    //
+    // Original guarded logic (restore once the backend exists):
+    //
+    // var client = window.PCClientAuth.requireClientLogin();
+    // if (!client) return;
+    //
+    // Temporary stand-in for "whoever is logged in".
+    var DEV_CLIENT_ID = 'cl_mto10o7c_jczmqx'; // Kyle · kyle@gmail.com
+    var client = window.PCData.getClientById(DEV_CLIENT_ID);
     if (!client) return;
 
     var D = window.PCData;

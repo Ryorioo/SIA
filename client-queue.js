@@ -95,24 +95,24 @@
     if (!serving) {
       box.innerHTML =
         '<div class="now-serving-mini">' +
-          '<span class="now-serving-mini-label">Now Serving</span>' +
-          '<span class="now-serving-mini-empty">No one is being served right now.</span>' +
+        '<span class="now-serving-mini-label">Now Serving</span>' +
+        '<span class="now-serving-mini-empty">No one is being served right now.</span>' +
         '</div>';
       return;
     }
     box.innerHTML =
       '<div class="now-serving-mini">' +
-        '<span class="now-serving-mini-label">Now Serving</span>' +
-        '<span class="now-serving-mini-code">' + esc(serving.queueCode) + '</span>' +
+      '<span class="now-serving-mini-label">Now Serving</span>' +
+      '<span class="now-serving-mini-code">' + esc(serving.queueCode) + '</span>' +
       '</div>';
   }
 
   function renderEmptyState() {
     document.getElementById('queue-content').innerHTML =
       '<div class="queue-empty-state">' +
-        '<div class="queue-empty-icon"><i class="fa-solid fa-hourglass-half"></i></div>' +
-        '<div class="queue-empty-title">You\u2019re not currently in the queue.</div>' +
-        '<div class="queue-empty-sub">Once the clinic checks in one of your pets for today\u2019s visit, it will appear here automatically.</div>' +
+      '<div class="queue-empty-icon"><i class="fa-solid fa-hourglass-half"></i></div>' +
+      '<div class="queue-empty-title">You\u2019re not currently in the queue.</div>' +
+      '<div class="queue-empty-sub">Once the clinic checks in one of your pets for today\u2019s visit, it will appear here automatically.</div>' +
       '</div>';
   }
 
@@ -122,42 +122,42 @@
 
     var statusLabel =
       info.queueStatus === 'waiting' ? 'Waiting' :
-      info.queueStatus === 'called' ? 'Called' :
-      info.queueStatus === 'in-consultation' ? 'In Consultation' : '\u2014';
+        info.queueStatus === 'called' ? 'Called' :
+          info.queueStatus === 'in-consultation' ? 'In Consultation' : '\u2014';
 
     var badgeClass =
       info.queueStatus === 'in-consultation' ? 'status-confirmed' :
-      info.queueStatus === 'called' ? 'status-arrived' : 'status-pending';
+        info.queueStatus === 'called' ? 'status-arrived' : 'status-pending';
 
     var body = '';
     if (info.queueStatus === 'called') {
       body =
         '<div class="turn-banner">' +
-          '<div class="turn-banner-title">It\u2019s your turn!</div>' +
-          '<div class="turn-banner-sub">Please proceed to the consultation area.</div>' +
+        '<div class="turn-banner-title">It\u2019s your turn!</div>' +
+        '<div class="turn-banner-sub">Please proceed to the consultation area.</div>' +
         '</div>';
     } else if (info.queueStatus === 'in-consultation') {
       body =
         '<div class="turn-banner">' +
-          '<div class="turn-banner-title">Consultation in progress</div>' +
-          '<div class="turn-banner-sub">' + esc(info.vet) + ' is currently seeing ' + esc(info.pet) + '.</div>' +
+        '<div class="turn-banner-title">Consultation in progress</div>' +
+        '<div class="turn-banner-sub">' + esc(info.vet) + ' is currently seeing ' + esc(info.pet) + '.</div>' +
         '</div>';
     } else {
       var ahead = computeAhead(D, appt);
       body =
         '<div class="yq-waiting-line">' +
-          (ahead === 0 ? 'You\u2019re next in line.' : ahead + ' patient' + (ahead === 1 ? '' : 's') + ' ahead of you.') +
+        (ahead === 0 ? 'You\u2019re next in line.' : ahead + ' patient' + (ahead === 1 ? '' : 's') + ' ahead of you.') +
         '</div>' +
         '<div class="yq-waiting-sub">Waiting for ' + fmtWait(info.arrivedAt) + '.</div>';
     }
 
     return (
       '<div class="your-queue-card' + (info.queueStatus === 'called' ? ' is-called' : '') + '">' +
-        '<div class="yq-code">' + esc(info.queueCode || '\u2014') + '</div>' +
-        '<div class="yq-pet">' + icon + ' ' + esc(info.pet) + '</div>' +
-        '<div class="yq-meta"><i class="fa-solid fa-notes-medical"></i> ' + esc(info.vet) + '</div>' +
-        '<div class="yq-status-row"><span class="status-badge ' + badgeClass + '">' + statusLabel + '</span></div>' +
-        body +
+      '<div class="yq-code">' + esc(info.queueCode || '\u2014') + '</div>' +
+      '<div class="yq-pet">' + icon + ' ' + esc(info.pet) + '</div>' +
+      '<div class="yq-meta"><i class="fa-solid fa-notes-medical"></i> ' + esc(info.vet) + '</div>' +
+      '<div class="yq-status-row"><span class="status-badge ' + badgeClass + '">' + statusLabel + '</span></div>' +
+      body +
       '</div>'
     );
   }
@@ -170,7 +170,7 @@
     document.getElementById('queue-content').innerHTML =
       '<div class="your-queue-heading"><i class="fa-solid fa-hourglass-half"></i> YOUR QUEUE</div>' +
       '<div class="queue-cards-grid">' +
-        entries.map(function (a) { return renderQueueCard(D, a); }).join('') +
+      entries.map(function (a) { return renderQueueCard(D, a); }).join('') +
       '</div>';
   }
 
@@ -179,9 +179,18 @@
   // ------------------------------------------------------------------
 
   document.addEventListener('DOMContentLoaded', function () {
-    // Bounces to client-login.html automatically if there's no valid
-    // session — everything below only runs for an authenticated Client.
-    var client = window.PCClientAuth.requireClientLogin();
+    // AUTHENTICATION TEMPORARILY DISABLED
+    // This frontend prototype does not have a backend yet, so the
+    // login requirement is skipped (same approach as client-dashboard.js).
+    //
+    // Original guarded logic (restore once the backend exists):
+    //
+    // var client = window.PCClientAuth.requireClientLogin();
+    // if (!client) return;
+    //
+    // Temporary stand-in for "whoever is logged in".
+    var DEV_CLIENT_ID = 'cl_mto10o7c_jczmqx'; // Kyle · kyle@gmail.com
+    var client = window.PCData.getClientById(DEV_CLIENT_ID);
     if (!client) return;
 
     var D = window.PCData;

@@ -83,9 +83,9 @@
         var active = (state.selectedPatientId === p.id);
         return '<button type="button" class="pet-filter-pill' + (active ? ' active' : '') + '" data-id="' + (p.id ? esc(p.id) : '') + '">' +
           p.icon + ' ' + esc(p.label) +
-        '</button>';
+          '</button>';
       }).join('') +
-    '</div>';
+      '</div>';
 
     row.querySelectorAll('.pet-filter-pill').forEach(function (btn) {
       btn.addEventListener('click', function () {
@@ -121,20 +121,20 @@
 
     return (
       '<div class="record-card">' +
-        '<div class="record-card-head">' +
-          '<div class="record-card-left">' +
-            '<div class="record-pet-avatar">' + icon + '</div>' +
-            '<div>' +
-              '<div class="record-pet-name">' + esc(r.pet) + '</div>' +
-              '<div class="record-meta">' + formatDateShort(D, r.date) + ' \u00b7 ' + esc(r.visitType) + ' \u00b7 ' + esc(r.vet) + '</div>' +
-            '</div>' +
-          '</div>' +
-          badge(D, r.status) +
-        '</div>' +
-        '<div class="record-preview"><b>Diagnosis:</b> ' + esc(r.diagnosis || 'None recorded') + '</div>' +
-        '<div class="record-card-actions">' +
-          '<button class="btn btn-sm" data-action="view" data-id="' + esc(r.id) + '"><i class="fa-solid fa-eye"></i> View full record</button>' +
-        '</div>' +
+      '<div class="record-card-head">' +
+      '<div class="record-card-left">' +
+      '<div class="record-pet-avatar">' + icon + '</div>' +
+      '<div>' +
+      '<div class="record-pet-name">' + esc(r.pet) + '</div>' +
+      '<div class="record-meta">' + formatDateShort(D, r.date) + ' \u00b7 ' + esc(r.visitType) + ' \u00b7 ' + esc(r.vet) + '</div>' +
+      '</div>' +
+      '</div>' +
+      badge(D, r.status) +
+      '</div>' +
+      '<div class="record-preview"><b>Diagnosis:</b> ' + esc(r.diagnosis || 'None recorded') + '</div>' +
+      '<div class="record-card-actions">' +
+      '<button class="btn btn-sm" data-action="view" data-id="' + esc(r.id) + '"><i class="fa-solid fa-eye"></i> View full record</button>' +
+      '</div>' +
       '</div>'
     );
   }
@@ -183,59 +183,59 @@
 
     box.innerHTML =
       '<div class="modal-head">' +
-        '<div class="modal-title">Medical Record Details</div>' +
-        '<button class="modal-close" id="view-close"><i class="fa-solid fa-xmark"></i></button>' +
+      '<div class="modal-title">Medical Record Details</div>' +
+      '<button class="modal-close" id="view-close"><i class="fa-solid fa-xmark"></i></button>' +
       '</div>' +
 
       '<div class="profile-head">' +
-        '<div class="profile-avatar">' + icon + '</div>' +
-        '<div>' +
-          '<div class="profile-name">' + esc(r.pet) + '</div>' +
-          '<div class="profile-sub">' + formatDateShort(D, r.date) + ' \u00b7 ' + esc(r.visitType) + ' \u00b7 ' + esc(r.vet) + '</div>' +
-        '</div>' +
-        '<span style="margin-left:auto;">' + badge(D, r.status) + '</span>' +
+      '<div class="profile-avatar">' + icon + '</div>' +
+      '<div>' +
+      '<div class="profile-name">' + esc(r.pet) + '</div>' +
+      '<div class="profile-sub">' + formatDateShort(D, r.date) + ' \u00b7 ' + esc(r.visitType) + ' \u00b7 ' + esc(r.vet) + '</div>' +
+      '</div>' +
+      '<span style="margin-left:auto;">' + badge(D, r.status) + '</span>' +
       '</div>' +
 
       '<div class="profile-section">' +
-        '<div class="profile-section-title"><i class="fa-solid fa-paw"></i> Pet information</div>' +
-        '<div class="profile-grid">' +
-          '<div class="profile-field"><span class="pf-label">Pet name</span><span class="pf-value">' + esc(r.pet) + '</span></div>' +
-          '<div class="profile-field"><span class="pf-label">Species / breed</span><span class="pf-value">' + (patient ? esc(patient.species) + (patient.breed ? ' \u00b7 ' + esc(patient.breed) : '') : '\u2014') + '</span></div>' +
-          '<div class="profile-field"><span class="pf-label">Weight recorded</span><span class="pf-value">' + (r.weight ? esc(r.weight) + ' kg' : '\u2014') + '</span></div>' +
-        '</div>' +
+      '<div class="profile-section-title"><i class="fa-solid fa-paw"></i> Pet information</div>' +
+      '<div class="profile-grid">' +
+      '<div class="profile-field"><span class="pf-label">Pet name</span><span class="pf-value">' + esc(r.pet) + '</span></div>' +
+      '<div class="profile-field"><span class="pf-label">Species / breed</span><span class="pf-value">' + (patient ? esc(patient.species) + (patient.breed ? ' \u00b7 ' + esc(patient.breed) : '') : '\u2014') + '</span></div>' +
+      '<div class="profile-field"><span class="pf-label">Weight recorded</span><span class="pf-value">' + (r.weight ? esc(r.weight) + ' kg' : '\u2014') + '</span></div>' +
+      '</div>' +
       '</div>' +
 
       '<div class="profile-section">' +
-        '<div class="profile-section-title"><i class="fa-solid fa-calendar-days"></i> Visit information</div>' +
-        '<div class="profile-grid">' +
-          '<div class="profile-field"><span class="pf-label">Record date</span><span class="pf-value">' + formatDateShort(D, r.date) + '</span></div>' +
-          '<div class="profile-field"><span class="pf-label">Veterinarian</span><span class="pf-value">' + esc(r.vet) + '</span></div>' +
-          '<div class="profile-field"><span class="pf-label">Visit type / service</span><span class="pf-value">' + esc(r.visitType) + '</span></div>' +
-          '<div class="profile-field"><span class="pf-label">Follow-up date</span><span class="pf-value">' + (r.followUpDate ? formatDateShort(D, r.followUpDate) : 'None scheduled') + '</span></div>' +
-          '<div class="profile-field" style="grid-column:1/-1;"><span class="pf-label">Chief complaint</span><span class="pf-value">' + esc(r.chiefComplaint || '\u2014') + '</span></div>' +
-        '</div>' +
+      '<div class="profile-section-title"><i class="fa-solid fa-calendar-days"></i> Visit information</div>' +
+      '<div class="profile-grid">' +
+      '<div class="profile-field"><span class="pf-label">Record date</span><span class="pf-value">' + formatDateShort(D, r.date) + '</span></div>' +
+      '<div class="profile-field"><span class="pf-label">Veterinarian</span><span class="pf-value">' + esc(r.vet) + '</span></div>' +
+      '<div class="profile-field"><span class="pf-label">Visit type / service</span><span class="pf-value">' + esc(r.visitType) + '</span></div>' +
+      '<div class="profile-field"><span class="pf-label">Follow-up date</span><span class="pf-value">' + (r.followUpDate ? formatDateShort(D, r.followUpDate) : 'None scheduled') + '</span></div>' +
+      '<div class="profile-field" style="grid-column:1/-1;"><span class="pf-label">Chief complaint</span><span class="pf-value">' + esc(r.chiefComplaint || '\u2014') + '</span></div>' +
+      '</div>' +
       '</div>' +
 
       '<div class="profile-section">' +
-        '<div class="profile-section-title"><i class="fa-solid fa-notes-medical"></i> Clinical details</div>' +
-        '<div class="profile-grid">' +
-          '<div class="profile-field" style="grid-column:1/-1;"><span class="pf-label">Symptoms</span><span class="pf-value">' + esc(r.symptoms || 'None recorded') + '</span></div>' +
-          '<div class="profile-field" style="grid-column:1/-1;"><span class="pf-label">Examination findings</span><span class="pf-value">' + esc(r.examFindings || 'None recorded') + '</span></div>' +
-          '<div class="profile-field" style="grid-column:1/-1;"><span class="pf-label">Diagnosis</span><span class="pf-value">' + esc(r.diagnosis || 'None recorded') + '</span></div>' +
-          '<div class="profile-field" style="grid-column:1/-1;"><span class="pf-label">Treatment</span><span class="pf-value">' + esc(r.treatment || 'None recorded') + '</span></div>' +
-          '<div class="profile-field" style="grid-column:1/-1;"><span class="pf-label">Prescription / medications</span><span class="pf-value">' + esc(r.prescription || 'None recorded') + '</span></div>' +
-          '<div class="profile-field"><span class="pf-label">Vaccination given</span><span class="pf-value">' + esc(r.vaccination || 'None') + '</span></div>' +
-          '<div class="profile-field"><span class="pf-label">Weight</span><span class="pf-value">' + (r.weight ? esc(r.weight) + ' kg' : '\u2014') + '</span></div>' +
-        '</div>' +
+      '<div class="profile-section-title"><i class="fa-solid fa-notes-medical"></i> Clinical details</div>' +
+      '<div class="profile-grid">' +
+      '<div class="profile-field" style="grid-column:1/-1;"><span class="pf-label">Symptoms</span><span class="pf-value">' + esc(r.symptoms || 'None recorded') + '</span></div>' +
+      '<div class="profile-field" style="grid-column:1/-1;"><span class="pf-label">Examination findings</span><span class="pf-value">' + esc(r.examFindings || 'None recorded') + '</span></div>' +
+      '<div class="profile-field" style="grid-column:1/-1;"><span class="pf-label">Diagnosis</span><span class="pf-value">' + esc(r.diagnosis || 'None recorded') + '</span></div>' +
+      '<div class="profile-field" style="grid-column:1/-1;"><span class="pf-label">Treatment</span><span class="pf-value">' + esc(r.treatment || 'None recorded') + '</span></div>' +
+      '<div class="profile-field" style="grid-column:1/-1;"><span class="pf-label">Prescription / medications</span><span class="pf-value">' + esc(r.prescription || 'None recorded') + '</span></div>' +
+      '<div class="profile-field"><span class="pf-label">Vaccination given</span><span class="pf-value">' + esc(r.vaccination || 'None') + '</span></div>' +
+      '<div class="profile-field"><span class="pf-label">Weight</span><span class="pf-value">' + (r.weight ? esc(r.weight) + ' kg' : '\u2014') + '</span></div>' +
+      '</div>' +
       '</div>' +
 
       '<div class="profile-section">' +
-        '<div class="profile-section-title"><i class="fa-solid fa-note-sticky"></i> Veterinarian notes</div>' +
-        '<div class="pf-value">' + esc(r.vetNotes || 'No notes recorded.') + '</div>' +
+      '<div class="profile-section-title"><i class="fa-solid fa-note-sticky"></i> Veterinarian notes</div>' +
+      '<div class="pf-value">' + esc(r.vetNotes || 'No notes recorded.') + '</div>' +
       '</div>' +
 
       '<div class="modal-footer">' +
-        '<button class="btn" id="view-close-btn">Close</button>' +
+      '<button class="btn" id="view-close-btn">Close</button>' +
       '</div>';
 
     document.getElementById('view-close').addEventListener('click', closeView);
@@ -252,9 +252,18 @@
   // ------------------------------------------------------------------
 
   document.addEventListener('DOMContentLoaded', function () {
-    // Bounces to client-login.html automatically if there's no valid
-    // session — everything below only runs for an authenticated Client.
-    var client = window.PCClientAuth.requireClientLogin();
+    // AUTHENTICATION TEMPORARILY DISABLED
+    // This frontend prototype does not have a backend yet, so the
+    // login requirement is skipped (same approach as client-dashboard.js).
+    //
+    // Original guarded logic (restore once the backend exists):
+    //
+    // var client = window.PCClientAuth.requireClientLogin();
+    // if (!client) return;
+    //
+    // Temporary stand-in for "whoever is logged in".
+    var DEV_CLIENT_ID = 'cl_mto10o7c_jczmqx'; // Kyle · kyle@gmail.com
+    var client = window.PCData.getClientById(DEV_CLIENT_ID);
     if (!client) return;
 
     var D = window.PCData;

@@ -122,8 +122,8 @@
     var pets = D.getPatientsForClient(client);
     document.getElementById('pf-pets-summary').innerHTML =
       '<div class="pf-field" style="border-bottom:none;padding-top:0;">' +
-        '<div class="pf-field-label">Registered Pets</div>' +
-        '<div class="pf-field-value">' + pets.length + '</div>' +
+      '<div class="pf-field-label">Registered Pets</div>' +
+      '<div class="pf-field-value">' + pets.length + '</div>' +
       '</div>';
 
     var box = document.getElementById('pf-pets-list');
@@ -135,15 +135,15 @@
       var icon = D.SPECIES_ICON[p.species] || '<i class="fa-solid fa-paw"></i>';
       return (
         '<div class="pet-list-row">' +
-          '<div class="pet-list-main">' +
-            '<div class="pet-list-avatar">' + icon + '</div>' +
-            '<div><div class="pet-list-name">' + esc(p.pet) + '</div>' +
-            '<div class="pet-list-meta">' + esc(p.species || '') + (p.breed ? ' \u00b7 ' + esc(p.breed) : '') + '</div></div>' +
-          '</div>' +
-          '<div class="pet-list-cols">' +
-            '<div class="pet-list-col"><div class="pet-list-col-label">Status</div><div class="pet-list-col-value"><span class="status-badge status-' + p.status + '">' + (p.status === 'active' ? 'Active' : 'Inactive') + '</span></div></div>' +
-          '</div>' +
-          '<a class="btn btn-sm" href="client-pets.html">View Profile</a>' +
+        '<div class="pet-list-main">' +
+        '<div class="pet-list-avatar">' + icon + '</div>' +
+        '<div><div class="pet-list-name">' + esc(p.pet) + '</div>' +
+        '<div class="pet-list-meta">' + esc(p.species || '') + (p.breed ? ' \u00b7 ' + esc(p.breed) : '') + '</div></div>' +
+        '</div>' +
+        '<div class="pet-list-cols">' +
+        '<div class="pet-list-col"><div class="pet-list-col-label">Status</div><div class="pet-list-col-value"><span class="status-badge status-' + p.status + '">' + (p.status === 'active' ? 'Active' : 'Inactive') + '</span></div></div>' +
+        '</div>' +
+        '<a class="btn btn-sm" href="client-pets.html">View Profile</a>' +
         '</div>'
       );
     }).join('');
@@ -194,9 +194,18 @@
   // ------------------------------------------------------------------
 
   document.addEventListener('DOMContentLoaded', function () {
-    // Bounces to client-login.html automatically if there's no valid
-    // session — everything below only runs for an authenticated Client.
-    var client = window.PCClientAuth.requireClientLogin();
+    // AUTHENTICATION TEMPORARILY DISABLED
+    // This frontend prototype does not have a backend yet, so the
+    // login requirement is skipped (same approach as client-dashboard.js).
+    //
+    // Original guarded logic (restore once the backend exists):
+    //
+    // var client = window.PCClientAuth.requireClientLogin();
+    // if (!client) return;
+    //
+    // Temporary stand-in for "whoever is logged in".
+    var DEV_CLIENT_ID = 'cl_mto10o7c_jczmqx'; // Kyle · kyle@gmail.com
+    var client = window.PCData.getClientById(DEV_CLIENT_ID);
     if (!client) return;
 
     var D = window.PCData;
@@ -206,7 +215,8 @@
     // than trusting a possibly-stale local variable, especially before
     // any write.
     function currentClient() {
-      return window.PCClientAuth.getCurrentClient();
+      // Temporary: resolve the dev client fresh from PCData (no session yet).
+      return window.PCData.getClientById(DEV_CLIENT_ID);
     }
 
     function renderDynamic() {

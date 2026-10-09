@@ -121,11 +121,11 @@
     });
     document.getElementById('cb-summary-grid').innerHTML =
       '<div class="cb-summary-card"><div class="cb-summary-icon"><i class="fa-solid fa-file-invoice"></i></div>' +
-        '<div><div class="cb-summary-label">Outstanding</div><div class="cb-summary-value">' + money(outstanding) + '</div></div></div>' +
+      '<div><div class="cb-summary-label">Outstanding</div><div class="cb-summary-value">' + money(outstanding) + '</div></div></div>' +
       '<div class="cb-summary-card"><div class="cb-summary-icon"><i class="fa-solid fa-hourglass-half"></i></div>' +
-        '<div><div class="cb-summary-label">Pending Verification</div><div class="cb-summary-value">' + money(pending) + '</div></div></div>' +
+      '<div><div class="cb-summary-label">Pending Verification</div><div class="cb-summary-value">' + money(pending) + '</div></div></div>' +
       '<div class="cb-summary-card"><div class="cb-summary-icon"><i class="fa-solid fa-circle-check"></i></div>' +
-        '<div><div class="cb-summary-label">Total Paid</div><div class="cb-summary-value">' + money(paid) + '</div></div></div>';
+      '<div><div class="cb-summary-label">Total Paid</div><div class="cb-summary-value">' + money(paid) + '</div></div></div>';
   }
 
   // ------------------------------------------------------------------
@@ -137,21 +137,21 @@
     var icon = D.SPECIES_ICON[info.species] || '<i class="fa-solid fa-paw"></i>';
     return (
       '<div class="cb-inv-row" data-id="' + esc(inv.id) + '">' +
-        '<div class="cb-inv-when">' +
-          '<div class="cb-inv-number">' + esc(inv.invoiceNumber) + '</div>' +
-          '<div class="cb-inv-date">' + fmtDate(D, inv.date) + '</div>' +
-        '</div>' +
-        '<div class="cb-inv-main">' +
-          '<div class="cb-inv-pet"><span class="species-icon">' + icon + '</span>' + esc(info.pet) + '</div>' +
-          '<div class="cb-inv-meta">' +
-            (info.appointmentReason ? '<span><i class="fa-solid fa-file-lines"></i> ' + esc(info.appointmentReason) + '</span>' : '') +
-            '<span><i class="fa-solid fa-list"></i> ' + (inv.items || []).length + ' item' + ((inv.items || []).length === 1 ? '' : 's') + '</span>' +
-          '</div>' +
-        '</div>' +
-        '<div class="cb-inv-right">' +
-          '<div class="cb-inv-amount">' + money(inv.totalAmount) + '</div>' +
-          statusBadge(inv.status) +
-        '</div>' +
+      '<div class="cb-inv-when">' +
+      '<div class="cb-inv-number">' + esc(inv.invoiceNumber) + '</div>' +
+      '<div class="cb-inv-date">' + fmtDate(D, inv.date) + '</div>' +
+      '</div>' +
+      '<div class="cb-inv-main">' +
+      '<div class="cb-inv-pet"><span class="species-icon">' + icon + '</span>' + esc(info.pet) + '</div>' +
+      '<div class="cb-inv-meta">' +
+      (info.appointmentReason ? '<span><i class="fa-solid fa-file-lines"></i> ' + esc(info.appointmentReason) + '</span>' : '') +
+      '<span><i class="fa-solid fa-list"></i> ' + (inv.items || []).length + ' item' + ((inv.items || []).length === 1 ? '' : 's') + '</span>' +
+      '</div>' +
+      '</div>' +
+      '<div class="cb-inv-right">' +
+      '<div class="cb-inv-amount">' + money(inv.totalAmount) + '</div>' +
+      statusBadge(inv.status) +
+      '</div>' +
       '</div>'
     );
   }
@@ -187,9 +187,9 @@
       return '<div class="cb-pay-hist-row">' +
         '<div><strong>' + esc(labels[p.method] || p.method) + '</strong> \u00b7 ' + money(p.amount) + ' \u00b7 ' + fmtDate(D, p.paymentDate) + '</div>' +
         '<div class="cb-dim">Ref: ' + esc(p.referenceNumber || '\u2014') + ' \u00b7 ' + esc(PAYMENT_STATUS_LABELS[p.status] || p.status) +
-          (p.status === 'rejected' && p.reviewNotes ? ' \u2014 ' + esc(p.reviewNotes) : '') +
+        (p.status === 'rejected' && p.reviewNotes ? ' \u2014 ' + esc(p.reviewNotes) : '') +
         '</div>' +
-      '</div>';
+        '</div>';
     }).join('');
   }
 
@@ -204,10 +204,10 @@
     document.getElementById('detail-title').textContent = 'Invoice ' + inv.invoiceNumber;
     document.getElementById('detail-body').innerHTML =
       '<div class="cb-detail-grid">' +
-        '<div><div class="cb-detail-label">Status</div><div class="cb-detail-value">' + statusBadge(inv.status) + '</div></div>' +
-        '<div><div class="cb-detail-label">Invoice Date</div><div class="cb-detail-value">' + fmtDate(D, inv.date) + '</div></div>' +
-        '<div><div class="cb-detail-label">Pet</div><div class="cb-detail-value">' + esc(info.pet) + '</div></div>' +
-        '<div><div class="cb-detail-label">Related Appointment</div><div class="cb-detail-value">' + esc(info.appointmentReason || '\u2014') + (info.appointmentDate ? ' (' + fmtDate(D, info.appointmentDate) + ')' : '') + '</div></div>' +
+      '<div><div class="cb-detail-label">Status</div><div class="cb-detail-value">' + statusBadge(inv.status) + '</div></div>' +
+      '<div><div class="cb-detail-label">Invoice Date</div><div class="cb-detail-value">' + fmtDate(D, inv.date) + '</div></div>' +
+      '<div><div class="cb-detail-label">Pet</div><div class="cb-detail-value">' + esc(info.pet) + '</div></div>' +
+      '<div><div class="cb-detail-label">Related Appointment</div><div class="cb-detail-value">' + esc(info.appointmentReason || '\u2014') + (info.appointmentDate ? ' (' + fmtDate(D, info.appointmentDate) + ')' : '') + '</div></div>' +
       '</div>' +
       itemsTable(inv.items) +
       '<div class="cb-total-row">Total: <span>' + money(inv.totalAmount) + '</span></div>' +
@@ -333,9 +333,18 @@
   // ------------------------------------------------------------------
 
   document.addEventListener('DOMContentLoaded', function () {
-    // Bounces to client-login.html automatically if there's no valid
-    // session — everything below only runs for an authenticated Client.
-    var client = window.PCClientAuth.requireClientLogin();
+    // AUTHENTICATION TEMPORARILY DISABLED
+    // This frontend prototype does not have a backend yet, so the
+    // login requirement is skipped (same approach as client-dashboard.js).
+    //
+    // Original guarded logic (restore once the backend exists):
+    //
+    // var client = window.PCClientAuth.requireClientLogin();
+    // if (!client) return;
+    //
+    // Temporary stand-in for "whoever is logged in".
+    var DEV_CLIENT_ID = 'cl_mto10o7c_jczmqx'; // Kyle · kyle@gmail.com
+    var client = window.PCData.getClientById(DEV_CLIENT_ID);
     if (!client) return;
 
     var D = window.PCData;

@@ -329,6 +329,39 @@ i.fa-solid, i.fa-regular { line-height: 1; }
   color: var(--ink-on-brand);
 }
 
+/* Submenu items that carry an icon (Inventory / Predictive Analytics) */
+.nav-subitem-icon {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-left: 22px;
+}
+
+/* Admin profile section (.sidebar-footer) as an expandable parent */
+.sidebar-footer.nav-parent {
+  cursor: pointer;
+  border-radius: 0 0 var(--r-sm) var(--r-sm);   /* keeps the top divider line straight */
+  transition: background 0.15s ease;
+}
+
+.sidebar-footer.nav-parent:hover {
+  background: rgba(244, 249, 247, 0.06);
+}
+
+.sidebar-footer-submenu .nav-subitem {
+  padding-left: 50px;   /* text aligns with the Admin name beside the avatar */
+}
+
+/* Destructive submenu item (Admin > Log out): existing red tokens, lightened for the dark sidebar */
+.nav-subitem-danger {
+  color: color-mix(in srgb, var(--red-600) 55%, var(--red-100));
+}
+
+.nav-subitem-danger:hover {
+  background: rgba(179, 85, 74, 0.18);
+  color: var(--red-100);
+}
+
 .sidebar-footer {
   display: flex;
   align-items: center;
