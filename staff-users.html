@@ -18,80 +18,148 @@
 <style>
   .su-page { padding: 2px 0 8px; }
 
+  /* Header matches Access Management / Security & Activity: compact 20px/800
+     parent heading with the USER DIRECTORY subsection heading directly
+     beneath it (no description), and the primary action on the right. */
   .su-header {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     justify-content: space-between;
     gap: 16px;
-    margin-bottom: 20px;
+    margin-bottom: 14px;
   }
-  .su-header-main { display: flex; align-items: flex-start; gap: 12px; min-width: 0; }
-  .su-header-main .menu-toggle { margin-top: 2px; flex-shrink: 0; }
+  .su-header-main { display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1 1 auto; }
+  .su-header-main .menu-toggle { flex-shrink: 0; }
   .su-title {
-    margin: 0 0 4px;
-    font-size: 26px;
+    margin: 0 0 2px;
+    font-size: 20px;
     font-weight: 800;
-    letter-spacing: -0.01em;
-    color: var(--teal-900);
-    line-height: 1.2;
+    line-height: 1.3;
+    letter-spacing: normal;
+    color: var(--ink-900);
   }
-  .su-subtitle { margin: 0; color: var(--ink-soft); font-size: 13.5px; font-weight: 500; }
-
-  .su-header-actions { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: 10px; flex-shrink: 0; }
-  @media (max-width: 640px) {
-    .su-header { flex-wrap: wrap; }
-    .su-header-actions { width: 100%; justify-content: flex-start; }
+  .su-subsection {
+    margin: 0;
+    font-size: 12.5px;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    line-height: 1.3;
+    color: var(--teal-700);
   }
+  .su-header-actions { display: flex; align-items: center; justify-content: flex-end; flex: 0 0 auto; }
+  .su-header-actions .btn { white-space: nowrap; }
 
-  .su-tabs-row { margin-bottom: 14px; }
+  /* ---- Main section navigation: understated text + icon tabs, underline on
+     the active destination. These are page links, not filters. ---- */
+  .su-main-nav {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 4px;
+    margin-bottom: 18px;
+    border-bottom: 1px solid var(--line);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .su-main-nav::-webkit-scrollbar { display: none; }
+  .su-nav-link {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 9px 14px 10px;
+    margin-bottom: -1px;
+    border-bottom: 2px solid transparent;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--ink-soft);
+    text-decoration: none;
+    white-space: nowrap;
+    transition: color 0.15s ease, border-color 0.15s ease;
+  }
+  .su-nav-link i { font-size: 12px; }
+  .su-nav-link:hover { color: var(--ink-800); border-bottom-color: var(--line-strong); }
+  .su-nav-link.active { color: var(--teal-700); border-bottom-color: var(--teal-600); }
+  .su-nav-link:focus-visible { outline: 2px solid var(--teal-400); outline-offset: -2px; border-radius: var(--r-xs); }
 
-  /* Filter card: search + role + status on one row, count line beneath. */
-  .su-filter-bar { margin-bottom: 18px; }
+  /* ---- User Directory workspace — same module as Inventory Items:
+     one bordered card, flat filters, table on an inner page-bg surface ---- */
+  .su-panel {
+    box-sizing: border-box;
+    min-width: 0;
+    padding: 16px 18px 18px;
+    background: var(--surface-card);
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+    box-shadow: var(--clay-flat);
+    margin-bottom: 24px;
+  }
+  .su-panel-head { margin-bottom: 14px; }
+
+  /* Filters: flat row directly in the module (search 38px, selects 170px) */
+  .su-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 9px; margin: 0 0 12px; }
+  .su-toolbar .search-field { flex: 2 1 260px; min-width: 0; height: 38px; }
+  .su-toolbar .search-field:focus-within { border-color: var(--teal-400); }
   /* style.css's global text-input rule outranks .search-field input; keep the
      search field a single inset surface rather than a box inside a box. */
-  .su-filter-bar .search-field input {
+  .su-toolbar .search-field input {
     border: none; background: transparent; box-shadow: none; padding: 0; border-radius: 0;
+    color: var(--ink-900);
   }
-  .su-count-line {
-    flex: 0 0 100%;
-    padding: 2px 4px 0;
-    font-size: 12.2px;
-    font-weight: 600;
-    color: var(--ink-soft);
+  .su-toolbar .filter-select {
+    flex: 0 0 170px; min-width: 0; max-width: 100%; box-sizing: border-box;
+    -webkit-appearance: none; -moz-appearance: none; appearance: none;
+    height: 38px; padding: 0 34px 0 12px;
+    background-color: var(--surface-sunken);
+    background-image: linear-gradient(45deg, transparent 50%, var(--ink-faint) 50%), linear-gradient(135deg, var(--ink-faint) 50%, transparent 50%);
+    background-position: calc(100% - 18px) center, calc(100% - 13px) center;
+    background-size: 5px 5px, 5px 5px; background-repeat: no-repeat;
+    border: 1px solid var(--line-soft); border-radius: 10px;
+    color: var(--ink-900); font: inherit; font-weight: 600;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    transition: border-color 0.15s ease;
   }
+  .su-toolbar .filter-select:hover { border-color: var(--line-strong); }
+  .su-toolbar .filter-select:focus { outline: none; border-color: var(--teal-400); }
+
+  .su-count-line { margin: 0 0 10px; font-size: 12.5px; font-weight: 600; line-height: 1.45; color: var(--ink-700); }
   .su-count-sep { margin: 0 6px; color: var(--ink-faint); }
 
+  /* Table on the inner page-bg surface (JS shows/hides .su-table-card) */
   .su-table-card {
-    background: var(--surface-card);
-    border: 1px solid var(--line-soft);
-    border-radius: var(--r-lg);
-    box-shadow: var(--clay-flat);
-    overflow: hidden;
+    padding: 6px 10px 4px;
+    background: var(--surface-bg);
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+    box-shadow: inset 0 1px 2px rgba(31, 42, 46, 0.05);
   }
   .su-table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-  .su-table { width: 100%; min-width: 880px; border-collapse: collapse; }
+  .su-table { width: 100%; min-width: 820px; border-collapse: collapse; font-size: 13px; }
   .su-table th {
     text-align: left;
-    padding: 11px 18px;
-    font-size: 11.2px;
+    padding: 10px 12px;
+    font-size: 10.6px;
     font-weight: 800;
-    letter-spacing: 0.03em;
-    color: var(--ink-faint);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--ink-700);
     background: var(--surface-sunken);
-    border-bottom: 1px solid var(--line-soft);
+    border-bottom: 1px solid transparent;
     white-space: nowrap;
   }
+  .su-table th:first-child { border-top-left-radius: var(--r-xs); border-bottom-left-radius: var(--r-xs); }
+  .su-table th:last-child { border-top-right-radius: var(--r-xs); border-bottom-right-radius: var(--r-xs); }
   .su-table td {
-    padding: 13px 18px;
-    font-size: 12.8px;
-    font-weight: 500;
-    color: var(--ink-800);
-    border-bottom: 1px solid var(--line-soft);
+    padding: 11px 12px;
+    font-size: 13px;
+    line-height: 1.3;
+    color: var(--ink-900);
+    border-bottom: 1px solid var(--line);
     vertical-align: middle;
     white-space: nowrap;
   }
   .su-table tbody tr:last-child td { border-bottom: none; }
-  .su-table tbody tr:hover { background: var(--surface-bg); }
+  .su-table tbody tr:hover { background: var(--surface-card); }
   /* Column proportions (table-layout stays auto so narrow screens scroll). */
   .su-col-user { width: 32%; }
   .su-col-type { width: 10%; }
@@ -99,6 +167,48 @@
   .su-col-status { width: 13%; }
   .su-col-last { width: 13%; }
   .su-col-actions { width: 16%; }
+
+  /* Empty state: same inner surface as the table, centred message like
+     Inventory's empty row */
+  .su-panel .empty-state {
+    margin: 0; padding: 44px 20px;
+    background: var(--surface-bg); border: 1px solid var(--line); border-radius: var(--r-md);
+    box-shadow: inset 0 1px 2px rgba(31, 42, 46, 0.05);
+    color: var(--ink-700);
+  }
+
+  @media (max-width: 1100px) {
+    .su-table th, .su-table td { padding-left: 8px; padding-right: 8px; }
+  }
+  @media (max-width: 640px) {
+    .su-panel { padding: 14px 14px 16px; }
+    .su-toolbar .search-field { flex: 1 1 100%; }
+    .su-toolbar .filter-select { flex: 1 1 calc(50% - 5px); }
+    .su-header-actions .btn { min-height: 40px; }
+    /* Stacked rows (as Inventory Items does on mobile); labels come from the
+       column order, so the existing row markup is unchanged. */
+    .su-table-card { padding: 2px 12px; }
+    .su-table-scroll { overflow-x: visible; }
+    .su-table { min-width: 0; }
+    .su-table thead { display: none; }
+    .su-table, .su-table tbody, .su-table tr, .su-table td { display: block; width: 100%; box-sizing: border-box; }
+    .su-table tbody tr { padding: 14px 0 12px; border-top: 1px solid var(--line); }
+    .su-table tbody tr:first-child { border-top: none; }
+    .su-table tbody tr:hover { background: transparent; }
+    .su-table tbody td { border-bottom: none; padding: 4px 0; white-space: normal; }
+    .su-table tbody td:nth-child(n+2):nth-child(-n+5) {
+      display: flex; justify-content: space-between; align-items: center; gap: 12px; text-align: right;
+    }
+    .su-table tbody td:nth-child(n+2):nth-child(-n+5)::before {
+      flex: none; font-size: 12px; font-weight: 700; color: var(--ink-700); text-align: left;
+    }
+    .su-table tbody td:nth-child(2)::before { content: 'Type:'; }
+    .su-table tbody td:nth-child(3)::before { content: 'Role:'; }
+    .su-table tbody td:nth-child(4)::before { content: 'Status:'; }
+    .su-table tbody td:nth-child(5)::before { content: 'Last Active:'; }
+    .su-table tbody td:nth-child(6) { margin-top: 8px; padding-top: 12px; border-top: 1px solid var(--line); }
+    .su-user-name, .su-user-sub { max-width: none; }
+  }
 
   .su-user { display: flex; align-items: center; gap: 12px; min-width: 0; }
   .su-avatar {
@@ -195,10 +305,6 @@
     .su-info-row { grid-template-columns: 1fr; gap: 2px; }
   }
 
-  @media (max-width: 560px) {
-    .su-title { font-size: 22px; }
-    .su-header .btn { padding: 8px 12px; }
-  }
 
   /* ---- Add User modal (Phase 4A, frontend only) ---- */
   .su-modal.su-modal-add {
@@ -470,61 +576,70 @@
               <button class="menu-toggle" aria-label="Toggle navigation"><i class="fa-solid fa-bars"></i></button>
               <div>
                 <h1 class="su-title">STAFF &amp; USERS</h1>
-                <p class="su-subtitle">Manage staff and client accounts, roles, access, and security.</p>
+                <h2 class="su-subsection">USER DIRECTORY</h2>
               </div>
             </div>
             <div class="su-header-actions">
-              <button id="su-add-staff-btn" class="btn btn-primary" type="button">
+              <button id="su-add-staff-btn" class="btn btn-sm btn-primary" type="button">
                 <i class="fa-solid fa-plus"></i> Add User
               </button>
-              <a href="access-management.html" class="btn" id="su-access-mgmt-link">
-                <i class="fa-solid fa-shield-halved"></i> Access Management
-              </a>
-              <a href="security-activity.html" class="btn" id="su-security-activity-link">
-                <i class="fa-solid fa-user-shield"></i> Security &amp; Activity
-              </a>
             </div>
           </div>
 
-          <div class="su-tabs-row">
-            <div class="view-tabs" id="su-type-tabs" role="tablist" aria-label="Account type">
-              <button class="view-tab active" type="button" role="tab" aria-selected="true" data-type="all">All Users</button>
-              <button class="view-tab" type="button" role="tab" aria-selected="false" data-type="staff">Staff</button>
-              <button class="view-tab" type="button" role="tab" aria-selected="false" data-type="client">Clients</button>
-            </div>
-          </div>
+          <nav class="su-main-nav" aria-label="Staff &amp; Users sections">
+            <a href="staff-users.html" class="su-nav-link active" id="su-user-directory-link" aria-current="page">
+              <i class="fa-solid fa-users"></i> User Directory
+            </a>
+            <a href="access-management.html" class="su-nav-link" id="su-access-mgmt-link">
+              <i class="fa-solid fa-shield-halved"></i> Access Management
+            </a>
+            <a href="security-activity.html" class="su-nav-link" id="su-security-activity-link">
+              <i class="fa-solid fa-user-shield"></i> Security &amp; Activity
+            </a>
+          </nav>
 
-          <div class="filter-bar su-filter-bar">
-            <div class="search-field">
-              <span><i class="fa-solid fa-magnifying-glass"></i></span>
-              <input type="text" id="su-search-input" placeholder="Search users...">
+          <section class="su-panel" aria-label="User Directory">
+            <div class="su-panel-head">
+              <div class="view-tabs" id="su-type-tabs" role="tablist" aria-label="Account type">
+                <button class="view-tab active" type="button" role="tab" aria-selected="true" data-type="all">All Users</button>
+                <button class="view-tab" type="button" role="tab" aria-selected="false" data-type="staff">Staff</button>
+                <button class="view-tab" type="button" role="tab" aria-selected="false" data-type="client">Clients</button>
+              </div>
             </div>
-            <select id="su-role-filter" class="filter-select" aria-label="Filter by role"></select>
-            <select id="su-status-filter" class="filter-select" aria-label="Filter by status"></select>
+
+            <div class="su-toolbar">
+              <div class="search-field">
+                <span><i class="fa-solid fa-magnifying-glass"></i></span>
+                <input type="text" id="su-search-input" placeholder="Search users...">
+              </div>
+              <select id="su-role-filter" class="filter-select" aria-label="Filter by role"></select>
+              <select id="su-status-filter" class="filter-select" aria-label="Filter by status"></select>
+            </div>
+
             <div id="su-summary-grid" class="su-count-line"></div>
-          </div>
 
-          <div class="su-table-card" id="su-table-card">
-            <div class="su-table-scroll">
-              <table class="su-table">
-                <thead>
-                  <tr>
-                    <th class="su-col-user">User</th>
-                    <th class="su-col-type">Type</th>
-                    <th class="su-col-role">Role</th>
-                    <th class="su-col-status">Status</th>
-                    <th class="su-col-last">Last Active</th>
-                    <th class="su-col-actions">Actions</th>
-                  </tr>
-                </thead>
-                <tbody id="su-table-body"></tbody>
-              </table>
+            <div class="su-table-card" id="su-table-card">
+              <div class="su-table-scroll">
+                <table class="su-table">
+                  <thead>
+                    <tr>
+                      <th class="su-col-user">User</th>
+                      <th class="su-col-type">Type</th>
+                      <th class="su-col-role">Role</th>
+                      <th class="su-col-status">Status</th>
+                      <th class="su-col-last">Last Active</th>
+                      <th class="su-col-actions">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="su-table-body"></tbody>
+                </table>
+              </div>
             </div>
-          </div>
-          <div id="su-empty-state" class="empty-state" style="display:none;">
-            <div id="su-empty-title" class="su-empty-title">No users yet</div>
-            <div id="su-empty-sub" class="su-empty-sub"></div>
-          </div>
+            <div id="su-empty-state" class="empty-state" style="display:none;">
+              <div id="su-empty-title" class="su-empty-title">No users yet</div>
+              <div id="su-empty-sub" class="su-empty-sub"></div>
+            </div>
+          </section>
         </div>
       </main>
     </div>

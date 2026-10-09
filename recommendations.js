@@ -37,22 +37,8 @@
     '&longitude=' + WEATHER_LON +
     '&current=temperature_2m,precipitation,relative_humidity_2m,weather_code&timezone=auto';
 
-  // Analysis Controls — the period selector shows the same option set
-  // as the Overview's Analysis Controls, but PCData.Predictive only
-  // supports its own fixed recent/baseline windows (see
-  // predictive-analytics-data-store.js), so the selector stays
-  // disabled rather than implying a recalculation that doesn't happen.
-  var ANALYSIS_PERIOD_OPTIONS = [
-    ['7d', 'Last 7 Days'],
-    ['30d', 'Last 30 Days'],
-    ['90d', 'Last 90 Days'],
-    ['6m', 'Last 6 Months'],
-    ['12m', 'Last 12 Months']
-  ];
-
   var state = {
-    weather: { status: 'loading', data: null },
-    controls: { period: '30d', lastAnalyzed: null }
+    weather: { status: 'loading', data: null }
   };
 
   document.addEventListener('DOMContentLoaded', function () {
@@ -69,7 +55,6 @@
       return;
     }
 
-    state.controls.lastAnalyzed = new Date();
     renderAll();
     fetchWeather();
     PCData.onChange(renderAll);
@@ -240,10 +225,7 @@
     var dataItems = computeDataCollection(adjustedDisease);
 
     root.innerHTML =
-      renderBack() +
       renderPageHead() +
-      renderControls() +
-      renderSummary(stockItems, monitorItems, dataItems) +
       renderCurrentRecommendations(stockItems, monitorItems, dataItems) +
       '<div class="pa-lower2-grid">' +
         renderStockPanel(stockItems) +
@@ -255,16 +237,6 @@
       renderAnalysisNote();
 
     bindCrTable(root);
-  }
-
-  function renderBack() {
-    return (
-      '<div class="pa-back-row">' +
-        '<a class="pa-back-link" href="predictive-analytics.html">' +
-          '<i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Back to Predictive Analytics' +
-        '</a>' +
-      '</div>'
-    );
   }
 
   // ------------------------------------------------------------------
@@ -859,75 +831,6 @@
     );
   }
 
-  function renderControls() {
-    var c = state.controls;
-    var options = ANALYSIS_PERIOD_OPTIONS.map(function (o) {
-      return '<option value="' + o[0] + '"' + (o[0] === c.period ? ' selected' : '') + '>' + esc(o[1]) + '</option>';
-    }).join('');
-
-    var statusValue = c.lastAnalyzed ? formatLastAnalyzed(c.lastAnalyzed) : 'Not yet analyzed';
-
-    return (
-      '<section class="pa-controls" aria-labelledby="rec-controls-heading">' +
-        '<h2 class="pa-controls-heading" id="rec-controls-heading">ANALYSIS CONTROLS</h2>' +
-        '<div class="pa-controls-panel">' +
-          '<div class="pa-controls-field">' +
-            '<label class="pa-controls-label" for="rec-period">Analysis Period</label>' +
-            '<select id="rec-period" class="pc-select pa-controls-select" disabled aria-disabled="true">' + options + '</select>' +
-            '<div class="pa-controls-note">Recalculating by period isn\u2019t supported yet \u2014 recommendations currently use a fixed 30-day window.</div>' +
-          '</div>' +
-          '<div class="pa-controls-actions">' +
-            '<div class="pa-controls-status" role="status" aria-live="polite">' +
-              '<span class="pa-controls-label">Last analyzed</span>' +
-              '<span class="pa-controls-value">' + esc(statusValue) + '</span>' +
-            '</div>' +
-          '</div>' +
-        '</div>' +
-      '</section>'
-    );
-  }
-
-  function formatLastAnalyzed(d) {
-    try {
-      return d.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) +
-        ' \u00B7 ' + d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-    } catch (e) {
-      return d.toLocaleString();
-    }
-  }
-
-  function renderSummary(stockItems, monitorItems, dataItems) {
-    var activeTypes = (stockItems.length ? 1 : 0) + (monitorItems.length ? 1 : 0) + (dataItems.length ? 1 : 0);
-
-    return (
-      '<section class="pa-recsum" aria-labelledby="rec-summary-heading">' +
-        '<h2 class="pa-recsum-heading" id="rec-summary-heading">RECOMMENDATION SUMMARY</h2>' +
-        '<ul class="pa-recsum-grid">' +
-          recsumCard('fa-lightbulb', 'Recommendations', activeTypes, 'Actionable items from predictive analysis', true) +
-          recsumCard('fa-box', 'Stock Actions', stockItems.length, 'Items related to inventory and stock levels') +
-          recsumCard('fa-arrow-trend-up', 'Monitoring Actions', monitorItems.length, 'Items to monitor for changes') +
-          recsumCard('fa-database', 'Data Collection', dataItems.length, 'Additional data needed for better accuracy') +
-        '</ul>' +
-      '</section>'
-    );
-  }
-
-  function recsumCard(icon, label, value, desc, primary) {
-    return (
-      '<li class="pa-recsum-card' + (primary ? ' pa-recsum-card-primary' : '') + '">' +
-        '<div class="pa-recsum-head">' +
-          '<div class="pa-recsum-icon-wrap">' +
-            '<span class="pa-recsum-icon"><i class="fa-solid ' + icon + '" aria-hidden="true"></i></span>' +
-            '<span class="pa-recsum-label">' + esc(label) + '</span>' +
-          '</div>' +
-          '<i class="fa-solid fa-arrow-up-right-from-square pa-recsum-link" aria-hidden="true"></i>' +
-        '</div>' +
-        '<div class="pa-recsum-value">' + esc(String(value)) + '</div>' +
-        '<div class="pa-recsum-desc">' + esc(desc) + '</div>' +
-      '</li>'
-    );
-  }
-
   function renderCurrentRecommendations(stockItems, monitorItems, dataItems) {
     var rows = [];
     if (stockItems.length) {
@@ -973,7 +876,7 @@
     var body = rows.length
       ? '<div class="pa-cr-table-wrap"><table class="pa-cr-table">' +
           '<caption class="pa-sr-only">Current recommendations</caption>' +
-          '<thead><tr><th scope="col">Action</th><th scope="col">Context</th><th scope="col">Priority</th><th scope="col"><span class="pa-sr-only">Details</span></th></tr></thead>' +
+          '<thead><tr><th scope="col">Action</th><th scope="col">Context</th><th scope="col">Priority</th></tr></thead>' +
           '<tbody>' + rows.map(renderCrRow).join('') + '</tbody>' +
         '</table></div>'
       : '<div class="pa-cr-empty">' + emptyState('INSUFFICIENT DATA \u2014 not enough data yet for a reliable recommendation.') + '</div>';
@@ -1001,11 +904,6 @@
         '</td>' +
         '<td class="pa-cr-context">' + esc(r.context) + '</td>' +
         '<td class="pa-cr-priority-cell"><span class="status-badge ' + priorityBadgeClass(r.priority) + '">' + esc(r.priority) + '</span></td>' +
-        '<td class="pa-cr-end-cell">' +
-          (clickable
-            ? '<button type="button" class="pa-cr-arrow-btn" data-rec-type="' + esc(r.type) + '" aria-label="View details: ' + esc(r.title) + '"><i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button>'
-            : '<span class="pa-cr-arrow" aria-hidden="true"><i class="fa-solid fa-arrow-right"></i></span>') +
-        '</td>' +
       '</tr>'
     );
   }

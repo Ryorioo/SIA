@@ -8,8 +8,9 @@
 <link rel="stylesheet" href="style.css">
 
 <!--
-  Page-scoped styles only — style.css is untouched. Every selector is
-  sa- prefixed and every color/radius/shadow comes from the design
+  Page-scoped styles only — style.css is untouched. The records panel,
+  filters, table and empty state mirror the User Directory in
+  staff-users.html. Every selector is sa- prefixed and every color/radius/shadow comes from the design
   tokens in style.css (--teal-*, --sage-*, --surface-*, --ink-*, --line-*,
   --r-*, --clay-*). Shared components (.btn, .btn-sm, .view-tabs,
   .filter-bar, .search-field, .filter-select, .status-badge, .modal-*,
@@ -19,94 +20,175 @@
   .sa-page { padding: 2px 0 8px; }
 
   /* ---------- header ---------- */
-  .sa-back { margin-bottom: 14px; }
-  .sa-header { display: flex; align-items: flex-start; gap: 12px; min-width: 0; margin-bottom: 20px; }
-  .sa-header .menu-toggle { margin-top: 2px; flex-shrink: 0; }
+  /* Header follows Staff & Users: compact 20px/800 parent heading, with the
+     ACCESS MANAGEMENT subsection heading directly beneath it. No description. */
+  .sa-header { display: flex; align-items: center; gap: 12px; min-width: 0; margin-bottom: 14px; }
+  .sa-header .menu-toggle { flex-shrink: 0; }
   .sa-title {
-    margin: 0 0 4px;
-    font-size: 26px;
+    margin: 0 0 2px;
+    font-size: 20px;
     font-weight: 800;
-    letter-spacing: -0.01em;
-    color: var(--teal-900);
-    line-height: 1.2;
+    line-height: 1.3;
+    letter-spacing: normal;
+    color: var(--ink-900);
   }
-  .sa-subtitle { margin: 0; color: var(--ink-soft); font-size: 13.5px; font-weight: 500; }
+  .sa-subsection {
+    margin: 0;
+    font-size: 12.5px;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    line-height: 1.3;
+    color: var(--teal-700);
+  }
 
+  /* ---- Main section navigation: identical to staff-users.html and kept under
+     the same su- class names so both pages render one shared component.
+     Understated text + icon tabs, underline on the active destination. ---- */
+  .su-main-nav {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 4px;
+    margin-bottom: 18px;
+    border-bottom: 1px solid var(--line);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .su-main-nav::-webkit-scrollbar { display: none; }
+  .su-nav-link {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 9px 14px 10px;
+    margin-bottom: -1px;
+    border-bottom: 2px solid transparent;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--ink-soft);
+    text-decoration: none;
+    white-space: nowrap;
+    transition: color 0.15s ease, border-color 0.15s ease;
+  }
+  .su-nav-link i { font-size: 12px; }
+  .su-nav-link:hover { color: var(--ink-800); border-bottom-color: var(--line-strong); }
+  .su-nav-link.active { color: var(--teal-700); border-bottom-color: var(--teal-600); }
+  .su-nav-link:focus-visible { outline: 2px solid var(--teal-400); outline-offset: -2px; border-radius: var(--r-xs); }
+
+  /* ---------- records panel — same module as the User Directory panel in
+     staff-users.html: one bordered card holding the tabs, a flat filter row,
+     the count line and the table on an inner page-bg surface ---------- */
+  .sa-panel {
+    box-sizing: border-box;
+    min-width: 0;
+    padding: 16px 18px 18px;
+    background: var(--surface-card);
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+    box-shadow: var(--clay-flat);
+    margin-bottom: 24px;
+  }
   .sa-tabs-row { margin-bottom: 14px; max-width: 100%; }
   .sa-tabs-row .view-tabs { max-width: 100%; }
 
-  /* ---------- filters ---------- */
-  .sa-filter-bar { margin-bottom: 18px; }
-  .sa-filter-bar > * { min-width: 0; }
+  /* ---------- filters: flat row (search 38px, selects 170px) ---------- */
+  .sa-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 9px; margin: 0 0 12px; }
+  .sa-toolbar > * { min-width: 0; }
+  .sa-toolbar .search-field { flex: 2 1 260px; height: 38px; }
+  .sa-toolbar .search-field:focus-within { border-color: var(--teal-400); }
   /* style.css's global text-input rule outranks .search-field input; keep the
      search field a single inset surface rather than a box inside a box. */
-  .sa-filter-bar .search-field input {
+  .sa-toolbar .search-field input {
     border: none; background: transparent; box-shadow: none; padding: 0; border-radius: 0;
+    color: var(--ink-900);
   }
-  .sa-filter-bar .filter-select { max-width: 100%; }
-  .sa-filter-bar input[type="date"] {
-    height: 37px; padding: 0 12px; font-size: 12.8px; font-weight: 600; max-width: 100%;
+  .sa-toolbar .filter-select {
+    flex: 0 0 170px; min-width: 0; max-width: 100%; box-sizing: border-box;
+    -webkit-appearance: none; -moz-appearance: none; appearance: none;
+    height: 38px; padding: 0 34px 0 12px;
+    background-color: var(--surface-sunken);
+    background-image: linear-gradient(45deg, transparent 50%, var(--ink-faint) 50%), linear-gradient(135deg, var(--ink-faint) 50%, transparent 50%);
+    background-position: calc(100% - 18px) center, calc(100% - 13px) center;
+    background-size: 5px 5px, 5px 5px; background-repeat: no-repeat;
+    border: 1px solid var(--line-soft); border-radius: 10px;
+    color: var(--ink-900); font: inherit; font-weight: 600;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    transition: border-color 0.15s ease;
   }
+  .sa-toolbar .filter-select:hover { border-color: var(--line-strong); }
+  /* Event-type names are longer than the User Directory's role/status
+     labels ("All Security Events"), so that one dropdown is a little wider. */
+  .sa-toolbar #sa-event-filter { flex: 0 0 210px; }
+  .sa-toolbar .filter-select:focus { outline: none; border-color: var(--teal-400); }
+  /* Date filter: same 38px / 10px-radius control as the dropdowns. */
+  .sa-toolbar input[type="date"] {
+    flex: 0 0 170px; max-width: 100%; box-sizing: border-box;
+    height: 38px; padding: 0 12px;
+    border: 1px solid var(--line-soft); border-radius: 10px;
+    font: inherit; font-weight: 600; color: var(--ink-900);
+    transition: border-color 0.15s ease;
+  }
+  .sa-toolbar input[type="date"]:hover { border-color: var(--line-strong); }
+  .sa-toolbar input[type="date"]:focus { border-color: var(--teal-400); }
+
   .sa-count-line {
-    flex: 0 0 100%;
     display: flex; align-items: center; flex-wrap: wrap; gap: 4px 12px;
-    padding: 2px 4px 0;
-    font-size: 12.2px;
-    font-weight: 600;
-    color: var(--ink-soft);
+    margin: 0 0 10px;
+    font-size: 12.5px; font-weight: 600; line-height: 1.45; color: var(--ink-700);
   }
   .sa-clear {
     background: none; border: none; padding: 0; cursor: pointer;
-    font-size: 12.2px; font-weight: 700; color: var(--teal-700);
+    font-size: 12.3px; font-weight: 700; color: var(--teal-700);
   }
   .sa-clear:hover { text-decoration: underline; }
 
-  /* ---------- event table ---------- */
+  /* ---------- table: inner page-bg surface (JS shows/hides .sa-table-card) ---------- */
   .sa-table-card {
-    background: var(--surface-card);
-    border: 1px solid var(--line-soft);
-    border-radius: var(--r-lg);
-    box-shadow: var(--clay-flat);
-    overflow: hidden;
+    padding: 6px 10px 4px;
+    background: var(--surface-bg);
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+    box-shadow: inset 0 1px 2px rgba(31, 42, 46, 0.05);
     container-type: inline-size;
   }
   .sa-table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-  .sa-table { width: 100%; min-width: 760px; border-collapse: collapse; }
+  .sa-table { width: 100%; min-width: 760px; border-collapse: collapse; font-size: 13px; }
   .sa-table th {
     text-align: left;
-    padding: 11px 14px;
-    font-size: 11.2px;
+    padding: 10px 12px;
+    font-size: 10.6px;
     font-weight: 800;
-    letter-spacing: 0.03em;
-    color: var(--ink-faint);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--ink-700);
     background: var(--surface-sunken);
-    border-bottom: 1px solid var(--line-soft);
+    border-bottom: 1px solid transparent;
     white-space: nowrap;
   }
+  .sa-table th:first-child { border-top-left-radius: var(--r-xs); border-bottom-left-radius: var(--r-xs); }
+  .sa-table th:last-child { border-top-right-radius: var(--r-xs); border-bottom-right-radius: var(--r-xs); }
   .sa-table td {
-    padding: 12px 14px;
-    font-size: 12.8px;
-    font-weight: 500;
-    color: var(--ink-800);
-    border-bottom: 1px solid var(--line-soft);
+    padding: 11px 12px;
+    font-size: 13px;
+    line-height: 1.3;
+    color: var(--ink-900);
+    border-bottom: 1px solid var(--line);
     vertical-align: middle;
   }
-  .sa-table th:first-child, .sa-table td:first-child { padding-left: 18px; }
-  .sa-table th:last-child, .sa-table td:last-child { padding-right: 18px; }
   .sa-table tbody tr:last-child td { border-bottom: none; }
-  .sa-table tbody tr:hover { background: var(--surface-bg); }
+  .sa-table tbody tr:hover { background: var(--surface-card); }
   .sa-c-when, .sa-c-type, .sa-c-status { white-space: nowrap; }
   .sa-c-action { width: 1%; white-space: nowrap; }
 
   /* user cell */
-  .sa-user { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .sa-user { display: flex; align-items: center; gap: 12px; min-width: 0; }
   .sa-avatar {
-    width: 32px; height: 32px; flex-shrink: 0; border-radius: 50%;
+    width: 34px; height: 34px; flex-shrink: 0; border-radius: 50%;
     display: flex; align-items: center; justify-content: center;
-    font-size: 11.5px; font-weight: 800; letter-spacing: 0.02em;
+    font-size: 12px; font-weight: 800; letter-spacing: 0.02em;
     background: var(--teal-100); color: var(--teal-800);
   }
-  .sa-user-name { font-size: 13px; font-weight: 700; color: var(--ink-900); line-height: 1.3; overflow-wrap: anywhere; min-width: 0; }
+  .sa-user-name { font-size: 13.2px; font-weight: 700; color: var(--ink-900); line-height: 1.3; overflow-wrap: anywhere; min-width: 0; }
 
   /* event cell: small icon + name + optional related account */
   .sa-event { display: flex; align-items: center; gap: 10px; min-width: 0; }
@@ -124,13 +206,13 @@
   .sa-ev-icon-failed { background: var(--amber-100); color: var(--amber-800); border-color: var(--amber-100); }
   .sa-ev-text { min-width: 0; }
   .sa-ev-name { font-size: 13px; font-weight: 700; color: var(--ink-900); line-height: 1.3; overflow-wrap: anywhere; }
-  .sa-ev-sub { font-size: 11.6px; font-weight: 500; color: var(--ink-soft); line-height: 1.3; overflow-wrap: anywhere; }
+  .sa-ev-sub { font-size: 11.5px; font-weight: 500; color: var(--ink-soft); line-height: 1.3; overflow-wrap: anywhere; }
 
   /* date & time */
-  .sa-date { font-weight: 600; color: var(--ink-800); }
-  .sa-time { font-size: 11.6px; font-weight: 500; color: var(--ink-soft); }
+  .sa-date { font-weight: 600; color: var(--ink-900); }
+  .sa-time { font-size: 11.5px; font-weight: 500; color: var(--ink-soft); }
 
-  /* type tag — same quiet outlined look as the Type tag in Staff & Users */
+  /* type tag — same quiet outlined look as the Type tag in the User Directory */
   .sa-tag {
     display: inline-block; padding: 2px 9px; border-radius: var(--r-pill);
     font-size: 11.5px; font-weight: 700; color: var(--teal-800);
@@ -146,14 +228,33 @@
   .sa-status-failed { background: var(--amber-100); color: var(--amber-800); }
   .sa-status-failed::before { background: var(--amber-600); }
 
+  /* Empty state: same inner surface as the table, centred message */
+  .sa-panel .empty-state {
+    margin: 0; padding: 44px 20px;
+    background: var(--surface-bg); border: 1px solid var(--line); border-radius: var(--r-md);
+    box-shadow: inset 0 1px 2px rgba(31, 42, 46, 0.05);
+    color: var(--ink-700);
+  }
   .sa-empty-title { font-weight: 800; font-size: 13.5px; color: var(--ink-700); }
   .sa-empty-sub { margin-top: 3px; font-size: 12.3px; font-weight: 500; }
+
+  /* ---------- Security Events table (8 columns) ---------- */
+  .sa-evt .sa-table { min-width: 940px; }
+  .sa-evt td.sa-c-ip, .sa-evt td.sa-c-dev { font-size: 12.5px; font-weight: 500; color: var(--ink-900); overflow-wrap: anywhere; }
+  .sa-evt .sa-c-ip { min-width: 96px; }
+  .sa-evt .sa-c-dev { min-width: 104px; }
+  .sa-evt .sa-c-sev { white-space: nowrap; }
+  .sa-evt .sa-c-when .sa-date, .sa-evt .sa-c-when .sa-time { display: block; }
+
+  @media (max-width: 1100px) {
+    .sa-table th, .sa-table td { padding-left: 8px; padding-right: 8px; }
+  }
 
   /* Narrow table card (phones, tablets, or desktop with the sidebar open and
      a small window): each row becomes a compact stacked entry instead of
      scrolling sideways. Keyed to the card's own width via a container query. */
   @container (max-width: 859px) {
-    .sa-table { min-width: 0; }
+    .sa-table, .sa-evt .sa-table { min-width: 0; }
     .sa-table, .sa-table tbody { display: block; }
     .sa-table thead {
       position: absolute; width: 1px; height: 1px; overflow: hidden;
@@ -161,10 +262,12 @@
     }
     .sa-table tbody tr {
       display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px;
-      padding: 14px 16px; border-bottom: 1px solid var(--line-soft);
+      padding: 14px 4px 12px; border-top: 1px solid var(--line);
     }
-    .sa-table tbody tr:last-child { border-bottom: none; }
-    .sa-table td, .sa-table td:first-child, .sa-table td:last-child {
+    .sa-table tbody tr:first-child { border-top: none; }
+    .sa-table tbody tr:hover { background: transparent; }
+    .sa-table td, .sa-table td:first-child, .sa-table td:last-child,
+    .sa-table tbody tr:last-child td {
       display: block; padding: 0; border: none; width: auto;
     }
     .sa-c-event  { order: 1; flex: 1 1 0; min-width: 0; }
@@ -178,26 +281,18 @@
     .sa-c-when { font-size: 12px; }
     .sa-date, .sa-time { display: inline; font-size: 12px; }
     .sa-date::after { content: ' \00b7 '; color: var(--ink-faint); font-weight: 500; }
-  }
 
-  /* ---------- Security Events table (8 columns) ---------- */
-  .sa-evt .sa-table th, .sa-evt .sa-table td { padding-left: 10px; padding-right: 10px; }
-  .sa-evt .sa-table th:first-child, .sa-evt .sa-table td:first-child { padding-left: 16px; }
-  .sa-evt .sa-table th:last-child, .sa-evt .sa-table td:last-child { padding-right: 16px; }
-  .sa-evt td.sa-c-ip, .sa-evt td.sa-c-dev { font-size: 12.5px; font-weight: 500; color: var(--ink-800); overflow-wrap: anywhere; }
-  .sa-evt .sa-c-ip { min-width: 96px; }
-  .sa-evt .sa-c-dev { min-width: 104px; }
-  .sa-evt .sa-c-sev { white-space: nowrap; }
-  .sa-evt .sa-c-when .sa-date, .sa-evt .sa-c-when .sa-time { display: block; }
-
-  /* Security Events, narrow card: the extra columns join the existing stacked entry. */
-  @container (max-width: 859px) {
+    /* Security Events: the extra columns join the same stacked entry. */
     .sa-evt .sa-c-type { order: 5; }
     .sa-evt .sa-c-sev  { order: 6; }
     .sa-evt .sa-c-ip   { order: 7; flex: 0 0 auto; min-width: 0; }
     .sa-evt .sa-c-dev  { order: 8; flex: 0 0 auto; min-width: 0; }
     .sa-evt td.sa-c-ip::before  { content: 'IP '; color: var(--ink-faint); font-weight: 700; font-style: normal; font-size: 11px; letter-spacing: 0.03em; }
     .sa-evt td.sa-c-dev::before { content: 'Device '; color: var(--ink-faint); font-weight: 700; font-style: normal; font-size: 11px; letter-spacing: 0.03em; }
+    /* A missing Type / Severity would otherwise read as an unlabeled "Not recorded". */
+    .sa-evt td.sa-c-type:has(> .sa-missing)::before { content: 'Type '; }
+    .sa-evt td.sa-c-sev:has(> .sa-missing)::before { content: 'Severity '; }
+    .sa-evt td.sa-c-type:has(> .sa-missing)::before, .sa-evt td.sa-c-sev:has(> .sa-missing)::before { color: var(--ink-faint); font-weight: 700; font-style: normal; font-size: 11px; letter-spacing: 0.03em; }
     .sa-evt .sa-c-when .sa-date, .sa-evt .sa-c-when .sa-time { display: inline; }
     .sa-evt td.sa-c-ip, .sa-evt td.sa-c-dev { font-size: 12px; }
   }
@@ -266,7 +361,6 @@
 
   /* ---------- responsive ---------- */
   @media (max-width: 640px) {
-    .sa-title { font-size: 22px; }
     .sa-info-row { grid-template-columns: 1fr; gap: 2px; }
   }
   @media (max-width: 480px) {
@@ -277,10 +371,20 @@
     .sa-change-arrow i { transform: rotate(90deg); }
     .sa-modal-top .modal-title { font-size: 13.5px; }
   }
+  @media (max-width: 640px) {
+    .sa-panel { padding: 14px 14px 16px; }
+    /* Filters, as in the User Directory: search full width, dropdowns two per
+       row; the date field takes its own full-width row. */
+    .sa-toolbar .search-field { flex: 1 1 100%; }
+    .sa-toolbar .filter-select, .sa-toolbar #sa-event-filter { flex: 1 1 calc(50% - 5px); }
+    .sa-toolbar input[type="date"] { flex: 1 1 100%; width: 100%; }
+    .sa-table-card { padding: 2px 12px; }
+  }
+  @media (max-width: 480px) {
+    /* Dropdown labels such as "All Security Events" need the full row to stay readable. */
+    .sa-toolbar .filter-select, .sa-toolbar #sa-event-filter { flex: 1 1 100%; }
+  }
   @media (max-width: 560px) {
-    /* Filters stack to full-width controls instead of overflowing. */
-    .sa-filter-bar .search-field { flex: 1 1 100%; min-width: 0; }
-    .sa-filter-bar .filter-select, .sa-filter-bar input[type="date"] { flex: 1 1 100%; width: 100%; }
     .sa-tabs-row .view-tabs { display: grid; grid-template-columns: 1fr 1fr; width: 100%; }
     .sa-tabs-row .view-tab { justify-content: center; }
   }
@@ -387,55 +491,66 @@
     <div class="main-content">
       <main class="page-body">
         <div class="sa-page">
-          <a href="staff-users.html" class="btn btn-sm sa-back">
-            <i class="fa-solid fa-arrow-left"></i> Back to Staff &amp; Users
-          </a>
-
           <div class="sa-header">
             <!-- sidebar.js binds to .menu-toggle for the mobile sidebar. -->
             <button class="menu-toggle" aria-label="Toggle navigation"><i class="fa-solid fa-bars"></i></button>
             <div>
-              <h1 class="sa-title">SECURITY &amp; ACTIVITY</h1>
-              <p class="sa-subtitle">Review account sign-ins, changes, and security events.</p>
+              <h1 class="sa-title">STAFF &amp; USERS</h1>
+              <h2 class="sa-subsection">SECURITY &amp; ACTIVITY</h2>
             </div>
           </div>
 
-          <div class="sa-tabs-row">
-            <div class="view-tabs" id="sa-tabs" role="tablist" aria-label="Record type">
-              <button class="view-tab active" type="button" role="tab" id="sa-tab-activity" aria-selected="true" aria-controls="sa-panel" data-tab="activity">
-                <i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i> Activity
-              </button>
-              <button class="view-tab" type="button" role="tab" id="sa-tab-security" aria-selected="false" aria-controls="sa-panel" tabindex="-1" data-tab="security">
-                <i class="fa-solid fa-user-shield" aria-hidden="true"></i> Security Events
-              </button>
-            </div>
-          </div>
+          <nav class="su-main-nav" aria-label="Staff &amp; Users sections">
+            <a href="staff-users.html" class="su-nav-link" id="su-user-directory-link">
+              <i class="fa-solid fa-users"></i> User Directory
+            </a>
+            <a href="access-management.html" class="su-nav-link" id="su-access-mgmt-link">
+              <i class="fa-solid fa-shield-halved"></i> Access Management
+            </a>
+            <a href="security-activity.html" class="su-nav-link active" id="su-security-activity-link" aria-current="page">
+              <i class="fa-solid fa-user-shield"></i> Security &amp; Activity
+            </a>
+          </nav>
 
-          <div id="sa-panel" role="tabpanel" aria-labelledby="sa-tab-activity">
-            <div class="filter-bar sa-filter-bar">
-              <div class="search-field">
-                <span><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i></span>
-                <input type="text" id="sa-search" placeholder="Search activity..." aria-label="Search activity" autocomplete="off">
+          <section class="sa-panel" aria-label="Security &amp; Activity records">
+            <div class="sa-tabs-row">
+              <div class="view-tabs" id="sa-tabs" role="tablist" aria-label="Record type">
+                <button class="view-tab active" type="button" role="tab" id="sa-tab-activity" aria-selected="true" aria-controls="sa-panel" data-tab="activity">
+                  <i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i> Activity
+                </button>
+                <button class="view-tab" type="button" role="tab" id="sa-tab-security" aria-selected="false" aria-controls="sa-panel" tabindex="-1" data-tab="security">
+                  <i class="fa-solid fa-user-shield" aria-hidden="true"></i> Security Events
+                </button>
               </div>
-              <select id="sa-user-filter" class="filter-select" aria-label="Filter by user"></select>
-              <select id="sa-event-filter" class="filter-select" aria-label="Filter by event type"></select>
-              <input type="date" id="sa-date-filter" aria-label="Filter by date">
+            </div>
+
+            <div id="sa-panel" role="tabpanel" aria-labelledby="sa-tab-activity">
+              <div class="sa-toolbar">
+                <div class="search-field">
+                  <span><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i></span>
+                  <input type="text" id="sa-search" placeholder="Search activity..." aria-label="Search activity" autocomplete="off">
+                </div>
+                <select id="sa-user-filter" class="filter-select" aria-label="Filter by user"></select>
+                <select id="sa-event-filter" class="filter-select" aria-label="Filter by event type"></select>
+                <input type="date" id="sa-date-filter" aria-label="Filter by date">
+              </div>
+
               <div class="sa-count-line" id="sa-count" aria-live="polite"></div>
-            </div>
 
-            <div class="sa-table-card" id="sa-table-card">
-              <div class="sa-table-scroll">
-                <table class="sa-table" role="table">
-                  <thead id="sa-thead"></thead>
-                  <tbody id="sa-tbody"></tbody>
-                </table>
+              <div class="sa-table-card" id="sa-table-card">
+                <div class="sa-table-scroll">
+                  <table class="sa-table" role="table">
+                    <thead id="sa-thead"></thead>
+                    <tbody id="sa-tbody"></tbody>
+                  </table>
+                </div>
+              </div>
+              <div id="sa-empty" class="empty-state" style="display:none;">
+                <div id="sa-empty-title" class="sa-empty-title"></div>
+                <div id="sa-empty-sub" class="sa-empty-sub"></div>
               </div>
             </div>
-            <div id="sa-empty" class="empty-state" style="display:none;">
-              <div id="sa-empty-title" class="sa-empty-title"></div>
-              <div id="sa-empty-sub" class="sa-empty-sub"></div>
-            </div>
-          </div>
+          </section>
         </div>
       </main>
     </div>

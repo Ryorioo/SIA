@@ -23,6 +23,10 @@
 // An empty section keeps its header + 0 count pill and shows its own
 // empty state inside the card. Counts follow the filtered results.
 // UI only: grouping rules, sorting, filters and storage are unchanged.
+//
+// Phase 2: each section shows at most 10 notifications per page with its
+// own Previous / numbered / Next pager (view-only; nothing is deleted or
+// hidden). The page resets to 1 when the search, tab or dropdowns change.
 // ============================================================
 
 (function () {
@@ -38,6 +42,17 @@
   var state = { view: 'all', category: '', priority: '', search: '' };
 
   var lastSignature = null; // skip re-render when nothing changed
+
+  // Phase 2: pagination. Each section pages independently (10 per page), so
+  // the Requires attention / Recent activity / Upcoming lists never affect
+  // one another. View-only: nothing is stored, deleted or hidden — every
+  // notification stays reachable through its section's pager.
+  var PAGE_SIZE = 10;
+  var pages = { attention: 1, recent: 1, upcoming: 1 };
+  var lastFilteredCount = 0;
+
+  // A different search / filter / tab means a different list: start over.
+  function resetPages() { pages = { attention: 1, recent: 1, upcoming: 1 }; }
 
   var els = {};
 
@@ -479,22 +494,73 @@
     return row;
   }
 
-  // Count of rows currently shown, for the filter announcement.
-  function shownCount() { return els.list.querySelectorAll('.notif-item').length; }
+  // Number of notifications matching the current filters (all pages), for
+  // the filter announcement.
+  function shownCount() { return lastFilteredCount; }
+
+  // Page numbers to show: all of them up to 7 pages, otherwise first/last,
+  // the current page and its neighbours, with '…' for the gaps (same as
+  // Inventory Items).
+  function pageList(cur, total) {
+    if (total <= 7) {
+      var all = [];
+      for (var n = 1; n <= total; n++) all.push(n);
+      return all;
+    }
+    if (cur <= 4) return [1, 2, 3, 4, 5, '\u2026', total];
+    if (cur >= total - 3) return [1, '\u2026', total - 4, total - 3, total - 2, total - 1, total];
+    return [1, '\u2026', cur - 1, cur, cur + 1, '\u2026', total];
+  }
+
+  function pageButtons(cur, total) {
+    return pageList(cur, total).map(function (p) {
+      if (p === '\u2026') return '<span class="notif-ellipsis" aria-hidden="true">\u2026</span>';
+      var active = p === cur;
+      return '<button type="button" class="btn btn-sm notif-pg' + (active ? ' btn-primary' : '') + '" data-pg="' + p + '"' +
+        (active ? ' aria-current="page"' : '') + ' aria-label="Page ' + p + '">' + p + '</button>';
+    }).join('');
+  }
+
+  // "Showing 1\u201310 of 23 notifications" on the left; Previous / numbers /
+  // Next on the right. Only built for sections with more than PAGE_SIZE items.
+  function buildFooter(group, cur, pageCount, start, shown) {
+    var total = group.items.length;
+    var range = shown === 1 ? String(start + 1) : (start + 1) + '\u2013' + (start + shown);
+    var foot = document.createElement('div');
+    foot.className = 'notif-foot';
+    foot.innerHTML =
+      '<p class="notif-foot-count" aria-live="polite">Showing ' + range + ' of ' + total + ' notification' + (total === 1 ? '' : 's') + '</p>' +
+      '<div class="notif-pager" role="group" aria-label="' + escapeHtml(group.title) + ' pagination">' +
+        '<button type="button" class="btn btn-sm notif-prev" data-pg="prev"' + (cur <= 1 ? ' disabled' : '') + '>Previous</button>' +
+        '<div class="notif-pages">' + pageButtons(cur, pageCount) + '</div>' +
+        '<button type="button" class="btn btn-sm notif-next" data-pg="next"' + (cur >= pageCount ? ' disabled' : '') + '>Next</button>' +
+      '</div>';
+    return foot;
+  }
 
   function render(force) {
     var all = PCData.getNotifications();
+    var counts = computeTabCounts(all);
+    var filtered = applyFilters(all);
+    lastFilteredCount = filtered.length;
+    var groups = groupNotifications(filtered);
+
+    // Keep each section's page inside its range (e.g. after notifications
+    // were marked read and moved to another section). Done before the
+    // signature so the clamped pages are what get compared.
+    groups.forEach(function (g) {
+      var pageCount = Math.max(1, Math.ceil(g.items.length / PAGE_SIZE));
+      if (pages[g.key] > pageCount) pages[g.key] = pageCount;
+      if (!(pages[g.key] >= 1)) pages[g.key] = 1;
+    });
 
     // The 1.5s safety-net poll calls render() constantly; skip the
     // DOM rebuild when nothing has actually changed since last time.
-    var signature = JSON.stringify(state) + '|' + all.map(function (n) { return n.id + ':' + n.read + ':' + n.priority; }).join(',');
+    var signature = JSON.stringify(state) + '|' + JSON.stringify(pages) + '|' + all.map(function (n) { return n.id + ':' + n.read + ':' + n.priority; }).join(',');
     if (!force && signature === lastSignature) return;
     lastSignature = signature;
 
-    var counts = computeTabCounts(all);
     syncControls(counts);
-
-    var filtered = applyFilters(all);
 
     els.list.innerHTML = '';
 
@@ -504,9 +570,11 @@
     els.list.style.display = 'flex';
 
     var rowSeq = 0;
-    groupNotifications(filtered).forEach(function (group) {
+    groups.forEach(function (group) {
       var section = document.createElement('section');
       section.className = 'notif-section notif-section-' + group.key;
+      section.setAttribute('data-section', group.key);
+      section.setAttribute('data-pages', String(Math.max(1, Math.ceil(group.items.length / PAGE_SIZE))));
       var titleId = 'notifSectionTitle-' + group.key;
       section.setAttribute('aria-labelledby', titleId);
 
@@ -520,8 +588,12 @@
 
       var rows = document.createElement('div');
       rows.className = 'notif-group';
+      var pageCount = Math.max(1, Math.ceil(group.items.length / PAGE_SIZE));
+      var cur = pages[group.key];
+      var start = (cur - 1) * PAGE_SIZE;
+      var pageItems = group.items.slice(start, start + PAGE_SIZE);
       if (group.items.length) {
-        group.items.forEach(function (n) { rows.appendChild(buildRow(n, rowSeq++)); });
+        pageItems.forEach(function (n) { rows.appendChild(buildRow(n, rowSeq++)); });
       } else {
         var msg = sectionEmptyMessage(group.key);
         var empty = document.createElement('div');
@@ -533,6 +605,7 @@
         rows.appendChild(empty);
       }
       section.appendChild(rows);
+      if (group.items.length > PAGE_SIZE) section.appendChild(buildFooter(group, cur, pageCount, start, pageItems.length));
 
       els.list.appendChild(section);
     });
@@ -570,6 +643,35 @@
   // wiring
   // ------------------------------------------------------------------
 
+  // One delegated handler for all three sections' pagers; the section is
+  // read from the clicked control, so each list pages on its own.
+  function wirePagers() {
+    els.list.addEventListener('click', function (e) {
+      var btn = e.target.closest ? e.target.closest('[data-pg]') : null;
+      if (!btn || btn.disabled) return;
+      var section = btn.closest('.notif-section');
+      if (!section) return;
+      var key = section.getAttribute('data-section');
+      var cur = pages[key];
+      var v = btn.getAttribute('data-pg');
+      var n = v === 'prev' ? cur - 1 : v === 'next' ? cur + 1 : parseInt(v, 10);
+      if (!n || n < 1 || n === cur) return;
+      pages[key] = n;
+      render(true);
+
+      // The pager is rebuilt, so put keyboard focus back on the current page
+      // number; and if the section's top has scrolled out of view, bring it
+      // back so the new page starts at its first row.
+      var again = els.list.querySelector('.notif-section[data-section="' + key + '"]');
+      if (!again) return;
+      var cr = again.querySelector('.notif-pg[aria-current="page"]');
+      if (cr) cr.focus();
+      if (again.getBoundingClientRect().top < 0 && again.scrollIntoView) again.scrollIntoView({ block: 'start' });
+      var title = again.querySelector('.notif-section-title');
+      announce((title ? title.firstChild.textContent : 'Section') + ': page ' + pages[key] + ' of ' + again.getAttribute('data-pages') + '.');
+    });
+  }
+
   function wireTabs() {
     els.tabs.forEach(function (tab) {
       tab.addEventListener('click', function () {
@@ -584,6 +686,7 @@
           state.view = 'all';
           state.category = t;
         }
+        resetPages();
         render(true);
         announce(plural(shownCount(), 'notification') + ' shown.');
       });
@@ -593,12 +696,14 @@
   function wireSearch() {
     els.search.addEventListener('input', function () {
       state.search = els.search.value;
+      resetPages();
       render(true);
       announce(plural(shownCount(), 'notification') + ' shown.', 600);
     });
     els.searchClear.addEventListener('click', function () {
       els.search.value = '';
       state.search = '';
+      resetPages();
       render(true);
       els.search.focus();
       announce(plural(shownCount(), 'notification') + ' shown.');
@@ -608,11 +713,13 @@
   function wireDropdowns() {
     els.categorySelect.addEventListener('change', function () {
       state.category = els.categorySelect.value;
+      resetPages();
       render(true);
       announce(plural(shownCount(), 'notification') + ' shown.');
     });
     els.prioritySelect.addEventListener('change', function () {
       state.priority = els.prioritySelect.value;
+      resetPages();
       render(true);
       announce(plural(shownCount(), 'notification') + ' shown.');
     });
@@ -633,6 +740,7 @@
     wireSearch();
     wireDropdowns();
     wireMarkAll();
+    wirePagers();
     wireModal();
     render();
     PCData.onChange(render);

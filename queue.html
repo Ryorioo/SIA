@@ -15,10 +15,15 @@
   .topbar { border-bottom: none; }
 
   /* --- header spacing (Queue page) ---
-     Nudges the "TODAY'S QUEUE" toolbar block down slightly, page-
-     scoped only. margin-bottom (spacing to Now Serving/Next Up below)
-     is untouched — inherited from style.css's .page-toolbar as before. */
-  .page-toolbar { margin-top: 22px; }
+     Matches the Inventory Items header: the empty desktop topbar is
+     hidden (it only holds the mobile menu toggle, which still shows at
+     <=980px), so the old 22px top nudge is no longer needed; the header
+     uses the same vertical centering, 24px gap below, and the same
+     20px/800 heading. No panel or background is added. */
+  @media (min-width: 981px) { .topbar { display: none; } }
+  .page-toolbar.queue-header { align-items: center; margin-bottom: 24px; }
+  .queue-header .queue-header-text { min-width: 0; flex: 1 1 auto; }
+  .queue-header .queue-title { margin: 0 0 2px; font-size: 20px; font-weight: 800; line-height: inherit; letter-spacing: normal; color: var(--ink-900); }
 
   /* ============================================================
      MASTER/DETAIL WORKSPACE — Queue list (left) + Queue Details
@@ -397,9 +402,9 @@
 
       <main class="page-body">
 
-        <div class="page-toolbar">
-          <div>
-            <div style="font-size:20px; font-weight:800; margin-bottom:2px;">TODAY'S QUEUE</div>
+        <div class="page-toolbar queue-header">
+          <div class="queue-header-text">
+            <h1 class="queue-title">TODAY'S QUEUE</h1>
             <div id="queue-date" style="font-size:13px; color:var(--ink-soft); font-weight:600;"></div>
           </div>
         </div>

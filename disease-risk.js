@@ -18,14 +18,6 @@
     '&longitude=' + WEATHER_LON +
     '&current=temperature_2m,precipitation,relative_humidity_2m,weather_code&timezone=auto';
 
-  var ANALYSIS_PERIOD_OPTIONS = [
-    ['7d', 'Last 7 Days'],
-    ['30d', 'Last 30 Days'],
-    ['90d', 'Last 90 Days'],
-    ['6m', 'Last 6 Months'],
-    ['12m', 'Last 12 Months']
-  ];
-
   // Display-only icon per category (presentation, not data).
   var CATEGORY_ICONS = {
     respiratory: 'fa-lungs',
@@ -47,8 +39,7 @@
   };
 
   var state = {
-    weather: { status: 'loading', data: null }, // loading | ok | error
-    lastAnalyzed: null
+    weather: { status: 'loading', data: null } // loading | ok | error
   };
 
   document.addEventListener('DOMContentLoaded', function () {
@@ -115,13 +106,9 @@
     var disease = P.getDiseaseRiskAnalysis();
     var weatherFactors = state.weather.status === 'ok' ? P.getWeatherFactors(state.weather.data) : [];
     var adjusted = P.applyWeatherAdjustments(disease, weatherFactors);
-    state.lastAnalyzed = new Date();
 
     root.innerHTML =
-      renderBack() +
       renderHeader() +
-      renderControls() +
-      renderSummary(adjusted) +
       renderDiseaseSection(adjusted) +
       '<div class="dr-bottom-grid">' +
         renderTrendTable(adjusted) +
@@ -130,110 +117,13 @@
       renderNote();
   }
 
-  function renderBack() {
-    return (
-      '<div class="pa-back-row">' +
-        '<a class="pa-back-link" href="predictive-analytics.html">' +
-          '<i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Back to Predictive Analytics' +
-        '</a>' +
-      '</div>'
-    );
-  }
-
   function renderHeader() {
     return (
-      '<div class="page-toolbar">' +
+      '<div class="page-toolbar dr-page-header">' +
         '<div>' +
-          '<h1 class="dr-title">DISEASE RISK PREDICTIONS</h1>' +
+          '<h1 class="dr-title">DISEASE RISK</h1>' +
         '</div>' +
       '</div>'
-    );
-  }
-
-  // Analysis Period: the engine only supports its fixed 30-day window, so
-  // the select is shown for structure but disabled. Nothing is recalculated.
-  function renderControls() {
-    var options = ANALYSIS_PERIOD_OPTIONS.map(function (o) {
-      return '<option value="' + escAttr(o[0]) + '"' + (o[0] === '30d' ? ' selected' : '') + '>' + esc(o[1]) + '</option>';
-    }).join('');
-    return (
-      '<section class="pa-controls" aria-labelledby="dr-controls-heading">' +
-        '<h2 class="pa-controls-heading" id="dr-controls-heading">ANALYSIS CONTROLS</h2>' +
-        '<div class="pa-controls-panel">' +
-          '<div class="pa-controls-field">' +
-            '<label class="pa-controls-label" for="dr-period">Analysis Period</label>' +
-            '<select id="dr-period" class="pc-select pa-controls-select" disabled title="The analysis currently uses a fixed 30-day window.">' + options + '</select>' +
-          '</div>' +
-          '<div class="pa-controls-actions">' +
-            '<div class="pa-controls-status" role="status" aria-live="polite">' +
-              '<span class="pa-controls-label">Last analyzed</span>' +
-              '<span class="pa-controls-value">' + esc(formatLastAnalyzed(state.lastAnalyzed)) + '</span>' +
-            '</div>' +
-          '</div>' +
-        '</div>' +
-      '</section>'
-    );
-  }
-
-  function formatLastAnalyzed(d) {
-    if (!d) return 'Not yet analyzed';
-    try {
-      return d.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) +
-        ' \u00B7 ' + d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-    } catch (e) {
-      return d.toLocaleString();
-    }
-  }
-
-  // RISK SUMMARY — derived only from the existing analysis result.
-  // Overall confidence follows the same rule the Overview uses: Moderate
-  // when every rated condition has moderate confidence, Low otherwise,
-  // Insufficient when no condition has enough records.
-  function renderSummary(disease) {
-    var cats = disease.categories || [];
-    var rated = cats.filter(function (c) { return c.hasEnoughData; });
-    var increasing = rated.filter(function (c) { return c.trend === 'Increasing'; }).length;
-    var moderateCount = rated.filter(function (c) { return /^moderate/i.test(c.confidence || ''); }).length;
-
-    var overall, overallDesc;
-    if (!rated.length) {
-      overall = 'INSUFFICIENT';
-      overallDesc = 'No condition has enough records to rate yet';
-    } else if (moderateCount === rated.length) {
-      overall = 'MODERATE';
-      overallDesc = 'Sample sizes support all rated estimates';
-    } else {
-      overall = 'LOW';
-      overallDesc = 'Predictions are based on limited data';
-    }
-
-    return (
-      '<section class="dr-section" aria-labelledby="dr-summary-heading">' +
-        '<h2 class="dr-section-heading" id="dr-summary-heading">RISK SUMMARY</h2>' +
-        '<ul class="dr-summary-grid">' +
-          summaryCard('Conditions Monitored', cats.length,
-            rated.length + ' of ' + cats.length + ' have enough records to analyze', 'fa-shield-halved', true) +
-          summaryCard('Conditions With Enough Data', rated.length,
-            rated.length === 1 ? 'Only 1 condition has sufficient data' : rated.length + ' conditions have sufficient data', 'fa-database') +
-          summaryCard('Increasing Risks', increasing,
-            increasing === 1 ? '1 condition is showing an increasing trend' : increasing + ' conditions are showing an increasing trend', 'fa-arrow-trend-up') +
-          summaryCard('Overall Data Confidence', overall, overallDesc, 'fa-shield') +
-        '</ul>' +
-      '</section>'
-    );
-  }
-
-  function summaryCard(label, value, desc, icon, primary) {
-    return (
-      '<li class="dr-summary-card' + (primary ? ' dr-summary-card-primary' : '') + '">' +
-        '<div class="dr-summary-head">' +
-          '<span class="dr-summary-icon"><i class="fa-solid ' + icon + '" aria-hidden="true"></i></span>' +
-          '<span class="dr-summary-label">' + esc(label) + '</span>' +
-          (primary ? '<i class="fa-solid fa-chart-line dr-summary-corner" aria-hidden="true"></i>' : '') +
-        '</div>' +
-        '<span class="dr-summary-value">' + esc(String(value)) + '</span>' +
-        '<span class="dr-summary-desc">' + esc(desc) + '</span>' +
-      '</li>'
     );
   }
 
@@ -441,9 +331,5 @@
   function esc(str) {
     return String(str == null ? '' : str)
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  }
-
-  function escAttr(str) {
-    return esc(str).replace(/"/g, '&quot;');
   }
 })();

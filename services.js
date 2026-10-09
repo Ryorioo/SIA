@@ -11,11 +11,13 @@
     search: '',
     category: '',
     status: '',
+    page: 1,
     editingId: null, // null while adding, a service id while editing
     modalOpen: false,
     refreshPending: false // set when a background PCData change arrives while the modal is open
   };
 
+  var PAGE_SIZE = 10;
   var els = {};
 
   document.addEventListener('DOMContentLoaded', init);
@@ -32,6 +34,10 @@
     els.modalSub = document.getElementById('service-modal-sub');
     els.modalClose = document.getElementById('service-modal-close');
     els.count = document.getElementById('services-count');
+    els.pager = document.getElementById('services-pager');
+    els.prev = document.getElementById('services-prev');
+    els.next = document.getElementById('services-next');
+    els.pages = document.getElementById('services-pages');
     els.form = document.getElementById('service-form');
     els.id = document.getElementById('service-id');
     els.name = document.getElementById('service-name');
@@ -74,16 +80,19 @@
   function bindEvents() {
     els.search.addEventListener('input', function () {
       state.search = els.search.value.trim().toLowerCase();
+      state.page = 1;
       render();
     });
 
     els.categoryFilter.addEventListener('change', function () {
       state.category = els.categoryFilter.value;
+      state.page = 1;
       render();
     });
 
     els.statusFilter.addEventListener('change', function () {
       state.status = els.statusFilter.value;
+      state.page = 1;
       render();
     });
 
@@ -95,6 +104,16 @@
     });
 
     els.form.addEventListener('submit', handleSubmit);
+
+    // numbered pagination (same behaviour as Inventory Items)
+    els.prev.addEventListener('click', function () { if (state.page > 1) { state.page--; render(); keepPagerFocus(); } });
+    els.next.addEventListener('click', function () { state.page++; render(); keepPagerFocus(); });
+    els.pages.addEventListener('click', function (e) {
+      var btn = e.target.closest ? e.target.closest('[data-page]') : null;
+      if (!btn) return;
+      var n = parseInt(btn.getAttribute('data-page'), 10);
+      if (n && n !== state.page) { state.page = n; render(); keepPagerFocus(); }
+    });
   }
 
   // ------------------------------------------------------------------
@@ -132,21 +151,36 @@
 
   function render() {
     var services = getFilteredServices();
+    var total = window.PCData.getServices().length;
 
+    var pages = Math.max(1, Math.ceil(services.length / PAGE_SIZE));
+    if (state.page > pages) state.page = pages;
+    var start = (state.page - 1) * PAGE_SIZE;
+    var shown = services.slice(start, start + PAGE_SIZE);
+
+    // "Showing 1\u201310 of 24 services": current page range vs. everything matching the filters
     if (els.count) {
-      els.count.textContent = services.length + (services.length === 1 ? ' service' : ' services');
+      var noun = services.length === 1 ? ' service' : ' services';
+      els.count.textContent = !services.length ? 'No services to show' :
+        'Showing ' + (shown.length === services.length ? services.length : (start + 1) + '\u2013' + (start + shown.length)) +
+        ' of ' + services.length + noun +
+        (services.length !== total ? ' (filtered from ' + total + ')' : '');
     }
+    els.pager.hidden = pages <= 1;
+    els.pages.innerHTML = pageButtons(state.page, pages);
+    els.prev.disabled = state.page <= 1;
+    els.next.disabled = state.page >= pages;
 
-    if (!services.length) {
-      els.tableBody.innerHTML = '<tr class="empty-row"><td colspan="6">No services match your filters.</td></tr>';
+    if (!shown.length) {
+      els.tableBody.innerHTML = '<tr class="sv-empty"><td colspan="6">No services match your filters.</td></tr>';
       return;
     }
 
-    els.tableBody.innerHTML = services.map(renderRow).join('');
+    els.tableBody.innerHTML = shown.map(renderRow).join('');
 
     // wire up row actions (delegation would also work, but the table is
     // re-rendered on every change anyway, so direct binding is simplest)
-    services.forEach(function (s) {
+    shown.forEach(function (s) {
       var editBtn = document.getElementById('edit-' + s.id);
       var toggleBtn = document.getElementById('toggle-' + s.id);
       if (editBtn) editBtn.addEventListener('click', function () { openEditModal(s.id); });
@@ -154,22 +188,48 @@
     });
   }
 
+  // Page numbers: all up to 7 pages, otherwise first/last + current and neighbours with gaps.
+  function pageList(cur, total) {
+    var n, all = [];
+    if (total <= 7) { for (n = 1; n <= total; n++) all.push(n); return all; }
+    if (cur <= 4) return [1, 2, 3, 4, 5, '\u2026', total];
+    if (cur >= total - 3) return [1, '\u2026', total - 4, total - 3, total - 2, total - 1, total];
+    return [1, '\u2026', cur - 1, cur, cur + 1, '\u2026', total];
+  }
+
+  function pageButtons(cur, total) {
+    return pageList(cur, total).map(function (p) {
+      if (p === '\u2026') return '<span class="sv-ellipsis" aria-hidden="true">\u2026</span>';
+      var active = p === cur;
+      return '<button type="button" class="btn btn-sm sv-page' + (active ? ' btn-primary' : '') + '" data-page="' + p + '"' +
+        (active ? ' aria-current="page"' : '') + ' aria-label="Page ' + p + '">' + p + '</button>';
+    }).join('');
+  }
+
+  // The pager is rebuilt on every page change, so restore keyboard focus to the
+  // current page number if the clicked control was replaced or disabled.
+  function keepPagerFocus() {
+    if (els.pager.contains(document.activeElement) && !document.activeElement.disabled) return;
+    var cur = els.pages.querySelector('[aria-current="page"]');
+    if (cur) cur.focus();
+  }
+
   function renderRow(s) {
     var statusClass = s.status === 'Active' ? 'status-active' : 'status-inactive';
     var toggleLabel = s.status === 'Active' ? 'Deactivate' : 'Activate';
-    var toggleClass = s.status === 'Active' ? 'btn btn-sm btn-danger' : 'btn btn-sm btn-primary';
+    var toggleClass = s.status === 'Active' ? 'btn btn-sm btn-danger sv-toggle' : 'btn btn-sm btn-primary sv-toggle';
 
     return '' +
       '<tr>' +
-        '<td><span class="svc-name">' + escapeHtml(s.name) + '</span></td>' +
-        '<td><span class="svc-category">' + escapeHtml(s.category) + '</span></td>' +
-        '<td><span class="svc-price">' + formatPrice(s.price) + '</span></td>' +
-        '<td><span class="svc-duration">' + formatDuration(s.duration) + '</span></td>' +
-        '<td><span class="status-badge ' + statusClass + '">' + s.status + '</span></td>' +
-        '<td class="row-actions">' +
-          '<button type="button" class="icon-btn" id="edit-' + s.id + '" aria-label="Edit service" title="Edit service"><i class="fa-solid fa-pen"></i></button>' +
+        '<td class="sv-c-name"><span class="sv-name">' + escapeHtml(s.name) + '</span></td>' +
+        '<td class="sv-c-cat sv-soft">' + escapeHtml(s.category) + '</td>' +
+        '<td data-label="Price" class="sv-num sv-nowrap"><span class="sv-price">' + formatPrice(s.price) + '</span></td>' +
+        '<td data-label="Duration" class="sv-soft sv-num sv-nowrap">' + formatDuration(s.duration) + '</td>' +
+        '<td data-label="Status"><span class="status-badge ' + statusClass + '">' + s.status + '</span></td>' +
+        '<td class="sv-c-act"><div class="sv-actions">' +
+          '<button type="button" class="icon-btn" id="edit-' + s.id + '" aria-label="Edit service" title="Edit service"><i class="fa-solid fa-pen"></i><span class="act-txt">Edit</span></button>' +
           '<button type="button" class="' + toggleClass + '" id="toggle-' + s.id + '">' + toggleLabel + '</button>' +
-        '</td>' +
+        '</div></td>' +
       '</tr>';
   }
 

@@ -20,62 +20,74 @@
      and every color used is one of the app's existing CSS custom
      properties, never a new hardcoded value. */
 
-  /* --- header cleanup (Services page) ---
-     Same treatment as Medical Records/Patients/Clients: the page-level
-     title/breadcrumb that used to live in .topbar is removed, so the
-     border-bottom style.css draws for pages that keep that title is
-     suppressed here (scoped to this page only, style.css untouched). */
+  /* ---- Services page redesign (scoped to #services-body) ----
+     Same layout language as Inventory Items: page header with the compact
+     primary action, one bordered module (filters, table on an inner page-bg
+     surface, count + numbered-pagination footer). Mirrors the Inventory
+     Items rules one-for-one; new classes use the .sv- prefix so nothing here
+     can leak into other pages. Reuses shared .btn / .btn-sm / .btn-primary /
+     .btn-danger / .filter-bar / .search-field / .status-badge. */
+  #services-body .sv-header { align-items: center; margin-bottom: 24px; }
+  #services-body .sv-header-text { min-width: 0; flex: 1 1 auto; }
+  #services-body .sv-title { margin: 0 0 2px; font-size: 20px; font-weight: 800; line-height: inherit; letter-spacing: normal; color: var(--ink-900); }
+  #services-body .sv-header-actions { flex: 0 0 auto; }
+  #services-body .sv-header-actions .btn { white-space: nowrap; }
   .topbar { border-bottom: none; }
+  .page-toolbar { margin-bottom: 14px; }
+  @media (min-width: 981px) { .topbar { display: none; } }
 
-  /* --- header spacing (Services page) ---
-     Nudges the "Services" toolbar block down slightly to fill the space
-     left by the removed title/breadcrumb, page-scoped only, matching
-     Medical Records' .page-toolbar treatment. */
-  .page-toolbar { margin-top: 22px; }
+  /* Module */
+  #services-body .sv-panel { box-sizing: border-box; min-width: 0; padding: 16px 18px 18px; background: var(--surface-card); border: 1px solid var(--line); border-radius: var(--r-md); box-shadow: var(--clay-flat); margin-bottom: 24px; }
+  #services-body .sv-count { margin: 0; font-size: 12.5px; font-weight: 600; line-height: 1.45; color: var(--ink-700); }
 
-  .services-count-label {
-    font-size: 11.4px;
-    font-weight: 700;
-    color: var(--ink-faint);
-    margin: 0 2px 10px;
+  /* Filters: shared .filter-bar, flattened so it sits directly in the module */
+  #services-body .filter-bar.sv-filters { margin: 0 0 14px; padding: 0; background: transparent; border: none; border-radius: 0; box-shadow: none; }
+  #services-body .sv-filters .search-field { flex: 2 1 260px; min-width: 0; height: 38px; }
+  #services-search { flex: 1 1 auto; width: 100%; box-sizing: border-box; padding: 0; background: transparent; border: none; outline: none; box-shadow: none; font: inherit; color: var(--ink-900); }
+  #services-body .search-field:focus-within { border-color: var(--teal-400); }
+  #services-body .sv-filters .sv-select { flex: 0 0 170px; min-width: 0; }
+  .sv-select {
+    -webkit-appearance: none; -moz-appearance: none; appearance: none; box-sizing: border-box;
+    height: 38px; background-color: var(--surface-sunken); border: 1px solid var(--line-soft); border-radius: 10px;
+    color: var(--ink-900); font: inherit; font-weight: 600; max-width: 100%; padding: 0 34px 0 12px; cursor: pointer;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: border-color .15s ease;
   }
-
-  /* --- services table --- */
-  .services-table-wrap {
-    background: var(--surface-card);
-    border: 1px solid var(--line-soft);
-    border-radius: var(--r-md);
-    box-shadow: var(--clay-flat);
-    overflow-x: auto;
-    overflow-y: hidden;
+  .sv-select, .sv-select:focus {
+    background-image: linear-gradient(45deg, transparent 50%, var(--ink-faint) 50%), linear-gradient(135deg, var(--ink-faint) 50%, transparent 50%);
+    background-position: calc(100% - 18px) center, calc(100% - 13px) center;
+    background-size: 5px 5px, 5px 5px; background-repeat: no-repeat;
   }
-  table.services-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  table.services-table th,
-  table.services-table td {
-    padding: 12px 16px;
-    text-align: left;
-    border-bottom: 1px solid var(--line-soft);
-  }
-  table.services-table th {
-    background: var(--surface-sunken);
-    color: var(--ink-faint);
-    font-size: 10.6px;
-    font-weight: 800;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-  }
-  table.services-table tbody tr:last-child td { border-bottom: none; }
-  table.services-table tbody tr:hover { background: var(--surface-sunken); }
+  .sv-select::-ms-expand { display: none; }
+  .sv-select:hover { border-color: var(--line-strong); }
+  .sv-select:focus { outline: none; border-color: var(--teal-400); }
 
-  .svc-name { font-weight: 800; color: var(--ink-900); }
-  .svc-category { font-weight: 600; color: var(--ink-soft); }
-  .svc-price { font-weight: 800; color: var(--ink-900); }
-  .svc-duration { font-weight: 600; color: var(--ink-soft); }
+  /* Table on the inner page-bg surface */
+  #services-body .sv-scroll { padding: 6px 10px 4px; background: var(--surface-bg); border: 1px solid var(--line); border-radius: var(--r-md); box-shadow: inset 0 1px 2px rgba(31, 42, 46, 0.05); overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  #services-body table.sv-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  #services-body .sv-table thead th { text-align: left; padding: 10px 12px; font-size: 10.6px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; color: var(--ink-700); background: var(--surface-sunken); border-bottom: 1px solid transparent; white-space: nowrap; }
+  /* Column balance: percentage hints (not fixed pixel widths) on the header cells. The browser
+     still grows any column past its hint when its content needs more room (long names, the
+     Actions buttons), so nothing is clipped. Set on header cells only (hidden on phones). */
+  #services-body .sv-table thead th:nth-child(1) { width: 27%; }
+  #services-body .sv-table thead th:nth-child(2) { width: 19%; }
+  #services-body .sv-table thead th:nth-child(3) { width: 12%; }
+  #services-body .sv-table thead th:nth-child(4) { width: 12%; }
+  #services-body .sv-table thead th:nth-child(5) { width: 12%; }
+  #services-body .sv-table thead th:nth-child(6) { width: 18%; }
+  #services-body .sv-table thead th:first-child { border-top-left-radius: var(--r-xs); border-bottom-left-radius: var(--r-xs); }
+  #services-body .sv-table thead th:last-child { border-top-right-radius: var(--r-xs); border-bottom-right-radius: var(--r-xs); }
+  #services-body .sv-table tbody td { padding: 11px 12px; border-bottom: 1px solid var(--line); vertical-align: middle; color: var(--ink-900); line-height: 1.3; }
+  #services-body .sv-table tbody tr:last-child td { border-bottom: none; }
+  #services-body .sv-table tbody tr:hover { background: var(--surface-card); }
+  #services-body .sv-name { font-weight: 700; font-size: 13.5px; overflow-wrap: break-word; word-break: normal; }
+  #services-body .sv-soft { color: var(--ink-700); font-weight: 600; }
+  #services-body .sv-num { font-variant-numeric: tabular-nums; }
+  #services-body .sv-price { font-weight: 800; font-size: 14px; }
+  #services-body .sv-nowrap { white-space: nowrap; }
+  #services-body .sv-empty td { padding: 44px 20px; text-align: center; color: var(--ink-700); font-size: 13.5px; font-weight: 600; }
 
-  /* status pill colors — reuses .status-badge (already used by
-     Appointments) with two new modifiers, mapped onto the same
-     semantic tokens as the closest existing statuses: Active reads
-     like Confirmed (teal), Inactive reads like Completed (neutral). */
+  /* status pills: Inventory Items pill shape/size, existing Services colours */
+  #services-body .status-badge { display: inline-flex; align-items: center; gap: 0; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; padding: 3px 9px; border-radius: 999px; white-space: nowrap; line-height: 1.4; }
   .status-badge.status-active {
     color: var(--status-confirmed-fg, var(--teal-700));
     background: var(--teal-50);
@@ -85,23 +97,72 @@
     background: var(--surface-sunken);
   }
 
-  .row-actions { display: flex; gap: 6px; flex-wrap: nowrap; align-items: center; }
-
-  /* --- compact icon-only action button (identical to Medical Records'
-     .icon-btn): 30x30, existing border/radius tokens, muted icon at
-     rest, teal border/icon on hover. Used here for the Edit action
-     only — Activate/Deactivate stays a labeled .btn so a status change
-     remains immediately legible. Page-scoped since style.css is
-     off-limits. */
-  .icon-btn {
-    width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center;
+  /* row actions: same 30px compact buttons as Inventory Items */
+  #services-body .sv-actions { display: flex; gap: 6px; align-items: center; white-space: nowrap; }
+  #services-body .icon-btn {
+    min-width: 30px; height: 30px; padding: 0; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
     border-radius: var(--r-sm); border: 1px solid var(--line-soft); background: var(--surface-card-raised);
-    color: var(--ink-soft); cursor: pointer; box-shadow: var(--clay-flat); font-size: 12px;
-    transition: border-color 0.15s ease, color 0.15s ease;
+    color: var(--ink-soft); cursor: pointer; box-shadow: var(--clay-flat); font: inherit; font-size: 12px;
+    transition: border-color .15s ease, color .15s ease;
   }
-  .icon-btn:hover { border-color: var(--teal-400); color: var(--teal-700); }
+  #services-body .icon-btn:hover { border-color: var(--teal-400); color: var(--teal-700); }
+  #services-body .sv-toggle { box-sizing: border-box; height: 30px; padding: 0 12px; }
+  #services-body .icon-btn:focus-visible, #services-body .btn:focus-visible { outline: 2px solid var(--teal-400); outline-offset: 2px; }
+  #services-body .act-txt { display: none; font-weight: 700; font-size: 12.3px; }
 
-  .empty-row td { text-align: center; padding: 34px 16px; color: var(--ink-faint); font-weight: 600; }
+  /* Footer: count left, numbered pagination right */
+  #services-body .sv-footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; padding-top: 14px; }
+  #services-body .sv-pager { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-left: auto; min-width: 0; max-width: 100%; }
+  #services-body .sv-pager[hidden] { display: none; }
+  #services-body .sv-pager .btn[disabled] { opacity: .45; cursor: not-allowed; box-shadow: none; pointer-events: none; }
+  #services-body .sv-pages { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px; min-width: 0; }
+  #services-body .sv-page { min-width: 32px; padding-left: 6px; padding-right: 6px; font-variant-numeric: tabular-nums; }
+  #services-body .sv-ellipsis { min-width: 20px; text-align: center; font-size: 12.5px; font-weight: 700; color: var(--ink-soft); user-select: none; }
+
+  @media (max-width: 1100px) {
+    #services-body .sv-table thead th, #services-body .sv-table tbody td { padding-left: 8px; padding-right: 8px; }
+    #services-body .sv-table td.sv-c-name { min-width: 104px; }
+    #services-body .sv-actions { gap: 4px; }
+  }
+  @media (max-width: 900px) {
+    #services-body .sv-header { flex-direction: row; }
+  }
+  @media (min-width: 641px) and (max-width: 760px) {
+    #services-body .sv-table td.sv-c-name { min-width: 0; }
+    #services-body .sv-table thead th, #services-body .sv-table tbody td { padding-left: 6px; padding-right: 6px; }
+  }
+
+  /* phones: filters full width, footer stacked, table rows become compact cards */
+  @media (max-width: 640px) {
+    #services-body .sv-header-actions .btn { min-height: 40px; }
+    #services-body .sv-panel { padding: 14px 14px 16px; }
+    #services-body .sv-footer { flex-direction: column; align-items: stretch; text-align: center; }
+    #services-body .sv-pager { margin-left: 0; justify-content: center; }
+    #services-body .sv-pager #services-prev, #services-body .sv-pager #services-next { flex: 1 1 0; }
+    #services-body .sv-pager #services-prev { order: 1; }
+    #services-body .sv-pager #services-next { order: 2; }
+    #services-body .sv-pager .sv-pages { order: 3; flex: 1 1 100%; }
+    #services-body .sv-filters .search-field { flex: 1 1 100%; }
+    #services-body .sv-filters .sv-select { flex: 1 1 calc(50% - 5px); }
+    #services-body .sv-scroll { padding: 2px 12px; }
+    #services-body .sv-table thead { display: none; }
+    #services-body .sv-table, #services-body .sv-table tbody, #services-body .sv-table tr, #services-body .sv-table td { display: block; width: 100%; box-sizing: border-box; }
+    #services-body .sv-table tbody tr { padding: 14px 0 12px; border-top: 1px solid var(--line); }
+    #services-body .sv-table tbody tr:first-child { border-top: none; }
+    #services-body .sv-table tbody tr:hover { background: transparent; }
+    #services-body .sv-table tbody td { border-bottom: none; padding: 4px 0; }
+    #services-body .sv-table td[data-label] { display: flex; justify-content: space-between; align-items: center; gap: 12px; text-align: right; }
+    #services-body .sv-table td[data-label]::before { content: attr(data-label) ':'; flex: none; font-size: 12px; font-weight: 700; color: var(--ink-700); text-align: left; }
+    #services-body .sv-table td.sv-c-name { padding-bottom: 0; }
+    #services-body .sv-table td.sv-c-name .sv-name { font-size: 14.5px; }
+    #services-body .sv-table td.sv-c-cat { padding: 0 0 10px; color: var(--ink-700); font-weight: 600; font-size: 12.5px; }
+    #services-body .sv-table td.sv-c-act { margin-top: 8px; padding-top: 12px; border-top: 1px solid var(--line); }
+    #services-body .sv-actions { flex-wrap: wrap; }
+    #services-body .sv-actions .icon-btn, #services-body .sv-actions .sv-toggle { height: 34px; padding: 0 12px; }
+    #services-body .act-txt { display: inline; }
+    #services-body .sv-table .sv-empty td { display: block; text-align: center; }
+    #services-body .sv-nowrap { white-space: normal; }
+  }
 
   /* --- Add/Edit Service modal --- */
   .modal-sub {
@@ -220,112 +281,6 @@
      services.js) already treats the value as a string either way, so no
      behavior changed — only the attribute that controls which CSS selector
      matches. */
-
-  /* --- search field: fill the full width, no gap ---
-     Ensures the text input itself stretches to occupy all remaining
-     space inside .search-field (next to the icon) rather than sitting
-     at an intrinsic/default width and leaving empty space on the
-     right. The icon stays exactly where it already was — only the
-     input's own box model changes. */
-  #services-search {
-    flex: 1 1 auto;
-    width: 100%;
-    box-sizing: border-box;
-    background: transparent;
-    border: none;
-    outline: none;
-    box-shadow: none;
-    font: inherit;
-    color: var(--ink-900);
-  }
-
-  /* Move the focused look to the single outer container instead of the
-     inner input, so there is only ever one visible border. */
-  .search-field:focus-within {
-    border-color: var(--teal-400);
-  }
-
-  /* --- filter bar: search gets most of the row; filter controls only
-     take the width their contents need — same proportions as Medical
-     Records' filter bar. */
-  .filter-bar .search-field {
-    flex: 2 1 380px;
-    min-width: 260px;
-  }
-
-  /* filter controls: fixed, content-appropriate widths instead of
-     stretching to fill the row (Category/Status), same pattern as
-     Medical Records' .filter-controls. */
-  .filter-controls {
-    display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
-    flex: 0 0 auto;
-  }
-  .filter-bar #services-category-filter { flex: 0 0 170px; min-width: 0; }
-  .filter-bar #services-status-filter { flex: 0 0 150px; min-width: 0; }
-
-  /* --- Unified select component (identical to Medical Records/Patients/
-     Clients) --- same .pc-select treatment as those pages' toolbar
-     filters: warm beige surface, existing border/radius tokens, and one
-     CSS-drawn chevron replacing the browser's native arrow. Applied here
-     to the Category/Status filters only. Purely visual — markup stays a
-     plain native <select>; no id, option, or JS hook is touched. Kept
-     here (page-scoped) since style.css is off-limits. */
-  .pc-select {
-    -webkit-appearance: none;
-    -moz-appearance: none;
-    appearance: none;
-    box-sizing: border-box;
-    background-color: var(--surface-sunken);
-    border: 1px solid var(--line-soft);
-    border-radius: 10px;
-    color: var(--ink-900);
-    font: inherit;
-    max-width: 100%;
-    padding: 0 34px 0 12px;
-    cursor: pointer;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    background-image:
-      linear-gradient(45deg, transparent 50%, var(--ink-faint) 50%),
-      linear-gradient(135deg, var(--ink-faint) 50%, transparent 50%);
-    background-position:
-      calc(100% - 18px) center,
-      calc(100% - 13px) center;
-    background-size: 5px 5px, 5px 5px;
-    background-repeat: no-repeat;
-    transition: border-color 0.15s ease;
-  }
-  .pc-select::-ms-expand { display: none; }
-  .pc-select:hover { border-color: var(--line-strong); }
-  .pc-select:focus { outline: none; border-color: var(--teal-400); }
-
-  /* Filter-bar selects sit outside any modal height rule, so they get
-     the same fixed 38px control height directly here, same as Medical
-     Records/Patients/Clients. */
-  .filter-bar .pc-select {
-    height: 38px;
-  }
-  /* Keep the chevron visible while focused. style.css's `select:focus`
-     uses the `background` shorthand, which (at higher specificity than
-     .pc-select) resets background-image and made the chevron vanish on
-     focus. Re-declaring the same chevron longhands here, for both the
-     resting and focused states, keeps it drawn — same gradients, size
-     and position as .pc-select above. background-color is intentionally
-     not set here (only background-color, never the background
-     shorthand, is used for any focus override), so the normal and
-     focused fills are unchanged. */
-  .filter-bar .pc-select,
-  .filter-bar .pc-select:focus {
-    background-image:
-      linear-gradient(45deg, transparent 50%, var(--ink-faint) 50%),
-      linear-gradient(135deg, var(--ink-faint) 50%, transparent 50%);
-    background-position:
-      calc(100% - 18px) center,
-      calc(100% - 13px) center;
-    background-size: 5px 5px, 5px 5px;
-    background-repeat: no-repeat;
-  }
 </style>
 </head>
 <body>
@@ -428,52 +383,59 @@
         </div>
       </header>
 
-      <main class="page-body">
-        <div class="page-toolbar">
-          <div>
-            <div style="font-size:20px; font-weight:800; margin-bottom:2px;">SERVICES</div>
+      <main class="page-body" id="services-body">
+        <div class="page-toolbar sv-header">
+          <div class="sv-header-text"><h1 class="sv-title">SERVICES</h1></div>
+          <div class="sv-header-actions">
+            <button type="button" class="btn btn-sm btn-primary" id="btn-add-service">
+              <i class="fa-solid fa-plus"></i> Add Service
+            </button>
           </div>
-          <button type="button" class="btn btn-sm btn-primary" id="btn-add-service">
-            <i class="fa-solid fa-plus"></i> Add Service
-          </button>
         </div>
 
-        <div class="filter-bar">
-          <div class="search-field">
-            <span><i class="fa-solid fa-magnifying-glass"></i></span>
-            <input type="text" id="services-search" placeholder="Search services by name...">
-          </div>
-          <div class="filter-controls">
-            <select class="filter-select pc-select" id="services-category-filter">
+        <section class="sv-panel" aria-label="Services">
+          <div class="filter-bar sv-filters">
+            <div class="search-field">
+              <span><i class="fa-solid fa-magnifying-glass"></i></span>
+              <input type="text" id="services-search" placeholder="Search services by name..." aria-label="Search services by name" autocomplete="off">
+            </div>
+            <select class="sv-select" id="services-category-filter" aria-label="Filter by category">
               <option value="">All Categories</option>
             </select>
-            <select class="filter-select pc-select" id="services-status-filter">
+            <select class="sv-select" id="services-status-filter" aria-label="Filter by status">
               <option value="">All Statuses</option>
               <option value="Active">Active</option>
               <option value="Inactive">Inactive</option>
             </select>
           </div>
-        </div>
 
-        <div class="services-count-label" id="services-count"></div>
+          <div class="sv-scroll">
+            <table class="sv-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Category</th>
+                  <th>Price</th>
+                  <th>Duration</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="services-table-body">
+                <!-- rows rendered by services.js -->
+              </tbody>
+            </table>
+          </div>
 
-        <div class="services-table-wrap">
-          <table class="services-table">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Category</th>
-                <th>Price</th>
-                <th>Duration</th>
-                <th>Status</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody id="services-table-body">
-              <!-- rows rendered by services.js -->
-            </tbody>
-          </table>
-        </div>
+          <div class="sv-footer">
+            <p class="sv-count" id="services-count" aria-live="polite"></p>
+            <div class="sv-pager" id="services-pager" hidden>
+              <button type="button" class="btn btn-sm" id="services-prev">Previous</button>
+              <div class="sv-pages" id="services-pages" role="group" aria-label="Pagination"></div>
+              <button type="button" class="btn btn-sm" id="services-next">Next</button>
+            </div>
+          </div>
+        </section>
       </main>
 
       <!-- Add / Edit Service modal -->

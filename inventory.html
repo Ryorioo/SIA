@@ -46,7 +46,8 @@
      Nudges the "Inventory" toolbar block down slightly to fill the space
      left by the removed title/breadcrumb, page-scoped only, matching
      Services' .page-toolbar treatment. */
-  .page-toolbar { margin-top: 22px; }
+  .page-toolbar { margin-bottom: 14px; }
+  @media (min-width: 981px) { .topbar { display: none; } }
 
   /* --- filter bar (Inventory page) ---
      Same components as Services: .filter-bar / .search-field /
@@ -500,150 +501,88 @@
     #inv-modal-overlay .inv-item-modal .inv-error { padding-left: 18px; padding-right: 18px; }
   }
 
-  /* --- Adjust Stock modal (Phase 2E-3) ---
-     Same shell, width, radius, controls and buttons as the Add/Edit modal
-     above, scoped to .inv-stock-modal so nothing here affects Add/Edit.
-     Fixed header and footer; only .inv-stock-body scrolls; capped at
-     min(88vh, calc(100dvh - 40px)). */
-  #inv-modal-overlay .inv-stock-modal {
-    display: flex;
-    flex-direction: column;
-    box-sizing: border-box;
-    width: min(610px, calc(100vw - 40px));
-    max-width: 100%;
-    padding: 0;
-    overflow: hidden;
-    max-height: 88vh;
-    max-height: min(88vh, calc(100dvh - 40px));
-    background: var(--surface-card-raised, #fff);
-    border-radius: var(--r-lg, 18px);
-    box-shadow: var(--clay-pop, 0 24px 48px -20px rgba(16, 68, 58, 0.32));
+  /* --- Inventory Overview (page-scoped) ---
+     Follows the Predictive Analytics layout language: page header with
+     title + actions, sunken summary cards (one teal lead card), then
+     bordered modules whose tables sit on an inner page-bg surface.
+     Reuses .inv-table / .inv-pill / .inv-item-name / .inv-qty and the
+     shared .btn / .btn-sm / .btn-primary. New classes are prefixed .ov- */
+  #inventory-page-body #inv-overview { min-width: 0; }
+
+  /* Header */
+  #inventory-page-body .ov-header { align-items: center; margin-bottom: 40px; }
+  #inventory-page-body .ov-header-text { min-width: 0; flex: 1 1 auto; }
+  #inventory-page-body .ov-title { margin: 0 0 2px; font-size: 20px; font-weight: 800; line-height: inherit; letter-spacing: normal; color: var(--ink-900); }
+  #inventory-page-body .ov-header-actions { display: flex; flex-wrap: wrap; gap: 8px; flex: 0 0 auto; }
+  #inventory-page-body .ov-header-actions .btn { text-decoration: none; white-space: nowrap; }
+
+  /* Summary cards */
+  #inventory-page-body .ov-cards { list-style: none; margin: 0 0 24px; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+  #inventory-page-body .ov-card { box-sizing: border-box; min-width: 0; height: 100%; padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; background: var(--surface-sunken); border: 1px solid var(--line-soft); border-radius: var(--r-md); box-shadow: var(--clay-flat); }
+  #inventory-page-body .ov-card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  #inventory-page-body .ov-label { font-size: 12px; font-weight: 700; color: var(--ink-700); line-height: 1.3; }
+  #inventory-page-body .ov-icon { flex: none; font-size: 12px; color: var(--ink-soft); }
+  #inventory-page-body .ov-num { font-size: 26px; font-weight: 800; line-height: 1.15; color: var(--ink-900); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+  #inventory-page-body .ov-note { font-size: 12px; font-weight: 500; line-height: 1.4; color: var(--ink-700); overflow-wrap: anywhere; }
+  #inventory-page-body .ov-card-primary { background: var(--teal-700); border-color: var(--teal-700); }
+  #inventory-page-body .ov-card-primary .ov-icon { color: rgba(244, 249, 247, 0.85); }
+  #inventory-page-body .ov-card-primary .ov-label,
+  #inventory-page-body .ov-card-primary .ov-note { color: rgba(244, 249, 247, 0.86); }
+  #inventory-page-body .ov-card-primary .ov-num { color: var(--ink-on-brand); }
+
+  /* Modules */
+  #inventory-page-body .ov-panels { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-bottom: 16px; align-items: start; }
+  #inventory-page-body .ov-panel { box-sizing: border-box; min-width: 0; padding: 16px 18px 18px; background: var(--surface-card); border: 1px solid var(--line); border-radius: var(--r-md); box-shadow: var(--clay-flat); }
+  #inventory-page-body .ov-act { margin-bottom: 24px; }
+  #inventory-page-body .ov-panel-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 12px; margin-bottom: 14px; }
+  #inventory-page-body .ov-panel-headtext { min-width: 0; flex: 1 1 200px; }
+  #inventory-page-body .ov-panel-title { margin: 0; font-size: 16px; font-weight: 800; line-height: normal; letter-spacing: normal; color: var(--ink-800); }
+  #inventory-page-body .ov-view-link { text-decoration: none; flex: 0 0 auto; display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; background: var(--surface-sunken); border: 1px solid var(--line-soft); border-radius: var(--r-pill); color: var(--ink-800); font-size: 12px; font-weight: 700; white-space: nowrap; transition: border-color 0.15s ease, color 0.15s ease; }
+  #inventory-page-body .ov-view-link:hover { border-color: var(--teal-400); color: var(--teal-700); }
+  #inventory-page-body .ov-view-link:focus-visible { outline: none; border-color: var(--teal-400); box-shadow: 0 0 0 3px var(--teal-100); }
+  #inventory-page-body .ov-view-link i { font-size: 10px; }
+
+  /* Inner table surface (same as Predictive's module tables) */
+  #inventory-page-body .ov-scroll { padding: 6px 10px 4px; background: var(--surface-bg); border: 1px solid var(--line); border-radius: var(--r-md); box-shadow: inset 0 1px 2px rgba(31, 42, 46, 0.05); overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  #inventory-page-body table.inv-table.ov-table { min-width: 0; }
+  #inventory-page-body .ov-table thead th { padding: 10px 12px; color: var(--ink-700); background: var(--surface-sunken); border-bottom-color: transparent; }
+  #inventory-page-body .ov-table thead th:first-child { border-top-left-radius: var(--r-xs); border-bottom-left-radius: var(--r-xs); }
+  #inventory-page-body .ov-table thead th:last-child { border-top-right-radius: var(--r-xs); border-bottom-right-radius: var(--r-xs); }
+  #inventory-page-body .ov-table tbody td { padding: 11px 12px; border-bottom-color: var(--line); overflow-wrap: anywhere; }
+  #inventory-page-body .ov-table tbody tr:last-child td { border-bottom: none; }
+  #inventory-page-body .ov-table tbody tr:hover { background: transparent; }
+  #inventory-page-body .ov-table .inv-item-name { font-size: 13.5px; }
+  #inventory-page-body .ov-table .inv-secondary { color: var(--ink-700); }
+  #inventory-page-body .ov-table .inv-empty-row td { color: var(--ink-700); }
+  #inventory-page-body .ov-sub-line { display: block; margin-top: 2px; font-size: 11.5px; font-weight: 600; color: var(--ink-soft); }
+  #inventory-page-body .ov-more { padding: 10px 2px 0; font-size: 12px; font-weight: 600; color: var(--ink-700); }
+  #inventory-page-body .ov-table .btn-sm { text-decoration: none; white-space: nowrap; }
+  #inventory-page-body .ov-panel .btn:focus-visible { outline: 2px solid var(--inv-teal-focus); outline-offset: 2px; }
+
+  #inventory-page-body .inv-pill.added   { background: var(--teal-100); color: var(--teal-700); }
+  #inventory-page-body .inv-pill.updated { background: var(--surface-sunken); color: var(--ink-700); border: 1px solid var(--line-soft); }
+
+  @media (max-width: 1239px) { #inventory-page-body .ov-panels { grid-template-columns: minmax(0, 1fr); } }
+  @media (max-width: 1100px) { #inventory-page-body .ov-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 900px) {
+    #inventory-page-body .ov-header { flex-direction: column; align-items: stretch; gap: 14px; }
   }
-  #inv-modal-overlay .inv-stock-modal .modal-head {
-    flex: none;
-    margin: 0;
-    padding: 22px 26px 16px;
-    border-bottom: 1px solid var(--line-soft, #e4e0d8);
-  }
-  #inv-modal-overlay .inv-stock-modal .modal-title {
-    margin: 0;
-    font-size: 16.5px;
-    font-weight: 800;
-    color: var(--ink-900, #1f2a2a);
-  }
-  #inv-modal-overlay .inv-stock-modal .inv-stock-body {
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-    flex: 1 1 auto;
-    min-height: 0;
-    overflow-y: auto;
-    overflow-x: hidden;
-    overscroll-behavior: contain;
-    padding: 18px 26px;
-  }
-  #inv-modal-overlay .inv-stock-modal .inv-stock-info {
-    padding: 12px 14px;
-    border: 1px solid var(--line-soft, #e4e0d8);
-    border-radius: var(--r-sm, 10px);
-    background: var(--surface-card, #fbf9f4);
-    box-shadow: var(--clay-flat, 0 1px 2px rgba(31, 42, 46, 0.045));
-    min-width: 0;
-  }
-  #inv-modal-overlay .inv-stock-modal .inv-stock-name {
-    font-size: 14px;
-    font-weight: 700;
-    color: var(--ink-900, #1f2a2a);
-    overflow-wrap: anywhere;
-  }
-  #inv-modal-overlay .inv-stock-modal .inv-stock-current-line {
-    margin-top: 4px;
-    font-size: 13px;
-    color: var(--ink-soft, #6b7472);
-    overflow-wrap: anywhere;
-  }
-  #inv-modal-overlay .inv-stock-modal .inv-stock-current-line strong {
-    font-size: 15px;
-    color: var(--ink-900, #1f2a2a);
-  }
-  #inv-modal-overlay .inv-stock-modal .inv-field {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    min-width: 0;
-    margin: 0;
-  }
-  #inv-modal-overlay .inv-stock-modal .inv-field label {
-    margin: 0;
-    font-size: 12.2px;
-    font-weight: 700;
-    color: var(--ink-soft, #6b7472);
-  }
-  #inv-modal-overlay .inv-stock-modal input {
-    height: 38px;
-    padding: 0 12px;
-    border: 1px solid var(--line-soft, #e4e0d8);
-    border-radius: var(--r-sm, 10px);
-    background-color: var(--surface-sunken, #eee8db);
-    box-shadow: var(--clay-pressed, inset 0 1px 3px rgba(31, 42, 46, 0.10));
-    color: var(--ink-800, #1f2a2a);
-    font-family: inherit;
-    font-size: 13.5px;
-    font-weight: 500;
-    transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
-  }
-  #inv-modal-overlay .inv-stock-modal input:focus {
-    outline: none;
-    border-color: var(--teal-400, #0f766e);
-    background-color: var(--surface-card-raised, #fff);
-    box-shadow: 0 0 0 3px var(--teal-100, rgba(15, 118, 110, 0.12));
-  }
-  #inv-modal-overlay .inv-stock-modal .inv-error { flex: none; margin: 0; padding: 0 26px 10px; }
-  #inv-modal-overlay .inv-stock-modal .modal-footer {
-    flex: none;
-    flex-wrap: wrap;
-    margin: 0;
-    padding: 16px 26px 20px;
-    border-top: 1px solid var(--line-soft, #e4e0d8);
-  }
-  #inv-modal-overlay .inv-stock-modal .inv-btn-ghost,
-  #inv-modal-overlay .inv-stock-modal .inv-btn-primary {
-    min-height: 38px;
-    padding: 9px 15px;
-    border-radius: var(--r-sm, 10px);
-    font-family: inherit;
-    font-size: 13.2px;
-    font-weight: 700;
-    box-shadow: var(--clay-flat, 0 1px 2px rgba(31, 42, 46, 0.045));
-  }
-  #inv-modal-overlay .inv-stock-modal .inv-btn-ghost:hover {
-    border-color: var(--teal-400, #0f766e);
-    color: var(--teal-700, #0f766e);
-    background: var(--surface-card-raised, #fff);
-  }
-  #inv-modal-overlay .inv-stock-modal .inv-btn-primary {
-    background: var(--teal-600, #0f766e);
-    border-color: var(--teal-700, #0f766e);
-    color: var(--ink-on-brand, #fff);
-    box-shadow: 0 1px 1px rgba(5, 34, 29, 0.3), 0 8px 16px -8px rgba(16, 68, 58, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.12);
-  }
-  #inv-modal-overlay .inv-stock-modal .inv-btn-primary:hover {
-    background: var(--teal-500, #0b5f58);
-    border-color: var(--teal-600, #0f766e);
-  }
-  #inv-modal-overlay .inv-stock-modal .modal-close:focus-visible,
-  #inv-modal-overlay .inv-stock-modal .inv-btn-ghost:focus-visible,
-  #inv-modal-overlay .inv-stock-modal .inv-btn-primary:focus-visible {
-    outline: 2px solid var(--teal-400, #0f766e);
-    outline-offset: 2px;
-  }
-  @media (max-width: 620px) {
-    #inv-modal-overlay .inv-stock-modal .modal-head,
-    #inv-modal-overlay .inv-stock-modal .inv-stock-body,
-    #inv-modal-overlay .inv-stock-modal .modal-footer,
-    #inv-modal-overlay .inv-stock-modal .inv-error { padding-left: 18px; padding-right: 18px; }
-    #inv-modal-overlay .inv-stock-modal .modal-footer .inv-btn-ghost,
-    #inv-modal-overlay .inv-stock-modal .modal-footer .inv-btn-primary { flex: 1 1 auto; }
+
+  /* Phones: tables reflow into labelled rows instead of scrolling sideways. */
+  @media (max-width: 640px) {
+    #inventory-page-body .ov-cards { grid-template-columns: minmax(0, 1fr); }
+    #inventory-page-body .ov-header-actions .btn { flex: 1 1 auto; min-height: 44px; }
+    #inventory-page-body .ov-panel { padding: 14px 14px 16px; }
+    #inventory-page-body .ov-scroll { padding: 4px 10px; }
+    #inventory-page-body .ov-table thead { display: none; }
+    #inventory-page-body .ov-table, #inventory-page-body .ov-table tbody,
+    #inventory-page-body .ov-table tr, #inventory-page-body .ov-table td { display: block; width: 100%; box-sizing: border-box; }
+    #inventory-page-body .ov-table tbody tr { padding: 8px 0; border-bottom: 1px solid var(--line); }
+    #inventory-page-body .ov-table tbody tr:last-child { border-bottom: none; }
+    #inventory-page-body .ov-table tbody td { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 5px 2px; border-bottom: none; text-align: right; }
+    #inventory-page-body .ov-table tbody td::before { content: attr(data-label); flex: none; font-size: 11px; font-weight: 700; color: var(--ink-700); text-align: left; }
+    #inventory-page-body .ov-table .inv-empty-row td { display: block; text-align: center; }
+    #inventory-page-body .ov-table .inv-empty-row td::before { content: none; }
   }
 </style>
 </head>

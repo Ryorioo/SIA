@@ -5,9 +5,8 @@
 // owns the 'pcv1_inventory' localStorage key. This file has no
 // storage logic of its own beyond what data-store.js exposes.
 //
-// The toolbar (search box + filters) is built once in buildShell()
-// and never recreated — only the table body is rebuilt on every
-// render. PCData.onChange() fires both on real data changes AND on
+// The header is built once in buildShell() and never recreated —
+// only the overview body is rebuilt, and only when its output changes. PCData.onChange() fires both on real data changes AND on
 // a 1.5s safety-net poll, so rebuilding the whole page on every tick
 // would keep stealing focus out of the search box while typing.
 // ============================================================
@@ -15,19 +14,11 @@
 (function () {
   'use strict';
 
-  var state = {
-    search: '',
-    category: 'all',
-    status: 'all',
-    stock: 'all' // all | low | out | expired
-  };
-
   var els = {};
 
   // Add/Edit modal only: set to that modal's closeModal() while it is open,
   // null otherwise. One document-level Escape listener (registered once)
-  // reads it, so Escape does nothing when the modal is closed and never
-  // touches the Adjust Stock modal.
+  // reads it, so Escape does nothing when the modal is closed.
   var itemModalCloser = null;
   document.addEventListener('keydown', function (e) {
     if (!itemModalCloser) return;
@@ -37,25 +28,12 @@
     itemModalCloser();
   });
 
-  // Adjust Stock modal only: same pattern as above, with its own closer, so
-  // Escape closes whichever of the two modals is actually open and never
-  // both. Registered once, not per open.
-  var stockModalCloser = null;
-  document.addEventListener('keydown', function (e) {
-    if (!stockModalCloser) return;
-    if (e.key !== 'Escape' && e.key !== 'Esc') return;
-    if (e.isComposing || e.keyCode === 229) return; // IME composition
-    e.preventDefault();
-    stockModalCloser();
-  });
-
-  // Both modals declare aria-modal="true", so keyboard focus must stay inside
-  // whichever one is open: Tab from the last control wraps to the first,
-  // Shift+Tab from the first wraps to the last. Registered once; does nothing
-  // when neither modal is open.
+  // The modal declares aria-modal="true", so keyboard focus must stay inside
+  // it: Tab from the last control wraps to the first, Shift+Tab from the
+  // first wraps to the last. Registered once; does nothing when it is closed.
   document.addEventListener('keydown', function (e) {
     if (e.key !== 'Tab' || e.isComposing) return;
-    if (!itemModalCloser && !stockModalCloser) return;
+    if (!itemModalCloser) return;
     var box = document.querySelector('#inv-modal-overlay .inv-modal-box');
     if (!box) return;
     var all = box.querySelectorAll('button, input, select, textarea, a[href], [tabindex]');
@@ -78,224 +56,219 @@
       return;
     }
     buildShell();
-    renderTable();
-    PCData.onChange(renderTable);
+    renderOverview();
+    PCData.onChange(renderOverview);
   });
 
   // ------------------------------------------------------------------
-  // shell (built once)
+  // overview shell (built once) + overview body (re-rendered on change)
   // ------------------------------------------------------------------
+
+  // "Expiring soon" window. The data store has no such setting, so it is a
+  // frontend constant here (not a new data model).
+  var EXPIRY_WARN_DAYS = 30;
+  var PANEL_ROW_LIMIT = 6;
+  var ACTIVITY_LIMIT = 5;
+  var lastHtml = '';
 
   function buildShell() {
     var root = document.getElementById('inventory-root');
     if (!root) return;
 
     root.innerHTML =
-      '<div class="page-toolbar">' +
-        '<div>' +
-          '<div style="font-size:20px; font-weight:800; margin-bottom:2px;">INVENTORY</div>' +
+      '<div class="page-toolbar ov-header">' +
+        '<div class="ov-header-text">' +
+          '<h1 class="ov-title">INVENTORY</h1>' +
         '</div>' +
-        '<button type="button" id="inv-add-btn" class="btn btn-sm btn-primary"><i class="fa-solid fa-plus"></i> Add Item</button>' +
-      '</div>' +
-      '<div id="inv-toolbar" class="filter-bar">' +
-        '<div class="search-field">' +
-          '<span><i class="fa-solid fa-magnifying-glass"></i></span>' +
-          '<input type="text" id="inv-search" placeholder="Search by item name…">' +
-        '</div>' +
-        '<div class="filter-controls">' +
-          '<select id="inv-filter-category" class="filter-select pc-select"></select>' +
-          '<select id="inv-filter-status" class="filter-select pc-select">' +
-            '<option value="all">All Statuses</option>' +
-            '<option value="active">Active</option>' +
-            '<option value="inactive">Inactive</option>' +
-          '</select>' +
-          '<select id="inv-filter-stock" class="filter-select pc-select">' +
-            '<option value="all">All Stock</option>' +
-            '<option value="in">In Stock</option>' +
-            '<option value="low">Low Stock</option>' +
-            '<option value="out">Out of Stock</option>' +
-            '<option value="expired">Expired</option>' +
-          '</select>' +
+        '<div class="ov-header-actions">' +
+          '<a class="btn btn-sm" href="inventory-items.html"><i class="fa-solid fa-boxes-stacked" aria-hidden="true"></i> View Items</a>' +
+          '<a class="btn btn-sm btn-primary" href="inventory-stock-management.html"><i class="fa-solid fa-arrow-right-arrow-left" aria-hidden="true"></i> Manage Stock</a>' +
         '</div>' +
       '</div>' +
-      '<div id="inv-count" class="inv-count"></div>' +
-      '<div id="inv-table-wrap"></div>';
+      '<div id="inv-overview"></div>';
 
-    els.search = document.getElementById('inv-search');
-    els.filterCategory = document.getElementById('inv-filter-category');
-    els.filterStatus = document.getElementById('inv-filter-status');
-    els.filterStock = document.getElementById('inv-filter-stock');
-    els.addBtn = document.getElementById('inv-add-btn');
-    els.tableWrap = document.getElementById('inv-table-wrap');
-    els.count = document.getElementById('inv-count');
-
-    var catHtml = '<option value="all">All Categories</option>';
-    (PCData.INV_CATEGORIES || []).forEach(function (c) {
-      catHtml += '<option value="' + escapeAttr(c) + '">' + escapeHtml(c) + '</option>';
-    });
-    els.filterCategory.innerHTML = catHtml;
-
-    els.search.addEventListener('input', function () {
-      state.search = els.search.value;
-      renderTable();
-    });
-    els.filterCategory.addEventListener('change', function () {
-      state.category = els.filterCategory.value;
-      renderTable();
-    });
-    els.filterStatus.addEventListener('change', function () {
-      state.status = els.filterStatus.value;
-      renderTable();
-    });
-    els.filterStock.addEventListener('change', function () {
-      state.stock = els.filterStock.value;
-      renderTable();
-    });
-    els.addBtn.addEventListener('click', function () {
-      openItemModal(null);
-    });
-
-    // event delegation — table body is rebuilt on every render, so
-    // listeners are attached once on the stable wrapper instead.
-    els.tableWrap.addEventListener('click', function (e) {
-      var editBtn = e.target.closest ? e.target.closest('[data-action="edit"]') : null;
-      if (editBtn) {
-        var item = PCData.getInventoryById(editBtn.getAttribute('data-id'));
-        if (item) openItemModal(item);
-        return;
-      }
-      var stockBtn = e.target.closest ? e.target.closest('[data-action="stock"]') : null;
-      if (stockBtn) {
-        var item2 = PCData.getInventoryById(stockBtn.getAttribute('data-id'));
-        if (item2) openStockModal(item2);
-      }
-    });
+    // The overview body container (rebuilt by renderOverview on change).
+    els.tableWrap = document.getElementById('inv-overview');
   }
 
-  // ------------------------------------------------------------------
-  // table
-  // ------------------------------------------------------------------
-
-  // Stock-state filter (in | low | out | expired). Built on the store's own
-  // PCData.isLowStock / PCData.isExpired so the threshold and date rules stay
-  // owned by data-store.js. Note the store's isLowStock() is simply
-  // quantity <= threshold, so it also returns true for zero-stock and expired
-  // items; the exclusions below make Low / In / Out mutually exclusive.
-  //   Out     = quantity === 0
-  //   Expired = expiration date has passed
-  //   Low     = quantity > 0, at/below threshold, not expired
-  //   In      = quantity > 0, above threshold, not expired
-  // These are stock ALERT states, so inactive items match none of them (they
-  // still show under All Stock and the Status filter).
-  function matchesStock(item, mode) {
-    if (item.status !== 'active') return false;
-    var expired = PCData.isExpired(item);
-    if (mode === 'out') return item.quantity === 0;
-    if (mode === 'expired') return expired;
-    if (mode === 'low') return item.quantity > 0 && !expired && PCData.isLowStock(item);
-    if (mode === 'in') return item.quantity > 0 && !expired && !PCData.isLowStock(item);
-    return true;
+  function isoOffset(days) {
+    var d = new Date();
+    d.setDate(d.getDate() + days);
+    return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
   }
 
-  function getFilteredItems() {
-    var q = state.search.trim().toLowerCase();
-    return PCData.getInventory().filter(function (item) {
-      if (q && item.name.toLowerCase().indexOf(q) === -1) return false;
-      if (state.category !== 'all' && item.category !== state.category) return false;
-      if (state.status !== 'all' && item.status !== state.status) return false;
-      if (state.stock !== 'all' && !matchesStock(item, state.stock)) return false;
-      return true;
-    }).sort(function (a, b) { return a.name.localeCompare(b.name); });
+  function computeOverview() {
+    var all = PCData.getInventory();
+    var active = all.filter(function (i) { return i.status === 'active'; });
+    var limit = isoOffset(EXPIRY_WARN_DAYS);
+
+    var low = active.filter(function (i) { return PCData.isLowStock(i); })
+      .sort(function (a, b) {
+        return (a.quantity / (a.lowStockThreshold || 1)) - (b.quantity / (b.lowStockThreshold || 1));
+      });
+
+    var expired = active.filter(function (i) { return PCData.isExpired(i); });
+    var soon = active.filter(function (i) {
+      return i.expirationDate && !PCData.isExpired(i) && i.expirationDate <= limit;
+    });
+    var expiry = expired.concat(soon).sort(function (a, b) {
+      return a.expirationDate < b.expirationDate ? -1 : 1;
+    });
+
+    var value = active.reduce(function (sum, i) {
+      return sum + (Number(i.quantity) || 0) * (Number(i.unitPrice) || 0);
+    }, 0);
+
+    var activity = all.slice().sort(function (a, b) { return (b.updatedAt || 0) - (a.updatedAt || 0); })
+      .slice(0, ACTIVITY_LIMIT);
+
+    return { active: active, low: low, expired: expired, soon: soon, expiry: expiry, value: value, activity: activity };
   }
 
-  var TABLE_HEAD_HTML =
-    '<thead><tr>' +
-      '<th>Item</th>' +
-      '<th>Category</th>' +
-      '<th>Quantity</th>' +
-      '<th>Unit</th>' +
-      '<th>Unit Price</th>' +
-      '<th>Expiration</th>' +
-      '<th>Status</th>' +
-      '<th>Actions</th>' +
-    '</tr></thead>';
-
-  function renderTable() {
+  function renderOverview() {
     if (!els.tableWrap) return;
-    var items = getFilteredItems();
+    var o = computeOverview();
 
-    if (els.count) {
-      els.count.textContent = items.length + ' item' + (items.length === 1 ? '' : 's');
-    }
+    var html =
+      '<ul class="ov-cards">' +
+        card(true, 'fa-boxes-stacked', 'Items in Inventory', String(o.active.length), 'active inventory items') +
+        card(false, 'fa-triangle-exclamation', 'Low Stock', String(o.low.length), 'items below minimum level') +
+        card(false, 'fa-calendar-xmark', 'Expiring & Expired', String(o.soon.length + o.expired.length),
+          o.soon.length + ' expiring soon · ' + o.expired.length + ' expired') +
+        card(false, 'fa-peso-sign', 'Inventory Value', formatPesoWhole(o.value), 'estimated value of active stock') +
+      '</ul>' +
+      '<div class="ov-panels">' +
+        lowStockPanel(o.low) +
+        expiryPanel(o.expiry) +
+      '</div>' +
+      activityPanel(o.activity);
 
-    if (!items.length) {
-      // Keep the same table + header shell as the populated state (rather
-      // than swapping in an unrelated empty-state block) so the layout
-      // doesn't jump when filters return zero results.
-      els.tableWrap.className = 'inv-table-wrap';
-      els.tableWrap.innerHTML =
-        '<table class="inv-table">' +
-          TABLE_HEAD_HTML +
-          '<tbody><tr class="inv-empty-row"><td colspan="8">No inventory items match your search/filters.</td></tr></tbody>' +
-        '</table>';
-      return;
-    }
-
-    var rows = items.map(function (item) {
-      var low = PCData.isLowStock(item);
-      var out = item.quantity === 0;
-      var expired = PCData.isExpired(item);
-
-      var qtyBadge = '';
-      if (out) {
-        qtyBadge = '<span class="inv-pill out">Out of Stock</span>';
-      } else if (low) {
-        qtyBadge = '<span class="inv-pill low">Low Stock</span>';
-      }
-
-      var expText = item.expirationDate ? formatExpiration(item.expirationDate) : '—';
-      var expBadge = expired ? '<span class="inv-pill expired">Expired</span>' : '';
-
-      return (
-        '<tr>' +
-          '<td><span class="inv-item-name">' + escapeHtml(item.name) + '</span></td>' +
-          '<td class="inv-secondary">' + escapeHtml(item.category) + '</td>' +
-          '<td>' +
-            '<div class="inv-qty-stack">' +
-              '<span class="inv-qty">' + item.quantity + '</span>' +
-              qtyBadge +
-            '</div>' +
-          '</td>' +
-          '<td class="inv-secondary">' + escapeHtml(item.unit || '—') + '</td>' +
-          '<td class="inv-secondary inv-price-cell">' + formatPrice(item.unitPrice) + '</td>' +
-          '<td>' +
-            '<div class="inv-exp-stack">' +
-              '<span class="inv-exp-date">' + expText + '</span>' +
-              expBadge +
-            '</div>' +
-          '</td>' +
-          '<td>' +
-            '<span class="inv-status-badge ' + (item.status === 'active' ? 'active' : 'inactive') + '">' +
-              (item.status === 'active' ? 'Active' : 'Inactive') +
-            '</span>' +
-          '</td>' +
-          '<td>' +
-            '<div class="inv-actions">' +
-              '<button type="button" class="icon-btn" data-action="edit" data-id="' + item.id + '" aria-label="Edit ' + escapeAttr(item.name) + '" title="Edit ' + escapeAttr(item.name) + '"><i class="fa-solid fa-pen" aria-hidden="true"></i></button>' +
-              '<button type="button" class="btn btn-sm" data-action="stock" data-id="' + item.id + '" aria-label="Adjust stock for ' + escapeAttr(item.name) + '">Adjust Stock</button>' +
-            '</div>' +
-          '</td>' +
-        '</tr>'
-      );
-    }).join('');
-
-    els.tableWrap.className = 'inv-table-wrap';
-    els.tableWrap.innerHTML =
-      '<table class="inv-table">' +
-        TABLE_HEAD_HTML +
-        '<tbody>' + rows + '</tbody>' +
-      '</table>';
+    // PCData.onChange also fires on a poll; only touch the DOM when the
+    // output actually changed so buttons never lose focus for no reason.
+    if (html === lastHtml) return;
+    lastHtml = html;
+    els.tableWrap.innerHTML = html;
   }
+
+  function card(primary, icon, label, value, note) {
+    return '<li class="ov-card' + (primary ? ' ov-card-primary' : '') + '">' +
+      '<div class="ov-card-head"><span class="ov-label">' + escapeHtml(label) + '</span>' +
+      '<i class="fa-solid ' + icon + ' ov-icon" aria-hidden="true"></i></div>' +
+      '<div class="ov-num">' + escapeHtml(value) + '</div>' +
+      '<div class="ov-note">' + escapeHtml(note) + '</div>' +
+    '</li>';
+  }
+
+  function panel(extraClass, title, href, linkLabel, bodyHtml) {
+    return '<section class="ov-panel ' + extraClass + '">' +
+      '<div class="ov-panel-head"><div class="ov-panel-headtext">' +
+        '<h2 class="ov-panel-title">' + title + '</h2></div>' +
+        '<a class="ov-view-link" href="' + href + '">' + linkLabel + ' <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a>' +
+      '</div>' +
+      bodyHtml +
+    '</section>';
+  }
+
+  function tableHtml(heads, rowsHtml) {
+    return '<div class="ov-scroll"><table class="inv-table ov-table"><thead><tr>' +
+      heads.map(function (h) { return '<th>' + h + '</th>'; }).join('') +
+      '</tr></thead><tbody>' + rowsHtml + '</tbody></table></div>';
+  }
+
+  function emptyRow(cols, text) {
+    return '<tr class="inv-empty-row"><td colspan="' + cols + '">' + text + '</td></tr>';
+  }
+
+  function moreNote(shown, total) {
+    return total > shown ? '<div class="ov-more">Showing ' + shown + ' of ' + total + '</div>' : '';
+  }
+
+  function lowStockPanel(list) {
+    var shown = list.slice(0, PANEL_ROW_LIMIT);
+    var rows = shown.map(function (i) {
+      var out = i.quantity === 0;
+      return '<tr>' +
+        '<td data-label="Item"><span class="inv-item-name">' + escapeHtml(i.name) + '</span></td>' +
+        '<td data-label="Current Stock"><span class="inv-qty-stack"><span class="inv-qty">' + i.quantity + '</span>' +
+          (out ? '<span class="inv-pill out">Out</span>' : '') + '</span></td>' +
+        '<td data-label="Minimum Level" class="inv-secondary">' + (i.lowStockThreshold || 0) + '</td>' +
+        '<td data-label="Action"><a class="btn btn-sm" href="inventory-stock-management.html"' +
+          ' aria-label="Manage stock for ' + escapeAttr(i.name) + '">Manage Stock</a></td>' +
+      '</tr>';
+    }).join('');
+    return panel('ov-low', 'LOW STOCK ITEMS',
+      'inventory-stock-management.html', 'Manage Stock',
+      tableHtml(['Item', 'Current Stock', 'Minimum Level', 'Action'], rows || emptyRow(4, 'No items are below their minimum level.')) +
+      moreNote(shown.length, list.length));
+  }
+
+  function expiryPanel(list) {
+    var shown = list.slice(0, PANEL_ROW_LIMIT);
+    var rows = shown.map(function (i) {
+      var expired = PCData.isExpired(i);
+      return '<tr>' +
+        '<td data-label="Item"><span class="inv-item-name">' + escapeHtml(i.name) + '</span></td>' +
+        '<td data-label="Expiration Date" class="inv-secondary">' + formatLongDate(i.expirationDate) +
+          '<span class="ov-sub-line">' + relativeDays(i.expirationDate) + '</span></td>' +
+        '<td data-label="Quantity" class="inv-secondary">' + i.quantity + ' ' + escapeHtml(i.unit || '') + '</td>' +
+        '<td data-label="Status"><span class="inv-pill ' + (expired ? 'expired' : 'low') + '">' +
+          (expired ? 'Expired' : 'Expiring Soon') + '</span></td>' +
+      '</tr>';
+    }).join('');
+    return panel('ov-exp', 'EXPIRING &amp; EXPIRED ITEMS',
+      'inventory-items.html', 'View Items',
+      tableHtml(['Item', 'Expiration Date', 'Quantity', 'Status'], rows || emptyRow(4, 'No items are expiring soon or expired.')) +
+      moreNote(shown.length, list.length));
+  }
+
+  // Derived from the only movement-related fields the store has
+  // (createdAt / updatedAt / quantity). No per-movement log exists.
+  function activityPanel(list) {
+    var rows = list.map(function (i) {
+      var updated = (i.updatedAt || 0) - (i.createdAt || 0) > 1000;
+      return '<tr>' +
+        '<td data-label="Date &amp; Time" class="inv-secondary">' + formatDateTime(i.updatedAt || i.createdAt) + '</td>' +
+        '<td data-label="Activity"><span class="inv-pill ' + (updated ? 'updated' : 'added') + '">' +
+          (updated ? 'Item Updated' : 'Item Added') + '</span></td>' +
+        '<td data-label="Item"><span class="inv-item-name">' + escapeHtml(i.name) + '</span></td>' +
+        '<td data-label="Quantity" class="inv-secondary">' + i.quantity + ' ' + escapeHtml(i.unit || '') + '</td>' +
+        '<td data-label="User" class="inv-secondary">Admin</td>' +
+      '</tr>';
+    }).join('');
+    return panel('ov-act', 'RECENT INVENTORY ACTIVITY',
+      'inventory-history.html', 'View History',
+      tableHtml(['Date &amp; Time', 'Activity', 'Item', 'Quantity', 'User'], rows || emptyRow(5, 'No inventory activity yet.')));
+  }
+
+  // Whole days between today and an ISO date, as short text ("in 12 days").
+  function relativeDays(iso) {
+    var p = String(iso || '').split('-').map(Number);
+    if (p.length !== 3 || isNaN(p[0])) return '';
+    var t = new Date(); t.setHours(0, 0, 0, 0);
+    var diff = Math.round((new Date(p[0], p[1] - 1, p[2]) - t) / 86400000);
+    if (diff === 0) return 'Today';
+    var n = Math.abs(diff);
+    var label = n + (n === 1 ? ' day' : ' days');
+    return diff > 0 ? 'in ' + label : label + ' ago';
+  }
+
+  function formatPesoWhole(n) {
+    return '₱' + Math.round(Number(n) || 0).toLocaleString('en-US');
+  }
+
+  function formatLongDate(iso) {
+    var p = String(iso || '').split('-').map(Number);
+    if (p.length !== 3 || isNaN(p[0])) return '—';
+    return new Date(p[0], p[1] - 1, p[2]).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+
+  function formatDateTime(ts) {
+    var d = new Date(ts);
+    if (isNaN(d.getTime())) return '—';
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) + ' · ' +
+      d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  }
+
 
   // ------------------------------------------------------------------
   // add / edit modal
@@ -420,7 +393,7 @@
       }
 
       closeModal();
-      renderTable();
+      renderOverview();
       restoreFocus(); // the table was just rebuilt, so re-find the opener
     });
 
@@ -456,114 +429,6 @@
       inputHtml +
       (helperText ? '<div class="inv-help" id="' + forId + '-help">' + helperText + '</div>' : '') +
       '</div>';
-  }
-
-  // ------------------------------------------------------------------
-  // stock adjustment modal
-  // ------------------------------------------------------------------
-
-  function openStockModal(item) {
-    var overlay = document.createElement('div');
-    overlay.id = 'inv-modal-overlay';
-    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(31,42,42,0.45);' +
-      'display:flex;align-items:center;justify-content:center;z-index:1000;';
-
-    var box = document.createElement('div');
-    box.className = 'inv-modal-box inv-stock-modal';
-    box.setAttribute('role', 'dialog');
-    box.setAttribute('aria-modal', 'true');
-    box.setAttribute('aria-labelledby', 'inv-stock-title');
-
-    // Remember what opened the modal so focus can go back there on close.
-    var opener = document.activeElement;
-    if (!opener || opener === document.body) opener = null;
-    var itemId = item.id;
-
-    box.innerHTML =
-      '<div class="modal-head">' +
-        '<h3 class="modal-title" id="inv-stock-title">Adjust Stock</h3>' +
-        '<button type="button" id="inv-stock-close" class="modal-close" aria-label="Close"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>' +
-      '</div>' +
-      '<div class="inv-stock-body">' +
-        '<div class="inv-stock-info">' +
-          '<div class="inv-stock-name">' + escapeHtml(item.name) + '</div>' +
-          '<div class="inv-stock-current-line">Current stock: ' +
-            '<strong id="inv-stock-current" aria-live="polite">' + item.quantity + '</strong> ' + escapeHtml(item.unit || '') + '</div>' +
-        '</div>' +
-        '<div class="inv-field">' +
-          '<label for="inv-stock-amount">Amount</label>' +
-          '<input type="number" id="inv-stock-amount" min="1" step="1" value="1">' +
-        '</div>' +
-      '</div>' +
-      '<div id="inv-stock-error" class="inv-error" role="alert"></div>' +
-      '<div class="modal-footer">' +
-        '<button type="button" id="inv-stock-cancel" class="inv-btn-ghost" aria-label="Close Adjust Stock">Close</button>' +
-        '<button type="button" id="inv-stock-decrease" class="inv-btn-ghost">– Decrease</button>' +
-        '<button type="button" id="inv-stock-increase" class="inv-btn-primary">+ Increase</button>' +
-      '</div>';
-
-    overlay.appendChild(box);
-    document.body.appendChild(overlay);
-
-    stockModalCloser = close;
-    var amountInput = document.getElementById('inv-stock-amount');
-    amountInput.focus();
-    amountInput.select();
-
-    overlay.addEventListener('click', function (e) { if (e.target === overlay) close(); });
-    document.getElementById('inv-stock-cancel').addEventListener('click', close);
-    document.getElementById('inv-stock-close').addEventListener('click', close);
-    document.getElementById('inv-stock-increase').addEventListener('click', function () { apply(1); });
-    document.getElementById('inv-stock-decrease').addEventListener('click', function () { apply(-1); });
-
-    function apply(sign) {
-      var errBox = document.getElementById('inv-stock-error');
-      var amtInput = document.getElementById('inv-stock-amount');
-      var amt = parseWholeCandidate(amtInput.value);
-
-      if (isNaN(amt) || amt <= 0) {
-        errBox.textContent = 'Enter an amount greater than 0.';
-        errBox.style.display = 'block';
-        return;
-      }
-      if (!Number.isInteger(amt)) {
-        errBox.textContent = 'Amount must be a whole number.';
-        errBox.style.display = 'block';
-        return;
-      }
-
-      var result = PCData.adjustStock(item.id, sign * amt);
-      if (!result.ok) {
-        errBox.textContent = 'Stock cannot go below 0. Current stock: ' +
-          (result.item ? result.item.quantity : item.quantity) + '.';
-        errBox.style.display = 'block';
-        return;
-      }
-
-      errBox.style.display = 'none';
-      item = result.item;
-      document.getElementById('inv-stock-current').textContent = item.quantity;
-      renderTable();
-    }
-
-    function close() {
-      if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
-      if (stockModalCloser === close) stockModalCloser = null;
-      restoreFocus();
-    }
-
-    // The table is rebuilt on every adjustment, so the original button is
-    // usually detached by now — re-find this item's Adjust Stock button.
-    function restoreFocus() {
-      var target = opener && opener.isConnected ? opener : null;
-      if (!target && els.tableWrap) {
-        var btns = els.tableWrap.querySelectorAll('[data-action="stock"]');
-        for (var i = 0; i < btns.length; i++) {
-          if (btns[i].getAttribute('data-id') === String(itemId)) { target = btns[i]; break; }
-        }
-      }
-      if (target && target.focus) target.focus();
-    }
   }
 
   // ------------------------------------------------------------------

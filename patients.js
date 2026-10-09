@@ -5,10 +5,13 @@
 (function () {
   var D = window.PCData;
 
+  var PAGE_SIZE = 9;
+
   var state = {
     search: '',
     filterSpecies: '',
     filterStatus: '',
+    page: 1,
     editingId: null,
     viewingId: null,
     selectedClient: null,
@@ -144,6 +147,76 @@
   }
 
   // ------------------------------------------------------------------
+  // PAGINATION (9 cards per page)
+  // ------------------------------------------------------------------
+  // The pager markup lives in patients.html (#pt-pager inside the
+  // footer); this section only fills it and wires its buttons.
+
+  var pagerEls = null;
+
+  function getPager() {
+    if (pagerEls) return pagerEls;
+    var pager = document.getElementById('pt-pager');
+    if (!pager) return null;
+    pagerEls = {
+      pager: pager,
+      prev: document.getElementById('pt-prev'),
+      next: document.getElementById('pt-next'),
+      pages: document.getElementById('pt-pages')
+    };
+    pagerEls.prev.addEventListener('click', function () {
+      if (state.page > 1) { state.page--; renderList(); keepPagerFocus(); }
+    });
+    pagerEls.next.addEventListener('click', function () {
+      state.page++; renderList(); keepPagerFocus(); // renderList clamps to the last page
+    });
+    pagerEls.pages.addEventListener('click', function (e) {
+      var btn = e.target.closest ? e.target.closest('[data-page]') : null;
+      if (!btn) return;
+      var n = parseInt(btn.getAttribute('data-page'), 10);
+      if (n && n !== state.page) { state.page = n; renderList(); keepPagerFocus(); }
+    });
+    return pagerEls;
+  }
+
+  // Page numbers to show: all of them up to 7 pages, otherwise first/last,
+  // the current page and its neighbours, with '…' for the gaps.
+  function pageList(cur, total) {
+    var out = [], n;
+    if (total <= 7) {
+      for (n = 1; n <= total; n++) out.push(n);
+      return out;
+    }
+    if (cur <= 4) return [1, 2, 3, 4, 5, '…', total];
+    if (cur >= total - 3) return [1, '…', total - 4, total - 3, total - 2, total - 1, total];
+    return [1, '…', cur - 1, cur, cur + 1, '…', total];
+  }
+
+  function updatePager(cur, pages) {
+    var el = getPager();
+    if (!el) return;
+    el.pager.hidden = pages <= 1; // 9 or fewer matches: no pager needed
+    el.pages.innerHTML = pageList(cur, pages).map(function (p) {
+      if (p === '…') return '<span class="pt-ellipsis" aria-hidden="true">…</span>';
+      var active = p === cur;
+      return '<button type="button" class="btn btn-sm pt-page' + (active ? ' btn-primary' : '') + '" data-page="' + p + '"' +
+        (active ? ' aria-current="page"' : '') + ' aria-label="Page ' + p + '">' + p + '</button>';
+    }).join('');
+    el.prev.disabled = cur <= 1;
+    el.next.disabled = cur >= pages;
+  }
+
+  // The pager is rebuilt on every render, so put keyboard focus back on the
+  // current page number if the clicked control was replaced or disabled.
+  function keepPagerFocus() {
+    var el = getPager();
+    if (!el) return;
+    if (el.pager.contains(document.activeElement) && !document.activeElement.disabled) return;
+    var cur = el.pages.querySelector('[aria-current="page"]');
+    if (cur) cur.focus();
+  }
+
+  // ------------------------------------------------------------------
   // LIST VIEW
   // ------------------------------------------------------------------
 
@@ -153,18 +226,31 @@
     seedPatientDisplayIds();
     var filtered = all.filter(matchesFilters);
 
-    document.getElementById('patients-count').textContent =
-      filtered.length + ' patient' + (filtered.length === 1 ? '' : 's') +
-      (filtered.length !== all.length ? ' (of ' + all.length + ')' : '');
-
     if (!filtered.length) {
+      document.getElementById('patients-count').textContent = 'No patients to show';
+      updatePager(1, 1);
       root.innerHTML = '<div class="patients-table-wrap"><div class="no-results">No patients match your search or filters.</div></div>';
       return;
     }
 
     filtered.sort(function (a, b) { return a.pet.localeCompare(b.pet); });
 
-    var html = '<div class="patients-grid">' + filtered.map(function (p) {
+    // Pagination: sort first, then slice, so pages follow the sorted order.
+    var total = filtered.length;
+    var pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+    if (state.page > pages) state.page = pages; // e.g. the last card on the last page was removed
+    if (state.page < 1) state.page = 1;
+    var start = (state.page - 1) * PAGE_SIZE;
+    var pageItems = filtered.slice(start, start + PAGE_SIZE);
+    var first = start + 1;
+    var last = start + pageItems.length;
+
+    document.getElementById('patients-count').textContent =
+      'Showing ' + (first === last ? first : first + '\u2013' + last) +
+      ' of ' + total + ' patient' + (total === 1 ? '' : 's');
+    updatePager(state.page, pages);
+
+    var html = '<div class="patients-grid">' + pageItems.map(function (p) {
       var lastVisit = D.getLastVisit(p);
       var owner = ownerInfo(p);
       var speciesLine = esc(p.species) + (p.breed ? ' · ' + esc(p.breed) : '');
@@ -503,10 +589,18 @@
   // PATIENT PROFILE
   // ------------------------------------------------------------------
 
-  function openProfile(id) {
-    state.viewingId = id;
-    renderProfile();
-    document.getElementById('profile-overlay').classList.add('open');
+  // Patient Profile is now a dedicated page (patient-profile.html), opened
+  // with the clinic display ID (e.g. ?id=PT-002). The old modal markup and
+  // renderProfile() below are intentionally left in place, now unused, so
+  // they can be removed in a separate cleanup step. `replace` is used for
+  // the ?open= deep link so the Back button doesn't bounce back into it.
+  function openProfile(id, replace) {
+    var p = D.getPatientById(id);
+    if (!p) return;
+    seedPatientDisplayIds();
+    var url = 'patient-profile.html?id=' + encodeURIComponent(displayPatientId(p));
+    if (replace) window.location.replace(url);
+    else window.location.href = url;
   }
 
   function closeProfile() {
@@ -716,18 +810,21 @@
   document.addEventListener('DOMContentLoaded', function () {
     document.getElementById('search-input').addEventListener('input', function (e) {
       state.search = e.target.value;
+      state.page = 1;
       renderList();
     });
     document.getElementById('filter-species').addEventListener('change', function (e) {
       state.filterSpecies = e.target.value;
+      state.page = 1;
       renderList();
     });
     document.getElementById('filter-status').addEventListener('change', function (e) {
       state.filterStatus = e.target.value;
+      state.page = 1;
       renderList();
     });
     document.getElementById('clear-filters').addEventListener('click', function () {
-      state.search = ''; state.filterSpecies = ''; state.filterStatus = '';
+      state.search = ''; state.filterSpecies = ''; state.filterStatus = ''; state.page = 1;
       document.getElementById('search-input').value = '';
       document.getElementById('filter-species').value = '';
       document.getElementById('filter-status').value = '';
@@ -786,7 +883,7 @@
     // "View Patient" action; harmless no-op when the param is absent.
     var deepLinkId = new URLSearchParams(window.location.search).get('open');
     if (deepLinkId && D.getPatientById(deepLinkId)) {
-      openProfile(deepLinkId);
+      openProfile(deepLinkId, true);
     }
   });
 })();

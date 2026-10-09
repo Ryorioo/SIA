@@ -61,6 +61,13 @@
      (sidebar, cards, rows) is untouched. */
   .topbar { border-bottom: none; }
 
+  /* ---- desktop topbar (matches Inventory Items) ----
+     The topbar is empty on desktop (it only holds the mobile menu
+     toggle), so above 980px it is hidden and the welcome area starts
+     at the same top position as the Inventory Items header. At
+     <=980px it still shows, keeping the mobile menu toggle. */
+  @media (min-width: 981px) { .topbar { display: none; } }
+
   /* ---- balanced two-column sections ----
      Rows now stretch to equal height (align-items: stretch, the
      grid default) so Today's Appointments/Queue Status and

@@ -53,19 +53,63 @@
     95: 'Thunderstorm', 96: 'Thunderstorm w/ hail', 99: 'Thunderstorm w/ heavy hail'
   };
 
-  // Same Analysis Controls note as predictive-analytics.html: the
-  // engine only runs against its own fixed windows (see
-  // RECENT_WINDOW_DAYS/BASELINE_WINDOW_DAYS in
-  // predictive-analytics-data-store.js), so this selector is
-  // frontend-only for now and does not recalculate anything — it
-  // exists so the structure matches the rest of Predictive Analytics.
-  var ANALYSIS_PERIOD_OPTIONS = [
-    ['7d', 'Last 7 Days'],
-    ['30d', 'Last 30 Days'],
-    ['90d', 'Last 90 Days'],
-    ['6m', 'Last 6 Months'],
-    ['12m', 'Last 12 Months']
-  ];
+  // Current Conditions illustrations. One entry per display condition. `file`
+  // is the exact filename inside assets/ (spaces and capitalization included),
+  // resolved relative to weather-health.html. `label` is shown next to the
+  // illustration.
+  var WEATHER_IMAGE_DIR = 'assets/';
+  var CONDITION_ART = {
+    'sunny':         { label: 'Sunny',         file: 'sunny weather.png', icon: 'fa-sun' },
+    'partly-cloudy': { label: 'Partly Cloudy', file: 'partly cloudy.png', icon: 'fa-cloud-sun' },
+    'cloudy':        { label: 'Cloudy',        file: 'cloudy.png',        icon: 'fa-cloud' },
+    'showers':       { label: 'Showers',       file: 'showers.png',       icon: 'fa-cloud-sun-rain' },
+    'rain':          { label: 'Rain',          file: 'rain.png',          icon: 'fa-cloud-rain' },
+    'heavy-rain':    { label: 'Heavy Rain',    file: 'heavy rain.png',    icon: 'fa-cloud-showers-heavy' },
+    'thunderstorm':  { label: 'Thunderstorm',  file: 'thunderstorm.png',  icon: 'fa-cloud-bolt' }
+  };
+
+  // Safety net while the exact filenames are being confirmed: if `file` 404s,
+  // the same name is retried with other common extensions and an UPPERCASE
+  // name before the icon fallback is shown. The first URL that loads is
+  // remembered per condition. Once every `file` above is confirmed correct
+  // this can be deleted (artCandidates / resolvedArt) with no other changes.
+  var WEATHER_IMAGE_EXTS = ['png', 'jpg', 'jpeg', 'webp'];
+  var resolvedArt = {};
+
+  // Every URL to try for a condition, exact filename first. Names are
+  // URL-encoded so spaces ("heavy rain.png") work.
+  function artCandidates(file) {
+    var dot = file.lastIndexOf('.');
+    var base = file.slice(0, dot);
+    var list = [file];
+    function add(name, ext) {
+      var f = name + '.' + ext;
+      if (list.indexOf(f) === -1) list.push(f);
+    }
+    WEATHER_IMAGE_EXTS.forEach(function (e) { add(base, e); });
+    [base, base.toUpperCase()].forEach(function (name) {
+      WEATHER_IMAGE_EXTS.forEach(function (e) { add(name, e); add(name, e.toUpperCase()); });
+    });
+    return list.map(function (f) { return WEATHER_IMAGE_DIR + encodeURI(f); });
+  }
+
+  // Maps the WMO weather_code the page already fetches to a display condition.
+  var WMO_TO_CONDITION = {
+    0: 'sunny', 1: 'sunny', 2: 'partly-cloudy', 3: 'cloudy', 45: 'cloudy', 48: 'cloudy',
+    51: 'showers', 53: 'showers', 55: 'showers', 56: 'showers', 57: 'showers', 80: 'showers',
+    61: 'rain', 63: 'rain', 66: 'rain', 67: 'rain', 81: 'rain',
+    65: 'heavy-rain', 82: 'heavy-rain',
+    95: 'thunderstorm', 96: 'thunderstorm', 99: 'thunderstorm'
+  };
+
+  // Shown while weather is loading or unavailable, so the section is never
+  // empty without a backend. Preview any condition by adding
+  // ?condition=rain (any key above) to the page URL.
+  var DEMO_CONDITION_KEY = 'partly-cloudy';
+
+  // Matches the coordinates the existing weather request uses above; change it
+  // together with WEATHER_LAT / WEATHER_LON when the real clinic location is set.
+  var WEATHER_LOCATION_LABEL = 'Metro Manila, Philippines';
 
   // The three environmental factors the existing engine actually
   // reads from the weather payload (temperature/humidity/precipitation
@@ -99,23 +143,21 @@
   };
 
   var state = {
-    weather: { status: 'loading', data: null, error: null }, // loading | ok | error
-    controls: { period: '30d', lastAnalyzed: null }
+    weather: { status: 'loading', data: null, error: null } // loading | ok | error
   };
 
   document.addEventListener('DOMContentLoaded', function () {
     if (!window.PCData || !PCData.getMedicalRecords) {
       console.error('weather-health.js: PCData not fully loaded — make sure data-store.js, patient-data-store.js and medical-records-data-store.js load before this file.');
-      showFatal('Weather & Health Factors could not load: required data modules are missing.');
+      showFatal('Weather & Health could not load: required data modules are missing.');
       return;
     }
     if (!PCData.Predictive) {
       console.error('weather-health.js: PCData.Predictive not found — make sure predictive-analytics-data-store.js loads before this file.');
-      showFatal('Weather & Health Factors could not load: its calculation module is missing.');
+      showFatal('Weather & Health could not load: its calculation module is missing.');
       return;
     }
 
-    state.controls.lastAnalyzed = new Date();
     renderAll();
     fetchWeather();
     PCData.onChange(renderAll);
@@ -161,12 +203,10 @@
           },
           error: null
         };
-        state.controls.lastAnalyzed = new Date();
         renderAll();
       })
       .catch(function (err) {
         state.weather = { status: 'error', data: null, error: (err && err.message) || 'Weather is currently unavailable.' };
-        state.controls.lastAnalyzed = new Date();
         renderAll();
       });
   }
@@ -183,136 +223,125 @@
     var weatherFactors = state.weather.status === 'ok' ? P.getWeatherFactors(state.weather.data) : [];
 
     root.innerHTML =
-      renderBackLink() +
       renderHeader() +
-      renderControls() +
       renderCurrentConditions(state.weather) +
-      '<div class="wh-split-grid">' +
-        renderEnvironmentalFactors(state.weather, weatherFactors) +
-        renderRelatedHealthPatterns(disease, weatherFactors) +
-      '</div>' +
-      '<div class="wh-split-grid">' +
-        renderContext(disease, weatherFactors) +
-        renderWeatherTrend() +
-      '</div>' +
+      renderEnvironmentalFactors(state.weather, weatherFactors) +
+      renderRelatedHealthPatterns(disease, weatherFactors) +
+      renderContext(disease, weatherFactors) +
+      renderWeatherTrend() +
       renderDataConfidence() +
       renderAnalysisNote();
 
-    var retryBtn = document.getElementById('wh-weather-retry');
-    if (retryBtn) retryBtn.addEventListener('click', fetchWeather);
-
-    bindControls();
-  }
-
-  function renderBackLink() {
-    return (
-      '<div class="pa-back-row">' +
-        '<a class="pa-back-link" href="predictive-analytics.html">' +
-          '<i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Back to Predictive Analytics' +
-        '</a>' +
-      '</div>'
-    );
+    var art = root.querySelector('.wh-cc-art');
+    var artImg = art && art.querySelector('img');
+    if (artImg) {
+      var artKey = art.getAttribute('data-art-key');
+      var onArtError = function () {
+        var list = artCandidates(CONDITION_ART[artKey].file);
+        var next = list.indexOf(artImg.getAttribute('src')) + 1;
+        if (next > 0 && next < list.length) {
+          artImg.setAttribute('src', list[next]);
+        } else {
+          delete resolvedArt[artKey];
+          art.classList.add('wh-cc-art-missing');
+        }
+      };
+      artImg.addEventListener('load', function () { resolvedArt[artKey] = artImg.getAttribute('src'); });
+      artImg.addEventListener('error', onArtError);
+      if (artImg.complete && artImg.naturalWidth === 0) onArtError();
+    }
   }
 
   function renderHeader() {
     return (
-      '<div class="page-toolbar">' +
-        '<div>' +
-          '<h1 class="wh-title">WEATHER &amp; HEALTH FACTORS</h1>' +
-        '</div>' +
+      '<div class="wh-page-header">' +
+        '<h1 class="wh-page-title">WEATHER &amp; HEALTH</h1>' +
       '</div>'
     );
   }
 
-  // ANALYSIS CONTROLS — same structure/behavior as predictive-analytics.html's
-  // panel: a frontend-only period selector (see the NOTE above
-  // ANALYSIS_PERIOD_OPTIONS) plus a real "Last analyzed" timestamp
-  // that reflects this page's own most recent weather fetch attempt.
-  function renderControls() {
-    var c = state.controls;
-    var periodOptions = ANALYSIS_PERIOD_OPTIONS.map(function (o) {
-      return '<option value="' + escAttr(o[0]) + '"' + (o[0] === c.period ? ' selected' : '') + '>' + esc(o[1]) + '</option>';
-    }).join('');
+  // ------------------------------------------------------------------
+  // CURRENT CONDITIONS — main weather area (illustration + temperature,
+  // condition, feels-like, location) and three supporting tiles (Humidity,
+  // Chance of Rain, UV Index). getConditionsView() is the single place that
+  // turns the weather payload into display values; any value the payload
+  // doesn't carry shows as an em dash. To wire in a real API later, add
+  // feelsLike (°C), precipProbability (%) and uvIndex to the payload where
+  // fetchWeather() normalizes it; this UI does not need to change.
+  // ------------------------------------------------------------------
+  function conditionKeyFromCode(code) {
+    return typeof code === 'number' && WMO_TO_CONDITION[code] ? WMO_TO_CONDITION[code] : null;
+  }
 
-    var statusValue = c.lastAnalyzed ? formatLastAnalyzed(c.lastAnalyzed) : 'Not yet analyzed';
+  function demoConditionOverride() {
+    try {
+      var q = new URLSearchParams(window.location.search).get('condition');
+      return q && CONDITION_ART[q] ? q : null;
+    } catch (e) { return null; }
+  }
 
-    return (
-      '<section class="pa-controls" aria-labelledby="wh-controls-heading">' +
-        '<h2 class="pa-controls-heading" id="wh-controls-heading">ANALYSIS CONTROLS</h2>' +
-        '<div class="pa-controls-panel">' +
-          '<div class="pa-controls-field">' +
-            '<label class="pa-controls-label" for="wh-period">Analysis Period</label>' +
-            '<select id="wh-period" class="pc-select pa-controls-select">' + periodOptions + '</select>' +
+  function fmtMetric(value, unit) {
+    return typeof value === 'number' && isFinite(value) ? Math.round(value) + unit : '\u2014';
+  }
+
+  function getConditionsView(d) {
+    d = d || {};
+    var key = demoConditionOverride() || conditionKeyFromCode(d.weatherCode) ||
+      (typeof d.weatherCode === 'number' ? 'cloudy' : DEMO_CONDITION_KEY);
+    var art = CONDITION_ART[key];
+    return {
+      key: key,
+      image: resolvedArt[key] || artCandidates(art.file)[0],
+      icon: art.icon,
+      condition: art.label,
+      location: WEATHER_LOCATION_LABEL,
+      temperature: fmtMetric(d.temperature, '\u00B0C'),
+      feelsLike: fmtMetric(d.feelsLike, '\u00B0C'),
+      humidity: fmtMetric(d.humidity, '%'),
+      chanceOfRain: fmtMetric(d.precipProbability, '%'),
+      uvIndex: typeof d.uvIndex === 'number' && isFinite(d.uvIndex) ? String(Math.round(d.uvIndex * 10) / 10) : '\u2014'
+    };
+  }
+
+  function renderCurrentConditions(weather) {
+    var c = getConditionsView(weather.status === 'ok' ? weather.data : null);
+
+    var body =
+      '<div class="wh-cc">' +
+        '<div class="wh-cc-main">' +
+          '<div class="wh-cc-art" data-art-key="' + esc(c.key) + '">' +
+            '<img src="' + esc(c.image) + '" alt="' + esc(c.condition) + ' weather illustration">' +
+            '<div class="wh-cc-art-fallback" aria-hidden="true"><i class="fa-solid ' + esc(c.icon) + '"></i></div>' +
           '</div>' +
-          '<div class="pa-controls-actions">' +
-            '<div class="pa-controls-status" role="status" aria-live="polite">' +
-              '<span class="pa-controls-label">Last analyzed</span>' +
-              '<span class="pa-controls-value">' + esc(statusValue) + '</span>' +
-            '</div>' +
+          '<div class="wh-cc-info">' +
+            '<div class="wh-cc-location"><i class="fa-solid fa-location-dot" aria-hidden="true"></i><span>' + esc(c.location) + '</span></div>' +
+            '<div class="wh-cc-temp">' + esc(c.temperature) + '</div>' +
+            '<div class="wh-cc-condition">' + esc(c.condition) + '</div>' +
+            '<div class="wh-cc-feels">Feels like <strong>' + esc(c.feelsLike) + '</strong></div>' +
           '</div>' +
         '</div>' +
-      '</section>'
-    );
-  }
-
-  function bindControls() {
-    var periodSel = document.getElementById('wh-period');
-    if (periodSel) {
-      periodSel.addEventListener('change', function () {
-        state.controls.period = periodSel.value;
-      });
-    }
-  }
-
-  function formatLastAnalyzed(d) {
-    try {
-      return d.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) +
-        ' \u00B7 ' + d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-    } catch (e) {
-      return d.toLocaleString();
-    }
-  }
-
-  // ------------------------------------------------------------------
-  // CURRENT CONDITIONS — five compact vitals, read as-is from the
-  // weather payload. Never hardcoded; shows an explicit unavailable
-  // state on loading/error instead of guessing.
-  // ------------------------------------------------------------------
-  function renderCurrentConditions(weather) {
-    var body;
-    if (weather.status === 'loading') {
-      body = '<div class="wh-conditions-loading"><i class="fa-solid fa-circle-notch fa-spin" aria-hidden="true"></i> Loading current conditions\u2026</div>';
-    } else if (weather.status === 'error') {
-      body =
-        '<div class="wh-conditions-state">' +
-          '<p>Weather data unavailable (' + esc(weather.error) + '). The rest of this page is unaffected.</p>' +
-          '<button type="button" class="btn btn-sm" id="wh-weather-retry"><i class="fa-solid fa-rotate"></i> Retry</button>' +
-        '</div>';
-    } else {
-      var d = weather.data;
-      body =
-        conditionCard('fa-temperature-half', 'Temperature', Math.round(d.temperature) + '\u00B0C') +
-        conditionCard('fa-droplet', 'Humidity', typeof d.humidity === 'number' ? Math.round(d.humidity) + '%' : '\u2014') +
-        conditionCard('fa-cloud-rain', 'Rainfall', d.precipitation + ' mm') +
-        conditionCard('fa-cloud', 'Weather Condition', weatherLabel(d.weatherCode)) +
-        conditionCard('fa-clock', 'Last Updated', typeof d.fetchedAt === 'number' ? formatFetchedTime(d.fetchedAt) : '\u2014');
-    }
+        '<div class="wh-cc-tiles">' +
+          metricTile('fa-droplet', 'Humidity', c.humidity) +
+          metricTile('fa-umbrella', 'Chance of Rain', c.chanceOfRain) +
+          metricTile('fa-sun', 'UV Index', c.uvIndex) +
+        '</div>' +
+      '</div>';
 
     return (
       '<section class="wh-section" aria-labelledby="wh-conditions-heading">' +
         '<h2 class="wh-h2" id="wh-conditions-heading">CURRENT CONDITIONS</h2>' +
-        '<div class="wh-conditions-grid">' + body + '</div>' +
+        body +
       '</section>'
     );
   }
 
-  function conditionCard(icon, label, value) {
+  function metricTile(icon, label, value) {
     return (
-      '<div class="wh-condition-card">' +
-        '<div class="wh-condition-icon"><i class="fa-solid ' + icon + '" aria-hidden="true"></i></div>' +
-        '<div class="wh-condition-body">' +
-          '<div class="wh-condition-label">' + esc(label) + '</div>' +
-          '<div class="wh-condition-value">' + esc(String(value)) + '</div>' +
+      '<div class="wh-cc-tile">' +
+        '<div class="wh-cc-tile-icon"><i class="fa-solid ' + icon + '" aria-hidden="true"></i></div>' +
+        '<div class="wh-cc-tile-body">' +
+          '<div class="wh-cc-tile-label">' + esc(label) + '</div>' +
+          '<div class="wh-cc-tile-value">' + esc(value) + '</div>' +
         '</div>' +
       '</div>'
     );
@@ -359,7 +388,7 @@
     }
 
     return (
-      '<section class="wh-section" aria-labelledby="wh-ef-heading">' +
+      '<section class="wh-section wh-half" aria-labelledby="wh-ef-heading">' +
         '<h2 class="wh-h2" id="wh-ef-heading">ENVIRONMENTAL FACTORS</h2>' +
         body +
       '</section>'
@@ -438,15 +467,17 @@
               '<div class="wh-pattern-sublabel">Possible environmental relevance</div>' +
             '</div>' +
           '</div>' +
-          '<div><div class="wh-pattern-col-label">Observed condition</div><div class="wh-pattern-col-value">' + observed + '</div></div>' +
-          '<div><div class="wh-pattern-col-label">Environmental factor</div><div class="wh-pattern-col-value">' + esc(factorLabel) + '</div></div>' +
-          '<div><div class="wh-pattern-col-label">Relationship</div><div class="wh-pattern-col-value">' + esc(relationship) + '</div></div>' +
+          '<dl class="wh-pattern-fields">' +
+            '<div class="wh-pattern-field"><dt>Observed condition</dt><dd>' + observed + '</dd></div>' +
+            '<div class="wh-pattern-field"><dt>Environmental factor</dt><dd>' + esc(factorLabel) + '</dd></div>' +
+            '<div class="wh-pattern-field"><dt>Relationship</dt><dd>' + esc(relationship) + '</dd></div>' +
+          '</dl>' +
         '</li>'
       );
     }).join('');
 
     return (
-      '<section class="wh-section" aria-labelledby="wh-rhp-heading">' +
+      '<section class="wh-section wh-half" aria-labelledby="wh-rhp-heading">' +
         '<h2 class="wh-h2" id="wh-rhp-heading">RELATED HEALTH PATTERNS</h2>' +
         '<ul class="wh-patterns-list">' + rows + '</ul>' +
       '</section>'
@@ -493,30 +524,24 @@
 
       rows.push(
         '<li class="wh-ctx-row">' +
-          '<div><span class="wh-ctx-cell-label">Environmental Factor</span>' + esc(factorLabel) + '</div>' +
-          '<div class="wh-ctx-arrow" aria-hidden="true"><i class="fa-solid fa-arrow-right"></i></div>' +
-          '<div><span class="wh-ctx-cell-label">Observed Health Pattern</span>' + esc(patternText) + '</div>' +
-          '<div class="wh-ctx-arrow" aria-hidden="true"><i class="fa-solid fa-arrow-right"></i></div>' +
-          '<div><span class="wh-ctx-cell-label">Prediction Context</span><span class="wh-ctx-badge">Supporting Context</span></div>' +
+          '<div class="wh-ctx-cell"><span class="wh-ctx-cell-label">Environmental Factor</span><span class="wh-ctx-cell-value">' + esc(factorLabel) + '</span></div>' +
+          '<div class="wh-ctx-cell"><span class="wh-ctx-cell-label">Observed Health Pattern</span><span class="wh-ctx-cell-value">' + esc(patternText) + '</span></div>' +
+          '<div class="wh-ctx-cell"><span class="wh-ctx-cell-label">Prediction Context</span><span class="wh-ctx-badge">Supporting Context</span></div>' +
         '</li>'
       );
     });
 
     var body;
     if (state.weather.status !== 'ok') {
-      body = '<div class="wh-ctx-empty"><div class="wh-empty">Weather data unavailable, so no environmental relationships can be shown right now.</div></div>';
+      body = '<div class="wh-empty">Weather data unavailable, so no environmental relationships can be shown right now.</div>';
     } else if (!rows.length) {
-      body = '<div class="wh-ctx-empty"><div class="wh-empty">No active environmental-to-health relationships detected under current conditions.</div></div>';
+      body = '<div class="wh-empty">No active environmental-to-health relationships detected under current conditions.</div>';
     } else {
-      body =
-        '<div class="wh-ctx-header">' +
-          '<div>Environmental Factor</div><div></div><div>Observed Health Pattern</div><div></div><div>Prediction Context</div>' +
-        '</div>' +
-        '<ul class="wh-ctx-list" style="list-style:none;margin:0;padding:0;">' + rows.join('') + '</ul>';
+      body = '<ul class="wh-ctx-list">' + rows.join('') + '</ul>';
     }
 
     return (
-      '<section class="wh-section" aria-labelledby="wh-ctx-heading">' +
+      '<section class="wh-section wh-half" aria-labelledby="wh-ctx-heading">' +
         '<h2 class="wh-h2" id="wh-ctx-heading">WEATHER &amp; HEALTH CONTEXT</h2>' +
         body +
       '</section>'
@@ -531,7 +556,7 @@
   // ------------------------------------------------------------------
   function renderWeatherTrend() {
     return (
-      '<section class="wh-section" aria-labelledby="wh-trend-heading">' +
+      '<section class="wh-section wh-half" aria-labelledby="wh-trend-heading">' +
         '<h2 class="wh-h2" id="wh-trend-heading">WEATHER TREND</h2>' +
         '<div class="wh-trend-empty">' +
           '<div class="wh-trend-empty-icon"><i class="fa-solid fa-chart-line" aria-hidden="true"></i></div>' +
@@ -591,20 +616,6 @@
   // ------------------------------------------------------------------
   function weatherLabel(code) {
     return WMO_LABELS[code] || 'Unknown conditions';
-  }
-
-  function formatFetchedTime(fetchedAt) {
-    var d = new Date(fetchedAt);
-    if (isNaN(d.getTime())) return '\u2014';
-    try {
-      return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-    } catch (e) {
-      return d.toLocaleTimeString();
-    }
-  }
-
-  function escAttr(str) {
-    return esc(str).replace(/"/g, '&quot;');
   }
 
   function esc(str) {

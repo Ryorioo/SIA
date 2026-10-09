@@ -10,8 +10,8 @@
 // analytics.js's own (currently unused-by-the-Overview) full medicine
 // table renderer already reads. Nothing here recalculates demand,
 // trend, or risk; this file only re-presents those existing values
-// in the page structure/composition shown in the Phase 2B screenshot
-// (MEDICINE DEMAND FORECAST.png).
+// as one focused analysis page (no summary cards, no analysis
+// controls) matching the cleaned Disease Risk page.
 //
 // Two small display rules go beyond what predictive-analytics.js's
 // own renderMedicineRow()/renderMedicinePreviewRow() already do, both
@@ -41,29 +41,11 @@
 (function () {
   'use strict';
 
-  // Analysis Controls note: the current engine (PCData.Predictive)
-  // computes a single fixed 30-day recent-window analysis — it has no
-  // support for recalculating against a different period yet. The
-  // selector below is left visible (per the Phase 2B screenshot) but
-  // disabled, so it never implies that changing it recalculates the
-  // forecast. Wiring real period-based analysis is a later phase.
-  var ANALYSIS_PERIOD_OPTIONS = [
-    ['7d', 'Last 7 Days'],
-    ['30d', 'Last 30 Days'],
-    ['90d', 'Last 90 Days'],
-    ['6m', 'Last 6 Months'],
-    ['12m', 'Last 12 Months']
-  ];
-
   // Same >= 8 total-records threshold predictive-analytics-data-
   // store.js's getDiseaseRiskAnalysis() already uses to call a rated
   // estimate "Moderate confidence" vs. "Low confidence (small
   // sample)" — reused here, unchanged, for medicines.
   var CONFIDENCE_SAMPLE_THRESHOLD = 8;
-
-  var state = {
-    controls: { period: '30d', lastAnalyzed: null }
-  };
 
   document.addEventListener('DOMContentLoaded', function () {
     if (!window.PCData || !PCData.getInventory || !PCData.getMedicalRecords) {
@@ -75,7 +57,6 @@
       return;
     }
 
-    state.controls.lastAnalyzed = new Date();
     renderAll();
     // Keep the page in sync with Inventory/Medical Records edits made
     // elsewhere (another tab, another page) — same PCData.onChange
@@ -101,19 +82,12 @@
     var analysis = buildDisplayModel(medicine, categories);
 
     root.innerHTML =
-      renderBackLink() +
       renderPageHeader() +
-      renderControls() +
-      renderSummary(analysis) +
       renderAnalysisSection(analysis) +
-      '<div class="md-lower-grid">' +
-        renderTrendsSection(analysis) +
-        renderPressureSection(analysis) +
-      '</div>' +
+      renderTrendsSection(analysis) +
+      renderPressureSection(analysis) +
       renderConfidenceSection(analysis) +
       renderForecastNote();
-
-    bindControls();
   }
 
   // Item id -> Inventory category, for the Category column. Read-only
@@ -129,7 +103,7 @@
 
   // ------------------------------------------------------------------
   // Shared per-item display derivation — computed ONCE per render pass
-  // so every section (summary counts, the main table, trends,
+  // so every section (the main table, trends,
   // pressure, confidence) reads the exact same values instead of
   // re-deriving them slightly differently in five places.
   // ------------------------------------------------------------------
@@ -139,8 +113,6 @@
       var out = Number(i.currentStock) === 0;
       var low = !out && !!i.lowStock; // isLowStock() already covers qty===0 too; "low" here means "low but not zero" so it doesn't double-count against Out of Stock
       var stockState = out ? 'out' : (low ? 'low' : 'in');
-
-      var highDemand = !!i.hasEnoughData && i.demand === 'HIGH';
 
       // Confidence tier — see the file header comment: reuses the
       // existing >= 8 total-matched-records threshold from Disease
@@ -165,16 +137,12 @@
         totalMentions: total,
         recommendation: i.recommendation,
         expired: !!i.expired,
-        highDemand: highDemand,
         confidence: confidence // 'insufficient' | 'low' | 'medium' (never 'high')
       };
     });
 
-    var counts = { total: items.length, highDemand: 0, lowStock: 0, outOfStock: 0, confHigh: 0, confMedium: 0, confLow: 0, confInsufficient: 0 };
+    var counts = { confMedium: 0, confLow: 0, confInsufficient: 0 };
     items.forEach(function (i) {
-      if (i.highDemand) counts.highDemand++;
-      if (i.stockState === 'low') counts.lowStock++;
-      if (i.stockState === 'out') counts.outOfStock++;
       if (i.confidence === 'medium') counts.confMedium++;
       else if (i.confidence === 'low') counts.confLow++;
       else counts.confInsufficient++;
@@ -199,116 +167,16 @@
   }
 
   // ------------------------------------------------------------------
-  // Back link + page header
+  // Page header
   // ------------------------------------------------------------------
-
-  function renderBackLink() {
-    return (
-      '<div class="pa-back-row">' +
-        '<a class="pa-back-link" href="predictive-analytics.html">' +
-          '<i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Back to Predictive Analytics' +
-        '</a>' +
-      '</div>'
-    );
-  }
 
   function renderPageHeader() {
     return (
-      '<div class="page-toolbar">' +
+      '<div class="page-toolbar md-page-header">' +
         '<div>' +
-          '<h1 class="md-page-title">MEDICINE DEMAND FORECAST</h1>' +
+          '<h1 class="md-page-title">MEDICINE DEMAND</h1>' +
         '</div>' +
       '</div>'
-    );
-  }
-
-  // ------------------------------------------------------------------
-  // Analysis Controls
-  // ------------------------------------------------------------------
-
-  function renderControls() {
-    var c = state.controls;
-    var options = ANALYSIS_PERIOD_OPTIONS.map(function (o) {
-      return '<option value="' + escAttr(o[0]) + '"' + (o[0] === c.period ? ' selected' : '') + '>' + esc(o[1]) + '</option>';
-    }).join('');
-
-    return (
-      '<section class="pa-controls" aria-labelledby="md-controls-heading">' +
-        '<h2 class="pa-controls-heading" id="md-controls-heading">ANALYSIS CONTROLS</h2>' +
-        '<div class="pa-controls-panel">' +
-          '<div class="pa-controls-field">' +
-            '<label class="pa-controls-label" for="md-period">Analysis Period</label>' +
-            '<select id="md-period" class="pc-select pa-controls-select" disabled ' +
-              'title="The current predictive engine only supports a fixed last-30-days analysis window \u2014 changing this does not yet recalculate the forecast.">' + options + '</select>' +
-          '</div>' +
-          '<div class="pa-controls-actions">' +
-            '<div class="pa-controls-status" role="status" aria-live="polite">' +
-              '<span class="pa-controls-label">Last analyzed</span>' +
-              '<span class="pa-controls-value">' + esc(c.lastAnalyzed ? formatLastAnalyzed(c.lastAnalyzed) : 'Not yet analyzed') + '</span>' +
-            '</div>' +
-          '</div>' +
-        '</div>' +
-      '</section>'
-    );
-  }
-
-  function bindControls() {
-    // The period select is intentionally disabled (see renderControls
-    // comment) so there is nothing to wire up yet beyond preserving
-    // the chosen value across re-renders, which the `selected`
-    // attribute in renderControls() already does on its own.
-  }
-
-  function formatLastAnalyzed(d) {
-    try {
-      return d.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) +
-        ' \u00B7 ' + d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-    } catch (e) {
-      return d.toLocaleString();
-    }
-  }
-
-  // ------------------------------------------------------------------
-  // Demand Summary
-  // ------------------------------------------------------------------
-
-  function renderSummary(a) {
-    var c = a.counts;
-
-    var monitoredDesc = c.total === 1 ? '1 medicine tracked for demand analysis' : c.total + ' medicines tracked for demand analysis';
-    var highDesc = c.highDemand === 0
-      ? 'No medicines identified with high demand risk'
-      : c.highDemand + ' medicine' + (c.highDemand === 1 ? '' : 's') + ' identified with high demand risk';
-    var lowDesc = c.lowStock === 0
-      ? 'No medicines are at low stock levels'
-      : c.lowStock + ' medicine' + (c.lowStock === 1 ? ' is' : 's are') + ' at low stock levels';
-    var outDesc = c.outOfStock === 0
-      ? 'No medicines are currently out of stock'
-      : c.outOfStock + ' medicine' + (c.outOfStock === 1 ? ' is' : 's are') + ' currently out of stock';
-
-    return (
-      '<section class="md-summary" aria-labelledby="md-summary-heading">' +
-        '<h2 class="md-summary-heading" id="md-summary-heading">DEMAND SUMMARY</h2>' +
-        '<ul class="md-summary-grid">' +
-          summaryCard('fa-chart-line', 'Medicines Monitored', c.total, monitoredDesc, true) +
-          summaryCard('fa-triangle-exclamation', 'High Demand Risk', c.highDemand, highDesc, false) +
-          summaryCard('fa-boxes-stacked', 'Low Stock Risks', c.lowStock, lowDesc, false) +
-          summaryCard('fa-circle-minus', 'Out of Stock', c.outOfStock, outDesc, false) +
-        '</ul>' +
-      '</section>'
-    );
-  }
-
-  function summaryCard(icon, label, value, desc, primary) {
-    return (
-      '<li class="md-scard' + (primary ? ' md-scard-primary' : '') + '">' +
-        '<div class="md-scard-head">' +
-          '<span class="md-scard-icon"><i class="fa-solid ' + icon + '" aria-hidden="true"></i></span>' +
-        '</div>' +
-        '<div class="md-scard-label">' + esc(label) + '</div>' +
-        '<div class="md-scard-value">' + esc(String(value)) + '</div>' +
-        '<div class="md-scard-desc">' + esc(desc) + '</div>' +
-      '</li>'
     );
   }
 
@@ -341,7 +209,7 @@
     }
 
     return (
-      '<section class="md-section" aria-labelledby="md-analysis-heading">' +
+      '<section class="md-section md-section-surface" aria-labelledby="md-analysis-heading">' +
         '<h2 class="md-section-heading" id="md-analysis-heading">MEDICINE DEMAND ANALYSIS</h2>' +
         body +
       '</section>'
@@ -429,7 +297,7 @@
     }
 
     return (
-      '<section class="md-section" aria-labelledby="md-trends-heading">' +
+      '<section class="md-section md-section-surface" aria-labelledby="md-trends-heading">' +
         '<h2 class="md-section-heading" id="md-trends-heading">DEMAND TRENDS</h2>' +
         body +
       '</section>'
@@ -492,7 +360,7 @@
     }
 
     return (
-      '<section class="md-section" aria-labelledby="md-pressure-heading">' +
+      '<section class="md-section md-section-surface" aria-labelledby="md-pressure-heading">' +
         '<h2 class="md-section-heading" id="md-pressure-heading">INVENTORY PRESSURE</h2>' +
         body +
       '</section>'
@@ -525,7 +393,7 @@
   function renderConfidenceSection(a) {
     var c = a.counts;
     return (
-      '<section class="md-section" aria-labelledby="md-conf-heading">' +
+      '<section class="md-section md-section-surface" aria-labelledby="md-conf-heading">' +
         '<h2 class="md-section-heading" id="md-conf-heading">DEMAND CONFIDENCE</h2>' +
         '<ul class="md-conf-grid">' +
           confidenceCard('high', 'HIGH CONFIDENCE', 0) +
@@ -568,7 +436,7 @@
 
   // ------------------------------------------------------------------
   // small shared render helpers (same behavior as predictive-
-  // analytics.js's own riskBadgeClass/trendIcon/esc/escAttr)
+  // analytics.js's own riskBadgeClass/trendIcon/esc)
   // ------------------------------------------------------------------
 
   function riskBadgeClass(level) {
@@ -581,10 +449,6 @@
     if (trend === 'Increasing') return 'fa-arrow-trend-up';
     if (trend === 'Decreasing') return 'fa-arrow-trend-down';
     return 'fa-arrows-left-right';
-  }
-
-  function escAttr(str) {
-    return esc(str).replace(/"/g, '&quot;');
   }
 
   function esc(str) {

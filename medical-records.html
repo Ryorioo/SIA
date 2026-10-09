@@ -14,19 +14,24 @@
      on the Patients and Clients pages.
      ============================================================ */
 
-  /* --- header cleanup (Medical Records page) ---
-     Same treatment as Patients/Clients: the page-level title/
-     breadcrumb that used to live in .topbar is removed, so the
-     border-bottom style.css draws for pages that keep that title is
-     suppressed here (scoped to this page only, style.css untouched). */
+  /* --- header (aligned with Inventory Items) ---
+     Same approach as inventory-items.html: the empty desktop topbar is
+     hidden (it only holds the mobile menu toggle, which still shows at
+     <=980px), the title uses the same 20px/800 heading, and the header
+     keeps the same 24px gap to the content. The old 22px top nudge is
+     gone because it only compensated for that empty topbar. Only the
+     heading, spacing, controls and typography follow Items — no panel or
+     new surface is added, so the page background is unchanged.
+     Classes use the .mr- prefix, scoped to #mr-body. */
   .topbar { border-bottom: none; }
-
-  /* --- header spacing (Medical Records page) ---
-     Nudges the "Medical Records" toolbar block down slightly to fill
-     the space left by the removed title/breadcrumb, page-scoped only.
-     margin-bottom (spacing to the filter bar below) is untouched —
-     inherited from style.css's .page-toolbar as before. */
-  .page-toolbar { margin-top: 22px; }
+  @media (min-width: 981px) { .topbar { display: none; } }
+  #mr-body .mr-header { align-items: center; margin-bottom: 24px; }
+  #mr-body .mr-header-text { min-width: 0; flex: 1 1 auto; }
+  #mr-body .mr-title { margin: 0 0 2px; font-size: 20px; font-weight: 800; line-height: inherit; letter-spacing: normal; color: var(--ink-900); }
+  #mr-body .mr-header-actions { flex: 0 0 auto; }
+  #mr-body .mr-header-actions .btn { white-space: nowrap; }
+  #mr-body .icon-btn:focus-visible,
+  #mr-body .btn:focus-visible { outline: 2px solid var(--teal-400); outline-offset: 2px; }
 
   .mr-table-wrap {
     background: var(--surface-card);
@@ -46,7 +51,28 @@
   }
   .icon-btn:hover { border-color: var(--teal-400); color: var(--teal-700); }
 
-  .mr-count { font-size: 12.5px; color: var(--ink-faint); font-weight: 600; margin-top: -4px; margin-bottom: 14px; }
+  /* --- Medical History pagination footer ---
+     Mirrors Inventory Items' .ii-footer / .ii-pager / .ii-page (same
+     spacing, 12.5px count, btn-sm controls, active page = btn-primary,
+     disabled = .45 opacity). It sits directly under the timeline with NO
+     panel, background or border, so the page background is unchanged. */
+  .mr-footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; padding-top: 14px; }
+  .mr-footer-count { margin: 0; font-size: 12.5px; font-weight: 600; line-height: 1.45; color: var(--ink-700); }
+  .mr-pager { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-left: auto; min-width: 0; max-width: 100%; }
+  .mr-pager[hidden] { display: none; }
+  .mr-pager .btn[disabled] { opacity: .45; cursor: not-allowed; box-shadow: none; pointer-events: none; }
+  .mr-pages { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px; min-width: 0; }
+  .mr-page { min-width: 32px; padding-left: 6px; padding-right: 6px; font-variant-numeric: tabular-nums; }
+  .mr-ellipsis { min-width: 20px; text-align: center; font-size: 12.5px; font-weight: 700; color: var(--ink-soft); user-select: none; }
+  .mr-pager .btn:focus-visible { outline: 2px solid var(--teal-400); outline-offset: 2px; }
+  @media (max-width: 640px) {
+    .mr-footer { flex-direction: column; align-items: stretch; text-align: center; }
+    .mr-pager { margin-left: 0; justify-content: center; }
+    .mr-pager #mr-prev, .mr-pager #mr-next { flex: 1 1 0; }
+    .mr-pager #mr-prev { order: 1; }
+    .mr-pager #mr-next { order: 2; }
+    .mr-pager .mr-pages { order: 3; flex: 1 1 100%; }
+  }
 
   /* --- filter bar: search gets most of the row; filter controls only
      take the width their contents need; Clear filters sits at the end --- */
@@ -656,9 +682,17 @@
         <div id="recent-patients"></div>
 
         <div class="mr-section-heading"><i class="fa-solid fa-notes-medical"></i> Medical History</div>
-        <div class="mr-count" id="mr-count"></div>
 
         <div id="view-root"></div>
+
+        <div class="mr-footer" id="mr-footer">
+          <p class="mr-footer-count" id="mr-count" aria-live="polite"></p>
+          <div class="mr-pager" id="mr-pager" hidden>
+            <button type="button" class="btn btn-sm" id="mr-prev">Previous</button>
+            <div class="mr-pages" id="mr-pages" role="group" aria-label="Pagination"></div>
+            <button type="button" class="btn btn-sm" id="mr-next">Next</button>
+          </div>
+        </div>
 
       </main>
     </div>

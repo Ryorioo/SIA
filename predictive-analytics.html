@@ -27,22 +27,14 @@
      shared .btn.btn-primary; only layout is defined here. Larger bottom
      margin than the other sections so it reads as separate from Analysis
      Overview. Stacks at narrow widths; no horizontal scrolling. */
-  .pa-controls { margin-bottom: 30px; }
-  .pa-controls-heading { margin: 0 0 18px; font-size: 20px; font-weight: 800; line-height: normal; letter-spacing: normal; color: var(--ink-800); }
-  .pa-controls-sub { margin: 0 0 18px; font-size: 13px; font-weight: 500; line-height: 1.45; color: var(--ink-700); }
-  .pa-controls-panel { box-sizing: border-box; display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px 24px; padding: 16px 18px; background: var(--surface-sunken); border: 1px solid var(--line-soft); border-radius: var(--r-md); box-shadow: var(--clay-flat); }
-  .pa-controls-field, .pa-controls-status { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-  .pa-controls-label { font-size: 12px; font-weight: 700; color: var(--ink-700); line-height: 1.3; }
-  .pa-controls-select { box-sizing: border-box; height: 38px; min-width: 200px; max-width: 100%; }
-  .pa-controls-actions { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 16px 24px; min-width: 0; }
-  .pa-controls-value { display: flex; align-items: center; min-height: 38px; font-size: 13px; font-weight: 500; color: var(--ink-700); overflow-wrap: anywhere; }
+  .pa-controls { margin: 0; }
+  .pa-controls-panel { box-sizing: border-box; display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 10px 12px; padding: 0; }
+  .pa-controls-select { box-sizing: border-box; height: 38px; min-width: 170px; max-width: 100%; }
   .pa-controls-refresh { box-sizing: border-box; min-height: 38px; flex: 0 0 auto; white-space: nowrap; }
   .pa-controls-refresh[disabled] { opacity: 0.7; cursor: not-allowed; }
   @media (max-width: 640px) {
     .pa-controls-panel { flex-direction: column; align-items: stretch; }
     .pa-controls-select { width: 100%; min-width: 0; }
-    .pa-controls-actions { flex-direction: column; align-items: stretch; gap: 16px; }
-    .pa-controls-value { min-height: 0; }
     .pa-controls-refresh { width: 100%; min-height: 44px; }
   }
 
@@ -77,12 +69,13 @@
      Demand / Recommendations still exist further down this file, just
      unused by the Overview as of Phase 1 — kept so Phase 2's dedicated
      pages can reuse them as-is. */
-  .pa-preview-head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 10px 16px; margin-bottom: 18px; }
+  .pa-preview-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; margin-bottom: 18px; }
   .pa-preview-headtext { min-width: 0; flex: 1 1 260px; }
   .pa-preview-heading { margin: 0; font-size: 20px; font-weight: 800; line-height: normal; letter-spacing: normal; color: var(--ink-800); }
   .pa-preview-sub { margin: 0; font-size: 13px; font-weight: 500; line-height: 1.45; color: var(--ink-700); }
   .pa-view-link { text-decoration: none; flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; background: var(--surface-sunken); border: 1px solid var(--line-soft); border-radius: var(--r-pill); color: var(--ink-800); font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; white-space: nowrap; transition: border-color 0.15s ease, color 0.15s ease; }
   .pa-view-link:hover { border-color: var(--teal-400); color: var(--teal-700); }
+  .pa-view-link:focus-visible { outline: none; border-color: var(--teal-400); box-shadow: 0 0 0 3px var(--teal-100); }
   .pa-view-link i { font-size: 11px; }
 
   /* Shared compact read-only table used by both the Current Risk
@@ -283,10 +276,33 @@
      its own border. */
   .topbar { border-bottom: none; }
 
-  /* Page title — same block as Billing's: shared .page-toolbar with a
-     22px top margin, and a 20px / 800 / --ink-900 title with a 2px
-     bottom margin (Billing's .bl-page-title). */
-  .page-toolbar { margin-top: 22px; }
+  /* Page title — 20px / 800 / --ink-900 title with a 2px bottom margin.
+     The page-scoped 22px top margin that used to sit on .page-toolbar
+     (stacked on top of the topbar and .page-body padding) caused the
+     excess gap above the title, so it was removed; the shared
+     .page-body padding now provides the top spacing. The toolbar's
+     bottom margin is tightened so the compact controls sit right under
+     the title. */
+  .page-toolbar { margin-bottom: 14px; }
+
+  /* Page header: title/description left, period select / Refresh right (rendered into #pa-controls-slot by
+     predictive-analytics.js). Header is vertically centered;
+     stacks below 900px so tablet widths never squeeze the controls. */
+  .pa-page-header { align-items: center; margin-bottom: 30px; }
+  .pa-page-header-text { min-width: 0; flex: 1 1 auto; }
+  .pa-page-header-controls { min-width: 0; max-width: 100%; flex: 0 1 auto; }
+  @media (max-width: 900px) {
+    .pa-page-header { flex-direction: column; align-items: stretch; gap: 14px; }
+    .pa-page-header-controls { flex: 0 0 auto; width: 100%; }
+    .pa-controls-panel { justify-content: flex-start; }
+  }
+
+  /* Ghost-space fix: the shared .topbar holds only the hamburger, which
+     style.css hides above 980px, so on desktop it rendered as an empty
+     ~68px bar above the title. Collapsed for this page only on desktop
+     (page-scoped; style.css and the global topbar are untouched). It
+     stays on <=980px where the menu toggle is needed. */
+  @media (min-width: 981px) { .topbar { display: none; } }
   .pa-page-title { margin: 0 0 2px; font-size: 20px; font-weight: 800; line-height: inherit; letter-spacing: normal; color: var(--ink-900); }
 
   /* Analysis Period select — interactive control on the sunken panel */
@@ -321,7 +337,9 @@
 
   /* Outer module containers (Medicine & Inventory Pressure, Weather & Health Context) */
   .pa-lower-grid > .pa-med,
-  .pa-lower-grid > .pa-weather {
+  .pa-lower-grid > .pa-weather,
+  .pa-disease,
+  .pa-rec {
     box-sizing: border-box;
     min-width: 0;
     padding: 16px 18px 18px;
@@ -333,12 +351,9 @@
   /* Module header: same title/sub/button treatment in both, one step
      below the 20px page-section headings so the hierarchy reads
      page section -> module -> inner box. */
-  .pa-lower-grid .pa-preview-head { margin-bottom: 14px; gap: 8px 14px; }
-  .pa-lower-grid .pa-preview-heading { margin-bottom: 4px; font-size: 16px; }
-  .pa-lower-grid .pa-preview-sub { font-size: 12.5px; }
-  .pa-lower-grid .pa-view-link { background: var(--surface-bg); border-color: var(--line); }
-  .pa-lower-grid .pa-view-link:hover { background: var(--surface-card-raised); border-color: var(--teal-400); color: var(--teal-700); }
-  .pa-lower-grid .pa-view-link:focus-visible { outline: none; border-color: var(--teal-400); box-shadow: 0 0 0 3px var(--teal-100); }
+  .pa-lower-grid .pa-preview-head, .pa-disease .pa-preview-head, .pa-rec .pa-preview-head { margin-bottom: 14px; gap: 12px 14px; }
+  .pa-lower-grid .pa-preview-heading, .pa-disease .pa-preview-heading, .pa-rec .pa-preview-heading { margin-bottom: 0; font-size: 16px; }
+  .pa-lower-grid .pa-preview-sub, .pa-disease .pa-preview-sub, .pa-rec .pa-preview-sub { font-size: 12.5px; }
 
   /* Medicine table — one inner content surface (rows stay plain rows) */
   .pa-med .pa-snapshot-table-wrap {
@@ -354,6 +369,23 @@
   .pa-med .pa-snapshot-table thead th { border-bottom-color: transparent; }
   .pa-med .pa-snapshot-table tbody td { padding: 11px 12px; border-bottom-color: var(--line); }
   .pa-med .pa-snapshot-table tbody tr:last-child td { border-bottom: none; }
+
+  /* Recommendations — same inner content surface as the Medicine table
+     wrapper (page-bg tone, hairline border, faint inset) and the same
+     --line row dividers; the outer module surface is shared above. */
+  .pa-rec .pa-rec-panel, .pa-rec .pa-rec-empty { background: var(--surface-bg); border: 1px solid var(--line); border-radius: var(--r-md); box-shadow: inset 0 1px 2px rgba(31, 42, 46, 0.05); }
+  .pa-rec .pa-rec-item { border-bottom-color: var(--line); }
+
+  /* Disease Risk table — sits directly on the section surface (no
+     nested box). Same header band, cell padding and row dividers as the
+     Medicine & Inventory Pressure table; the wrapper only keeps
+     horizontal scrolling on narrow screens. */
+  .pa-disease .pa-snapshot-table-wrap { padding: 0; background: transparent; border: none; border-radius: 0; box-shadow: none; }
+  .pa-disease .pa-snapshot-table thead th { padding: 10px 12px; border-bottom-color: transparent; }
+  .pa-disease .pa-snapshot-table thead th:first-child { border-top-left-radius: var(--r-xs); border-bottom-left-radius: var(--r-xs); }
+  .pa-disease .pa-snapshot-table thead th:last-child { border-top-right-radius: var(--r-xs); border-bottom-right-radius: var(--r-xs); }
+  .pa-disease .pa-snapshot-table tbody td { padding: 11px 12px; border-bottom-color: var(--line); }
+  .pa-disease .pa-snapshot-table tbody tr:last-child td { border-bottom: none; }
 
   /* Weather & Health — Current Conditions / Environmental Factors as two matching inner boxes */
   .pa-weather .pa-weather-grid { gap: 12px; }
@@ -482,10 +514,11 @@
       </header>
 
       <main class="page-body">
-        <div class="page-toolbar">
-          <div>
+        <div class="page-toolbar pa-page-header">
+          <div class="pa-page-header-text">
             <h1 class="pa-page-title">PREDICTIVE ANALYTICS</h1>
           </div>
+          <div class="pa-page-header-controls" id="pa-controls-slot"></div>
         </div>
         <div id="pa-root"></div>
       </main>

@@ -8,9 +8,12 @@
 (function () {
   var D = window.PCData;
 
+  var PAGE_SIZE = 9;
+
   var state = {
     search: '',
     filterStatus: '',
+    page: 1,
     editingId: null,
     viewingId: null
   };
@@ -102,6 +105,102 @@
   }
 
   // ------------------------------------------------------------------
+  // PAGINATION (9 cards per page)
+  // ------------------------------------------------------------------
+  // The pager is created here, inside the existing .cl-footer, so
+  // clients.html needs no changes. Its few style rules are injected
+  // once and scoped to #clients-body (mirrors the Items pager).
+
+  var pagerEls = null;
+
+  function buildPager() {
+    var footer = document.querySelector('#clients-body .cl-footer');
+    if (!footer || pagerEls) return;
+
+    var style = document.createElement('style');
+    style.textContent =
+      '#clients-body .cl-pager { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-left: auto; min-width: 0; max-width: 100%; }' +
+      '#clients-body .cl-pager[hidden] { display: none; }' +
+      '#clients-body .cl-pager .btn[disabled] { opacity: .45; cursor: not-allowed; box-shadow: none; pointer-events: none; }' +
+      '#clients-body .cl-pages { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px; min-width: 0; }' +
+      '#clients-body .cl-page { min-width: 32px; padding-left: 6px; padding-right: 6px; font-variant-numeric: tabular-nums; }' +
+      '#clients-body .cl-ellipsis { min-width: 20px; text-align: center; font-size: 12.5px; font-weight: 700; color: var(--ink-soft); user-select: none; }' +
+      '@media (max-width: 640px) {' +
+        '#clients-body .cl-pager { margin-left: 0; justify-content: center; }' +
+        '#clients-body .cl-pager #cl-prev, #clients-body .cl-pager #cl-next { flex: 1 1 0; }' +
+        '#clients-body .cl-pager #cl-prev { order: 1; }' +
+        '#clients-body .cl-pager #cl-next { order: 2; }' +
+        '#clients-body .cl-pager .cl-pages { order: 3; flex: 1 1 100%; }' +
+      '}';
+    document.head.appendChild(style);
+
+    var pager = document.createElement('div');
+    pager.className = 'cl-pager';
+    pager.id = 'cl-pager';
+    pager.hidden = true;
+    pager.innerHTML =
+      '<button type="button" class="btn btn-sm" id="cl-prev">Previous</button>' +
+      '<div class="cl-pages" id="cl-pages" role="group" aria-label="Pagination"></div>' +
+      '<button type="button" class="btn btn-sm" id="cl-next">Next</button>';
+    footer.appendChild(pager);
+
+    pagerEls = {
+      pager: pager,
+      prev: pager.querySelector('#cl-prev'),
+      next: pager.querySelector('#cl-next'),
+      pages: pager.querySelector('#cl-pages')
+    };
+
+    pagerEls.prev.addEventListener('click', function () {
+      if (state.page > 1) { state.page--; renderList(); keepPagerFocus(); }
+    });
+    pagerEls.next.addEventListener('click', function () {
+      state.page++; renderList(); keepPagerFocus(); // renderList clamps to the last page
+    });
+    pagerEls.pages.addEventListener('click', function (e) {
+      var btn = e.target.closest ? e.target.closest('[data-page]') : null;
+      if (!btn) return;
+      var n = parseInt(btn.getAttribute('data-page'), 10);
+      if (n && n !== state.page) { state.page = n; renderList(); keepPagerFocus(); }
+    });
+  }
+
+  // Page numbers to show: all of them up to 7 pages, otherwise first/last,
+  // the current page and its neighbours, with '…' for the gaps.
+  function pageList(cur, total) {
+    var out = [], n;
+    if (total <= 7) {
+      for (n = 1; n <= total; n++) out.push(n);
+      return out;
+    }
+    if (cur <= 4) return [1, 2, 3, 4, 5, '…', total];
+    if (cur >= total - 3) return [1, '…', total - 4, total - 3, total - 2, total - 1, total];
+    return [1, '…', cur - 1, cur, cur + 1, '…', total];
+  }
+
+  function updatePager(cur, pages) {
+    if (!pagerEls) return;
+    pagerEls.pager.hidden = pages <= 1; // 9 or fewer matches: no pager needed
+    pagerEls.pages.innerHTML = pageList(cur, pages).map(function (p) {
+      if (p === '…') return '<span class="cl-ellipsis" aria-hidden="true">…</span>';
+      var active = p === cur;
+      return '<button type="button" class="btn btn-sm cl-page' + (active ? ' btn-primary' : '') + '" data-page="' + p + '"' +
+        (active ? ' aria-current="page"' : '') + ' aria-label="Page ' + p + '">' + p + '</button>';
+    }).join('');
+    pagerEls.prev.disabled = cur <= 1;
+    pagerEls.next.disabled = cur >= pages;
+  }
+
+  // The pager is rebuilt on every render, so put keyboard focus back on the
+  // current page number if the clicked control was replaced or disabled.
+  function keepPagerFocus() {
+    if (!pagerEls) return;
+    if (pagerEls.pager.contains(document.activeElement) && !document.activeElement.disabled) return;
+    var cur = pagerEls.pages.querySelector('[aria-current="page"]');
+    if (cur) cur.focus();
+  }
+
+  // ------------------------------------------------------------------
   // LIST VIEW
   // ------------------------------------------------------------------
 
@@ -111,20 +210,33 @@
     seedClientDisplayIds();
     var filtered = all.filter(matchesFilters);
 
-    document.getElementById('clients-count').textContent =
-      filtered.length + ' client' + (filtered.length === 1 ? '' : 's') +
-      (filtered.length !== all.length ? ' (of ' + all.length + ')' : '');
-
     if (!filtered.length) {
+      document.getElementById('clients-count').textContent = 'No clients to show';
+      updatePager(1, 1);
       root.innerHTML = '<div class="clients-empty"><div class="no-results">No clients match your search or filters.</div></div>';
       return;
     }
 
     filtered.sort(function (a, b) { return a.name.localeCompare(b.name); });
 
+    // Pagination: sort first, then slice, so pages follow the sorted order.
+    var total = filtered.length;
+    var pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+    if (state.page > pages) state.page = pages; // e.g. last client on the last page was removed
+    if (state.page < 1) state.page = 1;
+    var start = (state.page - 1) * PAGE_SIZE;
+    var pageItems = filtered.slice(start, start + PAGE_SIZE);
+    var first = start + 1;
+    var last = start + pageItems.length;
+
+    document.getElementById('clients-count').textContent =
+      'Showing ' + (first === last ? first : first + '\u2013' + last) +
+      ' of ' + total + ' client' + (total === 1 ? '' : 's');
+    updatePager(state.page, pages);
+
     var html = '<div class="clients-grid">';
 
-    html += filtered.map(function (c) {
+    html += pageItems.map(function (c) {
       var pets = D.getPatientsForClient(c);
       var visiblePets = pets.slice(0, 2);
       var extraPetCount = Math.max(0, pets.length - 2);
@@ -575,10 +687,15 @@
   // CLIENT PROFILE
   // ------------------------------------------------------------------
 
+  // Client Profile is now a dedicated page (client-profile.html), opened
+  // with the clinic display ID (e.g. ?id=CL-002). The old modal markup and
+  // renderProfile() below are intentionally left in place, now unused, so
+  // they can be removed in a separate cleanup step.
   function openProfile(id) {
-    state.viewingId = id;
-    renderProfile();
-    document.getElementById('profile-overlay').classList.add('open');
+    var c = D.getClientById(id);
+    if (!c) return;
+    seedClientDisplayIds();
+    window.location.href = 'client-profile.html?id=' + encodeURIComponent(displayClientId(c));
   }
 
   function closeProfile() {
@@ -699,14 +816,16 @@
   document.addEventListener('DOMContentLoaded', function () {
     document.getElementById('search-input').addEventListener('input', function (e) {
       state.search = e.target.value;
+      state.page = 1;
       renderList();
     });
     document.getElementById('filter-status').addEventListener('change', function (e) {
       state.filterStatus = e.target.value;
+      state.page = 1;
       renderList();
     });
     document.getElementById('clear-filters').addEventListener('click', function () {
-      state.search = ''; state.filterStatus = '';
+      state.search = ''; state.filterStatus = ''; state.page = 1;
       document.getElementById('search-input').value = '';
       document.getElementById('filter-status').value = '';
       renderList();
@@ -738,6 +857,7 @@
       document.getElementById('modal-cancel').click();
     });
 
+    buildPager();
     D.onChange(renderAll);
     renderAll();
   });

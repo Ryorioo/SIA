@@ -11,6 +11,7 @@
     filterVet: '',
     filterType: '',
     filterStatus: '',
+    page: 1,           // current Medical History page (1-based)
     patientId: null,   // set when opened as medical-records.html?patient=<id>
     appointmentId: null, // set when opened as medical-records.html?appointment=<id> (e.g. linked from a completed queue consultation)
     editingId: null,
@@ -149,6 +150,7 @@
     document.getElementById('clear-patient-context').addEventListener('click', function () {
       state.patientId = null;
       state.appointmentId = null;
+      state.page = 1;
       history.replaceState(null, '', 'medical-records.html');
       renderAll();
     });
@@ -160,6 +162,7 @@
   function viewPatientHistory(patientId) {
     state.patientId = patientId;
     state.appointmentId = null;
+    state.page = 1;
     history.replaceState(null, '', 'medical-records.html?patient=' + encodeURIComponent(patientId));
     renderAll();
   }
@@ -342,10 +345,66 @@
     container.hidden = !!(state.search.trim() || state.filterDate || state.filterVet || state.filterType || state.filterStatus);
   }
 
-  // Max Medical History records rendered at once. The list is filtered and
-  // sorted first, then only the first MAX_HISTORY_RECORDS are rendered —
-  // stored records are never trimmed, and there is no pagination yet.
-  var MAX_HISTORY_RECORDS = 10;
+  // Medical History pagination (mirrors Inventory Items). The list is
+  // filtered, sorted newest-first (on a filtered copy) and sliced into pages
+  // of PAGE_SIZE. This is a DISPLAY limit only: every matching record stays
+  // reachable through the pager, and stored records are never trimmed,
+  // deleted or modified.
+  var PAGE_SIZE = 5;
+  var lastPagerSig = '';
+
+  // Page numbers to show: all of them up to 7 pages, otherwise first/last,
+  // the current page and its neighbours, with '…' for the gaps.
+  function pageList(cur, total) {
+    if (total <= 7) {
+      var all = [];
+      for (var n = 1; n <= total; n++) all.push(n);
+      return all;
+    }
+    if (cur <= 4) return [1, 2, 3, 4, 5, '…', total];
+    if (cur >= total - 3) return [1, '…', total - 4, total - 3, total - 2, total - 1, total];
+    return [1, '…', cur - 1, cur, cur + 1, '…', total];
+  }
+
+  function pageButtons(cur, total) {
+    return pageList(cur, total).map(function (p) {
+      if (p === '…') return '<span class="mr-ellipsis" aria-hidden="true">…</span>';
+      var active = p === cur;
+      return '<button type="button" class="btn btn-sm mr-page' + (active ? ' btn-primary' : '') + '" data-page="' + p + '"' +
+        (active ? ' aria-current="page"' : '') + ' aria-label="Page ' + p + '">' + p + '</button>';
+    }).join('');
+  }
+
+  // The pager is rebuilt on every page change, so put keyboard focus back on
+  // the current page number if the clicked control was replaced or disabled.
+  function keepPagerFocus() {
+    var pager = document.getElementById('mr-pager');
+    if (pager.contains(document.activeElement) && !document.activeElement.disabled) return;
+    var cur = document.getElementById('mr-pages').querySelector('[aria-current="page"]');
+    if (cur) cur.focus();
+  }
+
+  // Footer: "Showing 1–5 of 11 records" on the left; Previous / numbers / Next
+  // on the right. Pager is hidden when nothing matches or everything fits on
+  // one page (same as Inventory Items).
+  function renderFooter(total, start, shownCount, pages) {
+    var countText = !total ? 'No records to show' :
+      'Showing ' + (shownCount === total ? total : shownCount === 1 ? (start + 1) : (start + 1) + '\u2013' + (start + shownCount)) +
+      ' of ' + total + (total === 1 ? ' record' : ' records');
+    document.getElementById('mr-count').textContent = countText;
+
+    var pager = document.getElementById('mr-pager');
+    pager.hidden = !total || pages <= 1;
+    // Only rebuild the number buttons when something changed (PCData.onChange
+    // can fire repeatedly) so keyboard focus isn't dropped needlessly.
+    var sig = state.page + '/' + pages;
+    if (sig !== lastPagerSig || !document.getElementById('mr-pages').children.length) {
+      lastPagerSig = sig;
+      document.getElementById('mr-pages').innerHTML = pageButtons(state.page, pages);
+    }
+    document.getElementById('mr-prev').disabled = state.page <= 1;
+    document.getElementById('mr-next').disabled = state.page >= pages;
+  }
 
   function renderList() {
     syncRecentPatientsVisibility();
@@ -354,18 +413,21 @@
     var scoped = state.patientId ? all.filter(function (r) { return r.patientId === state.patientId; }) : all;
     var filtered = scoped.filter(matchesFilters);
 
-    document.getElementById('mr-count').textContent =
-      (filtered.length > MAX_HISTORY_RECORDS ? 'Showing ' + MAX_HISTORY_RECORDS + ' of ' : '') +
-      filtered.length + ' record' + (filtered.length === 1 ? '' : 's') +
-      (filtered.length !== scoped.length ? ' (of ' + scoped.length + ')' : '');
-
     if (!filtered.length) {
+      state.page = 1;
       root.innerHTML = '<div class="mr-table-wrap"><div class="no-results">No medical records match your search or filters.</div></div>';
+      renderFooter(0, 0, 0, 1);
       return;
     }
 
     filtered.sort(function (a, b) { return (b.date || '').localeCompare(a.date || ''); });
-    var shown = filtered.slice(0, MAX_HISTORY_RECORDS);
+
+    var pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+    if (state.page > pages) state.page = pages;   // e.g. after records were removed elsewhere
+    if (state.page < 1) state.page = 1;
+    var start = (state.page - 1) * PAGE_SIZE;
+    var shown = filtered.slice(start, start + PAGE_SIZE);
+    renderFooter(filtered.length, start, shown.length, pages);
 
     var displayIds = patientDisplayIds();
 
@@ -664,32 +726,51 @@
 
     document.getElementById('search-input').addEventListener('input', function (e) {
       state.search = e.target.value;
+      state.page = 1;
       renderList();
     });
     document.getElementById('filter-date').addEventListener('change', function (e) {
       state.filterDate = e.target.value;
+      state.page = 1;
       renderList();
     });
     document.getElementById('filter-vet').addEventListener('change', function (e) {
       state.filterVet = e.target.value;
+      state.page = 1;
       renderList();
     });
     document.getElementById('filter-type').addEventListener('change', function (e) {
       state.filterType = e.target.value;
+      state.page = 1;
       renderList();
     });
     document.getElementById('filter-status').addEventListener('change', function (e) {
       state.filterStatus = e.target.value;
+      state.page = 1;
       renderList();
     });
     document.getElementById('clear-filters').addEventListener('click', function () {
       state.search = ''; state.filterDate = ''; state.filterVet = ''; state.filterType = ''; state.filterStatus = '';
+      state.page = 1;
       document.getElementById('search-input').value = '';
       document.getElementById('filter-date').value = '';
       document.getElementById('filter-vet').value = '';
       document.getElementById('filter-type').value = '';
       document.getElementById('filter-status').value = '';
       renderList();
+    });
+
+    document.getElementById('mr-prev').addEventListener('click', function () {
+      if (state.page > 1) { state.page--; renderList(); keepPagerFocus(); }
+    });
+    document.getElementById('mr-next').addEventListener('click', function () {
+      state.page++; renderList(); keepPagerFocus();   // renderList clamps to the last page
+    });
+    document.getElementById('mr-pages').addEventListener('click', function (e) {
+      var btn = e.target.closest ? e.target.closest('[data-page]') : null;
+      if (!btn) return;
+      var n = parseInt(btn.getAttribute('data-page'), 10);
+      if (n && n !== state.page) { state.page = n; renderList(); keepPagerFocus(); }
     });
 
     document.getElementById('f-patient').addEventListener('change', updateOwnerFromPatient);

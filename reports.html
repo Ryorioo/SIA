@@ -18,12 +18,21 @@
      itself is defined here, using existing CSS custom properties — no
      hardcoded colors. */
 
-  /* --- header: same treatment as Services / Medical Records ---
-     The page title lives in the toolbar below, so the border-bottom
-     style.css draws under the (now empty) topbar is suppressed. */
+  /* --- header: same treatment as Inventory Items ---
+     The empty desktop topbar (it only holds the mobile menu toggle) is
+     hidden above 980px, so the old 22px top nudge is gone; the toolbar
+     is vertically centred with a 24px gap below, and the title uses
+     Inventory's 20px/800 --ink-900 heading. The Generate Report button
+     keeps its markup/ID and gets Inventory's nowrap + 40px mobile
+     height. No panel or background is added. The border-bottom
+     style.css draws under the (now empty) topbar stays suppressed. */
   .topbar { border-bottom: none; }
-  .page-toolbar { margin-top: 22px; }
-  .rpt-page-title { font-size: 20px; font-weight: 800; margin-bottom: 0; }
+  @media (min-width: 981px) { .topbar { display: none; } }
+  .page-toolbar.rpt-header { align-items: center; margin-bottom: 24px; }
+  .rpt-header > div:first-child { min-width: 0; flex: 1 1 auto; }
+  .rpt-header #btn-generate-report { flex: 0 0 auto; white-space: nowrap; }
+  .rpt-page-title { margin: 0 0 2px; font-size: 20px; font-weight: 800; line-height: inherit; letter-spacing: normal; color: var(--ink-900); }
+  @media (max-width: 640px) { .rpt-header #btn-generate-report { min-height: 40px; } }
 
   .rpt-section-title {
     margin: 0 0 12px;
@@ -698,9 +707,9 @@
       </header>
 
       <main class="page-body">
-        <div class="page-toolbar">
+        <div class="page-toolbar rpt-header">
           <div>
-            <div class="rpt-page-title">REPORTS</div>
+            <h1 class="rpt-page-title">REPORTS</h1>
           </div>
           <button type="button" class="btn btn-sm btn-primary" id="btn-generate-report">
             <i class="fa-solid fa-plus"></i> Generate Report

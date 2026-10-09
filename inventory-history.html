@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Inventory History · Pawsitive Care</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+<link rel="stylesheet" href="style.css">
+<style>
+  /* ---- Inventory History page (scoped to #inventory-history-body) ----
+     Same layout language as the finished Inventory Overview / Stock Management pages:
+     page header (40px gap, as on the Overview), then one bordered module holding the
+     filters, the movements table on an inner page-bg surface, and a count + numbered
+     pagination footer. The item-activity panel is a second bordered module beside it
+     (stacked below on narrower screens). Reuses shared .btn / .btn-sm / .btn-primary /
+     .filter-bar / .search-field. New classes use the .ih- prefix. */
+  #inventory-history-body { container-type: inline-size; container-name: ihpage; }
+  .topbar { border-bottom: none; }
+  @media (min-width: 981px) { .topbar { display: none; } }
+
+  /* Header */
+  #inventory-history-body .ih-header { align-items: center; margin-bottom: 24px; }
+  #inventory-history-body .ih-header-text { min-width: 0; flex: 1 1 auto; }
+  #inventory-history-body .ih-title { margin: 0 0 2px; font-size: 20px; font-weight: 800; line-height: inherit; letter-spacing: normal; color: var(--ink-900); }
+
+  /* Layout: stacked by default, two columns when the page area is wide enough */
+  #inventory-history-body .ih-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; align-items: start; margin-bottom: 24px; }
+  @container ihpage (min-width: 760px) {
+    #inventory-history-body .ih-layout { grid-template-columns: minmax(0, 2.3fr) minmax(260px, 1fr); }
+  }
+  @supports not (container-type: inline-size) {
+    @media (min-width: 1000px) {
+      #inventory-history-body .ih-layout { grid-template-columns: minmax(0, 2.3fr) minmax(260px, 1fr); }
+    }
+  }
+
+  /* Modules */
+  #inventory-history-body .ih-panel { box-sizing: border-box; min-width: 0; padding: 16px 18px 18px; background: var(--surface-card); border: 1px solid var(--line); border-radius: var(--r-md); box-shadow: var(--clay-flat); }
+  #inventory-history-body .ih-side { box-sizing: border-box; min-width: 0; background: var(--surface-card); border: 1px solid var(--line); border-radius: var(--r-md); box-shadow: var(--clay-flat); overflow: hidden; }
+  #inventory-history-body .ih-side-head { padding: 16px 18px 12px; }
+  #inventory-history-body .ih-side-title { margin: 0; font-size: 13.5px; font-weight: 800; letter-spacing: .03em; color: var(--ink-900); text-transform: uppercase; }
+
+  /* Filters: shared .filter-bar, flattened so it sits directly in the module */
+  #inventory-history-body .filter-bar.ih-filters { margin: 0 0 14px; padding: 0; background: transparent; border: none; border-radius: 0; box-shadow: none; }
+  #inventory-history-body .ih-filters .search-field { flex: 2 1 200px; min-width: 0; height: 38px; }
+  #ih-search { flex: 1 1 auto; width: 100%; box-sizing: border-box; padding: 0; background: transparent; border: none; outline: none; box-shadow: none; font: inherit; color: var(--ink-900); }
+  #inventory-history-body .search-field:focus-within { border-color: var(--teal-400); }
+  #inventory-history-body .ih-filters .ih-select { flex: 1 1 150px; max-width: 210px; min-width: 0; }
+  #inventory-history-body .ih-filters #ih-filter-type { flex-basis: 192px; }
+  .ih-select {
+    -webkit-appearance: none; -moz-appearance: none; appearance: none; box-sizing: border-box;
+    height: 38px; background-color: var(--surface-sunken); border: 1px solid var(--line-soft); border-radius: 10px;
+    color: var(--ink-900); font: inherit; font-weight: 600; max-width: 100%; padding: 0 34px 0 12px; cursor: pointer;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: border-color .15s ease;
+  }
+  .ih-select, .ih-select:focus {
+    background-image: linear-gradient(45deg, transparent 50%, var(--ink-faint) 50%), linear-gradient(135deg, var(--ink-faint) 50%, transparent 50%);
+    background-position: calc(100% - 18px) center, calc(100% - 13px) center;
+    background-size: 5px 5px, 5px 5px; background-repeat: no-repeat;
+  }
+  .ih-select:hover { border-color: var(--line-strong); }
+  .ih-select:focus { outline: none; border-color: var(--teal-400); }
+  #inventory-history-body .ih-select:focus-visible, #inventory-history-body .btn:focus-visible { outline: 2px solid var(--teal-400); outline-offset: 2px; }
+
+  /* Movement table on the inner page-bg surface */
+  #inventory-history-body .ih-scroll { padding: 6px 10px 4px; background: var(--surface-bg); border: 1px solid var(--line); border-radius: var(--r-md); box-shadow: inset 0 1px 2px rgba(31, 42, 46, 0.05); overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  #inventory-history-body table.ih-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  #inventory-history-body .ih-table thead th { text-align: left; padding: 10px 8px; font-size: 10.6px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; color: var(--ink-700); background: var(--surface-sunken); border-bottom: 1px solid transparent; white-space: nowrap; }
+  #inventory-history-body .ih-table thead th:first-child { border-top-left-radius: var(--r-xs); border-bottom-left-radius: var(--r-xs); }
+  #inventory-history-body .ih-table thead th:last-child { border-top-right-radius: var(--r-xs); border-bottom-right-radius: var(--r-xs); }
+  #inventory-history-body .ih-table tbody td { padding: 11px 8px; border-bottom: 1px solid var(--line); vertical-align: middle; color: var(--ink-900); line-height: 1.3; }
+  #inventory-history-body .ih-table tbody tr:last-child td { border-bottom: none; }
+  #inventory-history-body .ih-table td.ih-c-item { min-width: 96px; }
+  #inventory-history-body .ih-soft { color: var(--ink-700); font-weight: 600; }
+  #inventory-history-body .ih-num { font-variant-numeric: tabular-nums; }
+  #inventory-history-body .ih-nowrap { white-space: nowrap; }
+  #inventory-history-body .ih-qty { font-weight: 800; font-size: 14px; }
+  #inventory-history-body .ih-qty.plus  { color: var(--sage-600, #4f8f68); }
+  #inventory-history-body .ih-qty.minus { color: var(--red-800, #7a372d); }
+  #inventory-history-body .ih-unit { margin-left: 4px; font-size: 11.5px; font-weight: 600; color: var(--ink-soft); }
+  #inventory-history-body .ih-status { font-size: 12.3px; font-weight: 700; color: var(--ink-700); white-space: nowrap; }
+  #inventory-history-body .ih-empty td { padding: 44px 20px; text-align: center; color: var(--ink-700); font-size: 13.5px; font-weight: 600; line-height: 1.5; }
+
+  /* clickable item name (selects the item's activity in the side module) */
+  #inventory-history-body .ih-item-btn { display: inline; padding: 0; margin: 0; border: none; background: none; font: inherit; font-weight: 700; font-size: 13.5px; color: var(--ink-900); text-align: left; cursor: pointer; overflow-wrap: break-word; word-break: normal; text-decoration: none; }
+  #inventory-history-body .ih-item-btn:focus-visible { outline: 2px solid var(--teal-400); outline-offset: 2px; border-radius: 4px; }
+  #inventory-history-body .ih-removed { display: inline-block; margin-left: 6px; font-size: 10.5px; font-weight: 700; color: var(--ink-faint); text-transform: uppercase; letter-spacing: .03em; white-space: nowrap; }
+
+  /* whole row is clickable / focusable */
+  #inventory-history-body .ih-table tbody tr[data-record-id] { cursor: pointer; }
+  #inventory-history-body .ih-table tbody tr[data-record-id]:focus { outline: none; }
+  #inventory-history-body .ih-table tbody tr[data-record-id]:focus-visible { outline: 2px solid var(--teal-400); outline-offset: -2px; }
+
+  /* selected record: only that exact row gets the tint, a teal edge and teal item name (no hover styling anywhere) */
+  #inventory-history-body .ih-table tbody tr.is-selected { background: var(--teal-100, #dbeee6); }
+  #inventory-history-body .ih-table tbody tr.is-selected td:first-child { box-shadow: inset 3px 0 0 var(--teal-700); }
+  #inventory-history-body .ih-table tbody tr.is-selected .ih-item-btn { color: var(--teal-700); }
+
+  /* badges (same pill shape/tokens as Stock Management) */
+  #inventory-history-body .ih-pill { display: inline-flex; align-items: center; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; padding: 3px 9px; border-radius: 999px; white-space: nowrap; line-height: 1.4; }
+  #inventory-history-body .ih-pill.in  { background: var(--sage-100, #e4f0e6); color: var(--sage-600, #4f8f68); }
+  #inventory-history-body .ih-pill.out { background: var(--amber-100, #f7ecd6); color: var(--amber-800, #6d4a09); }
+  #inventory-history-body .ih-pill.adj { background: var(--teal-50, #eef7f3); color: var(--teal-700, #0f766e); }
+  /* stock-status badges (same as Items page) */
+  #inventory-history-body .ih-pill.s-in  { background: var(--sage-100, #e4f0e6); color: var(--sage-600, #4f8f68); }
+  #inventory-history-body .ih-pill.s-low { background: var(--amber-100, #f7ecd6); color: var(--amber-800, #6d4a09); }
+  #inventory-history-body .ih-pill.s-out { background: var(--red-100, #f5e5e1); color: var(--red-800, #7a372d); }
+  #inventory-history-body .ih-pill.s-expired { background: var(--surface-sunken); color: var(--red-800, #7a372d); border: 1px solid var(--red-600, #b3261e); }
+
+  /* Footer: count left, numbered pagination right */
+  #inventory-history-body .ih-footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; padding-top: 14px; }
+  #inventory-history-body .ih-foot-count { margin: 0; font-size: 12.5px; font-weight: 600; line-height: 1.45; color: var(--ink-700); }
+  #inventory-history-body .ih-pager { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-left: auto; min-width: 0; max-width: 100%; }
+  #inventory-history-body .ih-pager[hidden] { display: none; }
+  #inventory-history-body .ih-pager .btn[disabled] { opacity: .45; cursor: not-allowed; box-shadow: none; pointer-events: none; }
+  #inventory-history-body .ih-pages { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px; min-width: 0; }
+  #inventory-history-body .ih-page { min-width: 32px; padding-left: 6px; padding-right: 6px; font-variant-numeric: tabular-nums; }
+  #inventory-history-body .ih-ellipsis { min-width: 20px; text-align: center; font-size: 12.5px; font-weight: 700; color: var(--ink-soft); user-select: none; }
+
+  /* Side module: Inventory Activity */
+  #inventory-history-body .ih-detail { padding: 0 18px 18px; }
+  #inventory-history-body .ih-detail-empty { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 4px; padding: 30px 12px 34px; }
+  #inventory-history-body .ih-detail-empty .ih-empty-icon { width: 36px; height: 36px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: var(--surface-sunken); border: 1px solid var(--line-soft); color: var(--ink-faint); font-size: 14px; margin-bottom: 8px; }
+  #inventory-history-body .ih-empty-text { font-size: 13px; font-weight: 600; color: var(--ink-700); line-height: 1.5; max-width: 260px; }
+  #inventory-history-body .ih-item-name { margin: 0; font-size: 16px; font-weight: 800; color: var(--ink-900); line-height: 1.3; overflow-wrap: anywhere; }
+  #inventory-history-body .ih-item-meta { margin-top: 2px; font-size: 12.8px; font-weight: 600; color: var(--ink-soft); }
+  #inventory-history-body .ih-info { margin: 14px 0 0; padding: 4px 14px; background: var(--surface-sunken); border: 1px solid var(--line-soft); border-radius: 10px; }
+  #inventory-history-body .ih-info > div { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--line-soft); }
+  #inventory-history-body .ih-info > div:last-child { border-bottom: none; }
+  #inventory-history-body .ih-info dt { margin: 0; font-size: 12.3px; font-weight: 700; color: var(--ink-faint); }
+  #inventory-history-body .ih-info dd { margin: 0; font-size: 13.3px; font-weight: 700; color: var(--ink-900); text-align: right; font-variant-numeric: tabular-nums; }
+  #inventory-history-body .ih-notice { margin-top: 14px; padding: 12px 14px; background: var(--surface-sunken); border: 1px solid var(--line-soft); border-radius: 10px; }
+  #inventory-history-body .ih-notice strong { display: block; font-size: 13px; color: var(--ink-900); margin-bottom: 2px; }
+  #inventory-history-body .ih-notice p { margin: 0; font-size: 12.5px; line-height: 1.5; color: var(--ink-soft); }
+
+  #inventory-history-body .ih-hist-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin: 20px 0 6px; }
+  #inventory-history-body .ih-hist-title { margin: 0; font-size: 11.5px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-faint); }
+  #inventory-history-body .ih-count { font-size: 12px; font-weight: 700; color: var(--ink-faint); }
+  #inventory-history-body .ih-hist-list { position: relative; list-style: none; margin: 0 -10px; padding: 0 10px; max-height: 440px; overflow-y: auto; overscroll-behavior: contain; }
+  #inventory-history-body .ih-act { padding: 10px 0; border-bottom: 1px solid var(--line); }
+  #inventory-history-body .ih-act:last-child { border-bottom: none; }
+  #inventory-history-body .ih-act.is-current { margin: 0 -10px; padding-left: 10px; padding-right: 10px; background: var(--teal-100, #dbeee6); box-shadow: inset 3px 0 0 var(--teal-700); }
+  #inventory-history-body .ih-act-top { display: flex; align-items: center; gap: 8px; }
+  #inventory-history-body .ih-act-date { flex: none; min-width: 48px; font-size: 12.5px; font-weight: 700; color: var(--ink-900); font-variant-numeric: tabular-nums; }
+  #inventory-history-body .ih-act-qty { margin-left: auto; font-size: 13.5px; font-weight: 800; font-variant-numeric: tabular-nums; }
+  #inventory-history-body .ih-act-qty.plus  { color: var(--sage-600, #4f8f68); }
+  #inventory-history-body .ih-act-qty.minus { color: var(--red-800, #7a372d); }
+  #inventory-history-body .ih-act-sub { margin: 4px 0 0; font-size: 12px; color: var(--ink-700); font-weight: 600; overflow-wrap: anywhere; }
+  #inventory-history-body .ih-act-note { margin: 2px 0 0; font-size: 11.8px; color: var(--ink-soft); line-height: 1.4; overflow-wrap: anywhere; }
+
+  /* narrower page area (table column shares the row with the activity panel): tighter cells;
+     the table still scrolls inside its own surface if it cannot fit */
+  @container ihpage (max-width: 1100px) {
+    #inventory-history-body .ih-table thead th, #inventory-history-body .ih-table tbody td { padding-left: 6px; padding-right: 6px; }
+  }
+
+  /* phones: filters full width, footer stacked, table rows become compact cards */
+  @media (max-width: 640px) {
+    #inventory-history-body .ih-panel { padding: 14px 14px 16px; }
+    #inventory-history-body .ih-side-head { padding: 14px 14px 10px; }
+    #inventory-history-body .ih-detail { padding: 0 14px 16px; }
+    #inventory-history-body .ih-filters .search-field { flex: 1 1 100%; }
+    #inventory-history-body .ih-filters .ih-select { flex: 1 1 100%; max-width: none; }
+    #inventory-history-body .ih-footer { flex-direction: column; align-items: stretch; text-align: center; }
+    #inventory-history-body .ih-pager { margin-left: 0; justify-content: center; }
+    #inventory-history-body .ih-pager #ih-prev, #inventory-history-body .ih-pager #ih-next { flex: 1 1 0; }
+    #inventory-history-body .ih-pager #ih-prev { order: 1; }
+    #inventory-history-body .ih-pager #ih-next { order: 2; }
+    #inventory-history-body .ih-pager .ih-pages { order: 3; flex: 1 1 100%; }
+    #inventory-history-body .ih-scroll { padding: 2px 12px; }
+    #inventory-history-body .ih-table thead { display: none; }
+    #inventory-history-body .ih-table, #inventory-history-body .ih-table tbody, #inventory-history-body .ih-table tr, #inventory-history-body .ih-table td { display: block; width: 100%; box-sizing: border-box; }
+    #inventory-history-body .ih-table tbody tr { display: flex; flex-direction: column; margin: 0 -12px; padding: 14px 12px 12px; border-top: 1px solid var(--line); }
+    #inventory-history-body .ih-table tbody tr:first-child { border-top: none; }
+    #inventory-history-body .ih-table td.ih-c-item { order: -1; }
+    #inventory-history-body .ih-table tbody tr.is-selected { background: var(--teal-100, #dbeee6); box-shadow: inset 3px 0 0 var(--teal-700); }
+    #inventory-history-body .ih-table tbody tr.is-selected td:first-child { box-shadow: none; }
+    #inventory-history-body .ih-table tbody td, #inventory-history-body .ih-table td:first-child, #inventory-history-body .ih-table td:last-child { border-bottom: none; padding: 4px 0; }
+    #inventory-history-body .ih-table td[data-label] { display: flex; justify-content: space-between; align-items: center; gap: 12px; text-align: right; }
+    #inventory-history-body .ih-table td[data-label]::before { content: attr(data-label) ':'; flex: none; font-size: 12px; font-weight: 700; color: var(--ink-700); text-align: left; }
+    #inventory-history-body .ih-table td.ih-c-item { padding-bottom: 6px; min-width: 0; }
+    #inventory-history-body .ih-table td.ih-c-item .ih-item-btn { font-size: 14.5px; }
+    #inventory-history-body .ih-nowrap { white-space: normal; }
+    #inventory-history-body .ih-table .ih-empty { margin: 0; padding: 0; }
+    #inventory-history-body .ih-table .ih-empty td { display: block; text-align: center; }
+    #inventory-history-body .ih-hist-list { max-height: none; overflow: visible; }
+  }
+</style>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-mark"><i class="fa-solid fa-paw"></i></div>
+        <div class="brand-text">
+          <div class="brand-name">Pawsitive Care</div>
+          <div class="brand-role">Administrator</div>
+        </div>
+      </div>
+      <div class="sidebar-divider"></div>
+      <nav class="sidebar-nav">
+      <div class="nav-group">
+        <div class="nav-group-label">MAIN</div>
+        <a href="dashboard.html" class="nav-item" data-page="dashboard.html">
+          <span class="nav-icon"><i class="fa-solid fa-house"></i></span>
+          <span class="nav-label">Dashboard</span>
+        </a>
+        <a href="appointments.html" class="nav-item" data-page="appointments.html">
+          <span class="nav-icon"><i class="fa-solid fa-calendar-days"></i></span>
+          <span class="nav-label">Appointments</span>
+        </a>
+        <a href="queue.html" class="nav-item" data-page="queue.html">
+          <span class="nav-icon"><i class="fa-solid fa-hourglass-half"></i></span>
+          <span class="nav-label">Queue</span>
+        </a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">PATIENT MANAGEMENT</div>
+        <a href="patients.html" class="nav-item" data-page="patients.html">
+          <span class="nav-icon"><i class="fa-solid fa-paw"></i></span>
+          <span class="nav-label">Patients</span>
+        </a>
+        <a href="clients.html" class="nav-item" data-page="clients.html">
+          <span class="nav-icon"><i class="fa-solid fa-user"></i></span>
+          <span class="nav-label">Clients</span>
+        </a>
+        <a href="medical-records.html" class="nav-item" data-page="medical-records.html">
+          <span class="nav-icon"><i class="fa-solid fa-notes-medical"></i></span>
+          <span class="nav-label">Medical Records</span>
+        </a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">CLINIC</div>
+        <a href="services.html" class="nav-item" data-page="services.html">
+          <span class="nav-icon"><i class="fa-solid fa-hospital"></i></span>
+          <span class="nav-label">Services</span>
+        </a>
+        <a href="inventory.html" class="nav-item" data-page="inventory.html">
+          <span class="nav-icon"><i class="fa-solid fa-boxes-stacked"></i></span>
+          <span class="nav-label">Inventory</span>
+        </a>
+        <a href="billing.html" class="nav-item" data-page="billing.html">
+          <span class="nav-icon"><i class="fa-solid fa-credit-card"></i></span>
+          <span class="nav-label">Billing</span>
+        </a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">INSIGHTS</div>
+        <a href="predictive-analytics.html" class="nav-item" data-page="predictive-analytics.html">
+          <span class="nav-icon"><i class="fa-solid fa-chart-line"></i></span>
+          <span class="nav-label">Predictive Analytics</span>
+        </a>
+        <a href="reports.html" class="nav-item" data-page="reports.html">
+          <span class="nav-icon"><i class="fa-solid fa-chart-column"></i></span>
+          <span class="nav-label">Reports</span>
+        </a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">SYSTEM</div>
+        <a href="notifications.html" class="nav-item" data-page="notifications.html">
+          <span class="nav-icon"><i class="fa-solid fa-bell"></i></span>
+          <span class="nav-label">Notifications</span>
+        </a>
+        <a href="staff-users.html" class="nav-item" data-page="staff-users.html">
+          <span class="nav-icon"><i class="fa-solid fa-users"></i></span>
+          <span class="nav-label">Staff & Users</span>
+        </a>
+        <a href="settings.html" class="nav-item" data-page="settings.html">
+          <span class="nav-icon"><i class="fa-solid fa-gear"></i></span>
+          <span class="nav-label">Settings</span>
+        </a>
+      </div>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="footer-avatar">A</div>
+        <div>
+          <div class="footer-name">Admin</div>
+          <div class="footer-role">Administrator</div>
+        </div>
+      </div>
+    </aside>
+
+    <div class="main-content">
+      <header class="topbar">
+        <div class="topbar-left">
+          <button class="menu-toggle" aria-label="Toggle navigation"><i class="fa-solid fa-bars"></i></button>
+        </div>
+      </header>
+
+      <main class="page-body" id="inventory-history-body">
+        <div id="inventory-history-root"></div>
+      </main>
+    </div>
+  </div>
+
+  <script src="data-store.js"></script>
+  <script src="sidebar.js"></script>
+  <script src="inventory-history.js"></script>
+</body>
+</html>

@@ -20,12 +20,69 @@
      suppressed here (scoped to this page only, style.css untouched). */
   .topbar { border-bottom: none; }
 
-  /* --- header spacing (Patients page) ---
-     Nudges the "Patient Records" toolbar block down slightly to fill
-     the space left by the removed title/breadcrumb, page-scoped only.
-     margin-bottom (spacing to the filter bar below) is untouched —
-     inherited from style.css's .page-toolbar as before. */
-  .page-toolbar { margin-top: 22px; }
+  /* --- header + module (aligned with the Clients page) ---
+     Same approach as clients.html / inventory-items.html: the empty
+     desktop topbar is hidden (it only holds the mobile menu toggle,
+     which still shows at <=980px), the title uses the same 20px/800
+     heading, and the header keeps the same 24px gap to the content.
+     The old 22px top nudge is gone because it only compensated for
+     that empty topbar. Filters, cards and the count/pager footer sit
+     in one bordered beige module. Classes use the .pt- prefix, scoped
+     to #patients-body (style.css untouched). */
+  @media (min-width: 981px) { .topbar { display: none; } }
+  #patients-body .pt-header { align-items: center; margin-bottom: 24px; }
+  #patients-body .pt-header-text { min-width: 0; flex: 1 1 auto; }
+  #patients-body .pt-title { margin: 0 0 2px; font-size: 20px; font-weight: 800; line-height: inherit; letter-spacing: normal; color: var(--ink-900); }
+  #patients-body .pt-header-actions { flex: 0 0 auto; }
+  #patients-body .pt-header-actions .btn { white-space: nowrap; }
+
+  #patients-body .pt-panel { box-sizing: border-box; min-width: 0; padding: 16px 18px 18px; background: var(--surface-card); border: 1px solid var(--line); border-radius: var(--r-md); box-shadow: var(--clay-flat); margin-bottom: 24px; }
+
+  /* Count + pager footer (count text was above the cards before). */
+  #patients-body .pt-footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; padding-top: 14px; }
+  #patients-body .pt-footer .patients-count { margin: 0; font-size: 12.5px; font-weight: 600; line-height: 1.45; color: var(--ink-700); }
+  #patients-body .pt-pager { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-left: auto; min-width: 0; max-width: 100%; }
+  #patients-body .pt-pager[hidden] { display: none; }
+  #patients-body .pt-pager .btn[disabled] { opacity: .45; cursor: not-allowed; box-shadow: none; pointer-events: none; }
+  #patients-body .pt-pages { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px; min-width: 0; }
+  #patients-body .pt-page { min-width: 32px; padding-left: 6px; padding-right: 6px; font-variant-numeric: tabular-nums; }
+  #patients-body .pt-ellipsis { min-width: 20px; text-align: center; font-size: 12.5px; font-weight: 700; color: var(--ink-soft); user-select: none; }
+
+  /* Filters: shared .filter-bar flattened into the module, same as Clients */
+  #patients-body .filter-bar { margin: 0 0 14px; padding: 0; background: transparent; border: none; border-radius: 0; box-shadow: none; }
+  /* Basis 190px (Clients uses 260px): Patients has two selects instead of one,
+     and the search field grows to fill the row anyway, so a smaller basis just
+     keeps everything on one line at narrower desktop widths. */
+  #patients-body .filter-bar .search-field { flex: 2 1 190px; min-width: 0; height: 38px; }
+  #patients-body .filter-bar .filter-select { flex: 0 0 170px; min-width: 0; font-weight: 600; box-shadow: none; }
+  #patients-body .filter-bar #clear-filters { flex: 0 0 auto; white-space: nowrap; }
+  #patients-body .icon-btn:focus-visible,
+  #patients-body .btn:focus-visible { outline: 2px solid var(--teal-400); outline-offset: 2px; }
+
+  /* No-results state inside the module: same sunken inset look as the
+     Clients empty state instead of a second bordered card. */
+  #patients-body .pt-panel .patients-table-wrap { background: var(--surface-bg); border: 1px solid var(--line); border-radius: var(--r-md); box-shadow: inset 0 1px 2px rgba(31, 42, 46, 0.05); }
+
+  /* Small tablets: search gets its own row; selects + Clear share the next. */
+  @media (max-width: 760px) {
+    #patients-body .filter-bar .search-field { flex: 1 1 100%; }
+  }
+
+  @media (max-width: 640px) {
+    #patients-body .pt-header-actions .btn { min-height: 40px; }
+    #patients-body .pt-panel { padding: 14px 14px 16px; }
+    #patients-body .filter-bar .search-field { flex: 1 1 100%; }
+    /* Two selects (Species + Status) share this row, unlike Clients' one, so
+       give each a floor wide enough for its label; "Clear filters" wraps
+       to the next line when they don't fit side by side. */
+    #patients-body .filter-bar .filter-select { flex: 1 1 136px; min-width: 136px; }
+    #patients-body .pt-footer { flex-direction: column; align-items: stretch; text-align: center; }
+    #patients-body .pt-pager { margin-left: 0; justify-content: center; }
+    #patients-body .pt-pager #pt-prev, #patients-body .pt-pager #pt-next { flex: 1 1 0; }
+    #patients-body .pt-pager #pt-prev { order: 1; }
+    #patients-body .pt-pager #pt-next { order: 2; }
+    #patients-body .pt-pager .pt-pages { order: 3; flex: 1 1 100%; }
+  }
 
   /* --- patients search field: fix nested-box appearance ---
      .search-field (from style.css) already renders the field's
@@ -44,6 +101,10 @@
     outline: none;
     flex: 1;
     width: 100%;
+    box-sizing: border-box;
+    padding: 0;
+    font: inherit;
+    color: var(--ink-900);
   }
   .filter-bar .search-field:focus-within {
     border-color: var(--teal-400);
@@ -102,6 +163,21 @@
      they get the same fixed 38px control height directly here. */
   .filter-bar .pc-select {
     height: 38px;
+  }
+  /* Keep the chevron visible while focused: style.css's `select:focus`
+     uses the `background` shorthand, which resets background-image at
+     higher specificity than .pc-select. Same fix the Clients toolbar
+     uses; background-color is not set, so fills are unchanged. */
+  .filter-bar .pc-select,
+  .filter-bar .pc-select:focus {
+    background-image:
+      linear-gradient(45deg, transparent 50%, var(--ink-faint) 50%),
+      linear-gradient(135deg, var(--ink-faint) 50%, transparent 50%);
+    background-position:
+      calc(100% - 18px) center,
+      calc(100% - 13px) center;
+    background-size: 5px 5px, 5px 5px;
+    background-repeat: no-repeat;
   }
 
   /* Generic panel surface — reused for the empty-results state. */
@@ -732,37 +808,46 @@
         </div>
       </header>
 
-      <main class="page-body">
+      <main class="page-body" id="patients-body">
 
-        <div class="page-toolbar">
-          <div>
-            <div style="font-size:20px; font-weight:800; margin-bottom:2px;">PATIENT RECORDS</div>
+        <div class="page-toolbar pt-header">
+          <div class="pt-header-text"><h1 class="pt-title">PATIENTS</h1></div>
+          <div class="pt-header-actions">
+            <button class="btn btn-sm btn-primary" id="add-patient-btn"><i class="fa-solid fa-plus"></i> Add Patient</button>
           </div>
-          <button class="btn btn-primary" id="add-patient-btn"><i class="fa-solid fa-plus"></i> Add Patient</button>
         </div>
 
-        <div class="filter-bar">
-          <div class="search-field">
-            <span><i class="fa-solid fa-magnifying-glass"></i></span>
-            <input type="text" id="search-input" placeholder="Search pet name, owner name, or contact number...">
+        <section class="pt-panel">
+          <div class="filter-bar">
+            <div class="search-field">
+              <span><i class="fa-solid fa-magnifying-glass"></i></span>
+              <input type="text" id="search-input" placeholder="Search pet name, owner name, or contact number...">
+            </div>
+            <select class="filter-select pc-select" id="filter-species">
+              <option value="">All species</option>
+              <option value="Dog">Dog</option>
+              <option value="Cat">Cat</option>
+              <option value="Other">Other</option>
+            </select>
+            <select class="filter-select pc-select" id="filter-status">
+              <option value="">All statuses</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+            <button class="btn btn-sm" id="clear-filters">Clear filters</button>
           </div>
-          <select class="filter-select pc-select" id="filter-species">
-            <option value="">All species</option>
-            <option value="Dog">Dog</option>
-            <option value="Cat">Cat</option>
-            <option value="Other">Other</option>
-          </select>
-          <select class="filter-select pc-select" id="filter-status">
-            <option value="">All statuses</option>
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
-          </select>
-          <button class="btn btn-sm" id="clear-filters">Clear filters</button>
-        </div>
 
-        <div class="patients-count" id="patients-count"></div>
+          <div id="view-root"></div>
 
-        <div id="view-root"></div>
+          <div class="pt-footer">
+            <div class="patients-count" id="patients-count" aria-live="polite"></div>
+            <div class="pt-pager" id="pt-pager" hidden>
+              <button type="button" class="btn btn-sm" id="pt-prev">Previous</button>
+              <div class="pt-pages" id="pt-pages" role="group" aria-label="Pagination"></div>
+              <button type="button" class="btn btn-sm" id="pt-next">Next</button>
+            </div>
+          </div>
+        </section>
 
       </main>
     </div>

@@ -12,40 +12,20 @@
      .topbar, but style.css still draws a border-bottom on .topbar
      for pages that keep that title. With the title gone this left a
      stray divider line with nothing above it, so it's suppressed
-     here (scoped to this page only, style.css untouched). The small
-     top offset that used to sit on .summary-strip itself now lives
-     on .summary-strip-heading instead, since that heading is the
-     first thing under the topbar; the search bar/calendar/details
-     panel further down are unaffected either way. */
+     here (scoped to this page only, style.css untouched). */
   .topbar { border-bottom: none; }
 
-  /* --- appointment status heading ---
-     Restyled to match Queue's "TODAY'S QUEUE" header exactly: same
-     font-size/weight/line-height, same margin-top/margin-bottom
-     (mirroring queue.html's page-scoped .page-toolbar margin-top:
-     22px and style.css's shared .page-toolbar margin-bottom: 18px).
-     .summary-strip-heading is also a pre-existing style.css class
-     (used elsewhere as a small label), so font-family, line-height,
-     letter-spacing, text-transform and color are pinned explicitly
-     here rather than left to override-by-omission — Queue's title
-     is a plain, unstyled div that only ever gets font-size/weight
-     inline and otherwise inherits straight from body, so pinning
-     these to "inherit"/"normal"/"none" and body's var(--ink-800)
-     reproduces that same plain, un-styled baseline exactly, instead
-     of silently keeping whatever this class already sets in
-     style.css. Page-scoped only; style.css and the calendar/filter
-     controls beneath are untouched. */
-  .summary-strip-heading {
-    margin-top: 22px;
-    margin-bottom: 18px;
-    font-size: 20px;
-    font-weight: 800;
-    line-height: normal;
-    letter-spacing: normal;
-    text-transform: none;
-    font-family: inherit;
-    color: var(--ink-800);
-  }
+  /* --- appointment status heading (header) ---
+     Matches the Inventory Items header (same approach as queue.html):
+     the empty desktop topbar is hidden above 980px (it only holds the
+     mobile menu toggle, which still shows at <=980px), so the old 22px
+     top offset is gone; the header is vertically centred with a 24px
+     gap below, and the title is the same 20px/800 --ink-900 heading.
+     No panel or background is added. Page-scoped only. */
+  @media (min-width: 981px) { .topbar { display: none; } }
+  .page-toolbar.appt-header { align-items: center; margin-bottom: 24px; }
+  .appt-header .appt-header-text { min-width: 0; flex: 1 1 auto; }
+  .appt-header .appt-title { margin: 0 0 2px; font-size: 20px; font-weight: 800; line-height: inherit; letter-spacing: normal; color: var(--ink-900); }
 
   /* --- client / patient picker (Add/Edit Appointment modal) ---
      Same pattern/classes used on the Patients page, kept internal
@@ -1234,7 +1214,9 @@
         <!-- Appointment summary: real counts scoped to whatever date
              range the calendar toolbar currently shows (day/week/month)
              and the active search/vet/status filters. -->
-        <div class="summary-strip-heading">TODAY'S APPOINTMENT STATUS</div>
+        <div class="page-toolbar appt-header">
+          <div class="appt-header-text"><h1 class="appt-title">TODAY'S APPOINTMENT STATUS</h1></div>
+        </div>
         <div class="summary-strip" id="summary-strip"></div>
 
         <div class="filter-bar">

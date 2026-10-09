@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Procurement · Pawsitive Care</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+<link rel="stylesheet" href="style.css">
+<style>
+
+  /* ---- Procurement page (scoped to #inventory-procurement-body) ----
+     Same shared tokens as Overview / Items / Stock Management / History; new classes use .pr- */
+  #inventory-procurement-body {
+    --pr-teal: var(--teal-700, #0f766e);
+    --pr-ink: var(--ink-900, #1f2a2a);
+    --pr-soft: var(--ink-soft, #6b7a7e);
+    --pr-faint: var(--ink-faint, #97a3a6);
+    --pr-border: var(--line-soft, #eae3d3);
+    --pr-card: var(--surface-card, #fff);
+    --pr-sunken: var(--surface-sunken, #faf9f6);
+    --pr-radius: var(--r-md, 14px);
+    --pr-shadow: var(--clay-flat, 0 1px 2px rgba(31,42,42,.04));
+    container-type: inline-size;
+    container-name: prpage;
+  }
+  .topbar { border-bottom: none; }
+  .page-toolbar { margin-bottom: 14px; }
+  @media (min-width: 981px) { .topbar { display: none; } }
+  #inventory-procurement-body .pr-header { align-items: center; margin-bottom: 40px; }
+  #inventory-procurement-body .pr-header-text { min-width: 0; flex: 1 1 auto; }
+  #inventory-procurement-body .pr-title { margin: 0 0 2px; font-size: 20px; font-weight: 800; line-height: inherit; letter-spacing: normal; color: var(--ink-900); }
+  #inventory-procurement-body .pr-head-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; flex: 0 0 auto; }
+  #inventory-procurement-body .pr-head-actions .btn { white-space: nowrap; }
+  #inventory-procurement-body .btn:focus-visible, #pr-modal-overlay .btn:focus-visible { outline: 2px solid var(--teal-400); outline-offset: 2px; }
+
+  /* summary cards (same look as the Inventory Overview: sunken cards, teal lead card) */
+  #inventory-procurement-body .pr-cards { list-style: none; margin: 0 0 24px; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+  #inventory-procurement-body .pr-card { box-sizing: border-box; min-width: 0; height: 100%; padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; background: var(--surface-sunken); border: 1px solid var(--line-soft); border-radius: var(--r-md); box-shadow: var(--clay-flat); }
+  #inventory-procurement-body .pr-card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  #inventory-procurement-body .pr-label { font-size: 12px; font-weight: 700; color: var(--ink-700); line-height: 1.3; overflow-wrap: anywhere; }
+  #inventory-procurement-body .pr-icon { flex: none; font-size: 12px; color: var(--ink-soft); }
+  #inventory-procurement-body .pr-num { font-size: 26px; font-weight: 800; line-height: 1.15; color: var(--ink-900); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+  #inventory-procurement-body .pr-note { font-size: 12px; font-weight: 500; line-height: 1.4; color: var(--ink-700); overflow-wrap: anywhere; }
+  #inventory-procurement-body .pr-card-primary { background: var(--teal-700); border-color: var(--teal-700); }
+  #inventory-procurement-body .pr-card-primary .pr-icon { color: rgba(244, 249, 247, 0.85); }
+  #inventory-procurement-body .pr-card-primary .pr-label,
+  #inventory-procurement-body .pr-card-primary .pr-note { color: rgba(244, 249, 247, 0.86); }
+  #inventory-procurement-body .pr-card-primary .pr-num { color: var(--ink-on-brand); }
+  @media (max-width: 1100px) { #inventory-procurement-body .pr-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 640px) { #inventory-procurement-body .pr-cards { grid-template-columns: minmax(0, 1fr); } }
+
+  /* filters: shared .filter-bar, flattened so it sits directly in the list module */
+  #inventory-procurement-body .filter-bar.pr-filters { margin: 0 0 14px; padding: 0; background: transparent; border: none; border-radius: 0; box-shadow: none; }
+  #inventory-procurement-body .pr-filters .search-field { flex: 2 1 220px; min-width: 0; height: 38px; }
+  #pr-search { flex: 1 1 auto; width: 100%; box-sizing: border-box; padding: 0; background: transparent; border: none; outline: none; box-shadow: none; font: inherit; color: var(--ink-900); }
+  #inventory-procurement-body .search-field:focus-within { border-color: var(--teal-400); }
+  #inventory-procurement-body .pr-filters .pr-select { flex: 1 1 130px; max-width: 190px; min-width: 0; }
+  .pr-select {
+    -webkit-appearance: none; -moz-appearance: none; appearance: none; box-sizing: border-box;
+    height: 38px; background-color: var(--surface-sunken); border: 1px solid var(--line-soft); border-radius: 10px;
+    color: var(--ink-900); font: inherit; font-weight: 600; max-width: 100%; padding: 0 34px 0 12px; cursor: pointer;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: border-color .15s ease;
+  }
+  .pr-select, .pr-select:focus {
+    background-image: linear-gradient(45deg, transparent 50%, var(--ink-faint) 50%), linear-gradient(135deg, var(--ink-faint) 50%, transparent 50%);
+    background-position: calc(100% - 18px) center, calc(100% - 13px) center;
+    background-size: 5px 5px, 5px 5px; background-repeat: no-repeat;
+  }
+  .pr-select:hover { border-color: var(--line-strong); }
+  .pr-select:focus { outline: none; border-color: var(--teal-400); }
+
+  /* master-detail: stacked by default, two columns when the page area is wide enough */
+  #inventory-procurement-body .pr-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; align-items: start; margin-bottom: 24px; }
+  @container prpage (min-width: 760px) {
+    #inventory-procurement-body .pr-layout { grid-template-columns: minmax(0, 2.2fr) minmax(280px, 1fr); }
+  }
+  @supports not (container-type: inline-size) {
+    @media (min-width: 1000px) { #inventory-procurement-body .pr-layout { grid-template-columns: minmax(0, 2.2fr) minmax(280px, 1fr); } }
+  }
+  #inventory-procurement-body .pr-panel { box-sizing: border-box; min-width: 0; padding: 16px 18px 18px; background: var(--surface-card); border: 1px solid var(--line); border-radius: var(--r-md); box-shadow: var(--clay-flat); }
+  #inventory-procurement-body .pr-panel-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+  #inventory-procurement-body .pr-panel-title { margin: 0; font-size: 16px; font-weight: 800; line-height: normal; letter-spacing: normal; color: var(--ink-800); text-transform: uppercase; }
+
+  /* table */
+  #inventory-procurement-body .pr-scroll, #pr-modal-overlay .pr-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  #inventory-procurement-body table.pr-table, #pr-modal-overlay table.pr-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  .pr-table thead th { text-align: left; padding: 10px 6px; font-size: 10.6px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; color: var(--pr-faint, #97a3a6); background: var(--surface-sunken, #faf9f6); border-top: 1px solid var(--line-soft, #eae3d3); border-bottom: 1px solid var(--line-soft, #eae3d3); white-space: nowrap; }
+  .pr-table tbody td { padding: 10px 6px; border-bottom: 1px solid var(--line-soft, #eae3d3); vertical-align: top; color: var(--ink-900, #1f2a2a); line-height: 1.3; }
+  .pr-table tbody tr:last-child td { border-bottom: none; }
+  #inventory-procurement-body .pr-table tbody tr:hover { background: var(--pr-sunken); }
+  .pr-table th:first-child, .pr-table td:first-child { padding-left: 14px; }
+  .pr-table th:last-child, .pr-table td:last-child { padding-right: 14px; }
+  .pr-po { font-weight: 800; white-space: nowrap; }
+  .pr-c-sup { font-weight: 600; min-width: 90px; }
+  .pr-c-items { min-width: 150px; }
+  .pr-line { font-size: 12.5px; line-height: 1.35; overflow-wrap: anywhere; }
+  .pr-line-name { font-weight: 600; }
+  .pr-line-qty { font-weight: 800; color: var(--teal-700, #0f766e); white-space: nowrap; }
+  .pr-more { margin-top: 1px; font-size: 11.5px; font-weight: 700; color: var(--ink-faint, #97a3a6); }
+  .pr-num-cell { font-weight: 800; font-variant-numeric: tabular-nums; }
+  .pr-nowrap { white-space: nowrap; }
+  #inventory-procurement-body .pr-soft, #pr-modal-overlay .pr-soft { color: var(--ink-soft, #6b7a7e); font-weight: 600; }
+  .pr-table td.pr-c-act { vertical-align: top; }
+  .pr-empty td { padding: 44px 20px !important; text-align: center; color: var(--ink-faint, #97a3a6); font-size: 13.5px; font-weight: 600; line-height: 1.5; }
+  #inventory-procurement-body .pr-table tbody tr.is-selected, #inventory-procurement-body .pr-table tbody tr.is-selected:hover { background: var(--teal-50, #eef7f3); }
+  #inventory-procurement-body .pr-table tbody tr.is-selected td:first-child { box-shadow: inset 3px 0 0 var(--teal-700, #0f766e); }
+  #inventory-procurement-body .pr-table tbody tr.is-selected .btn { border-color: var(--teal-400); color: var(--teal-700, #0f766e); }
+
+  /* list table on the inner page-bg surface (page-scoped; modal tables keep the base rules above) */
+  #inventory-procurement-body .pr-panel > .pr-scroll { padding: 6px 10px 4px; background: var(--surface-bg); border: 1px solid var(--line); border-radius: var(--r-md); box-shadow: inset 0 1px 2px rgba(31, 42, 46, 0.05); }
+  #inventory-procurement-body .pr-table thead th { padding: 10px 8px; color: var(--ink-700); border-top: none; border-bottom-color: transparent; }
+  #inventory-procurement-body .pr-table thead th:first-child { padding-left: 10px; border-top-left-radius: var(--r-xs); border-bottom-left-radius: var(--r-xs); }
+  #inventory-procurement-body .pr-table thead th:last-child { padding-right: 10px; border-top-right-radius: var(--r-xs); border-bottom-right-radius: var(--r-xs); }
+  #inventory-procurement-body .pr-table tbody td { padding: 10px 8px; border-bottom-color: var(--line); }
+  #inventory-procurement-body .pr-table tbody td:first-child { padding-left: 10px; }
+  #inventory-procurement-body .pr-table tbody td:last-child { padding-right: 10px; }
+  #inventory-procurement-body .pr-table tbody tr:last-child td { border-bottom: none; }
+  #inventory-procurement-body .pr-table tbody tr[data-view] { cursor: pointer; transition: background-color .15s ease; }
+  #inventory-procurement-body .pr-table tbody tr:hover { background: var(--surface-card); }
+  #inventory-procurement-body .pr-table tbody tr[data-view]:focus { outline: none; }
+  #inventory-procurement-body .pr-table tbody tr[data-view]:focus-visible { outline: 2px solid var(--teal-400); outline-offset: -2px; background: var(--surface-card); }
+  #inventory-procurement-body .pr-soft { color: var(--ink-700); }
+  #inventory-procurement-body .pr-empty td { color: var(--ink-700); }
+
+  /* status badges */
+  .pr-pill { display: inline-flex; align-items: center; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .02em; padding: 3px 8px; border-radius: 999px; white-space: nowrap; line-height: 1.4; }
+  .pr-pill.pending   { background: var(--amber-100, #f7ecd6); color: var(--amber-800, #6d4a09); }
+  .pr-pill.partial   { background: var(--teal-50, #eef7f3); color: var(--teal-700, #0f766e); }
+  .pr-pill.received  { background: var(--sage-100, #e4f0e6); color: var(--sage-600, #4f8f68); }
+  .pr-pill.cancelled { background: var(--red-100, #f5e5e1); color: var(--red-800, #7a372d); }
+  .pr-pill.draft     { background: var(--surface-sunken, #faf9f6); color: var(--ink-soft, #6b7a7e); border: 1px solid var(--line-soft, #eae3d3); }
+
+  /* footer: count left, numbered pagination right */
+  #inventory-procurement-body .pr-footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; padding-top: 14px; }
+  #inventory-procurement-body .pr-count { margin: 0; font-size: 12.5px; font-weight: 600; line-height: 1.45; color: var(--ink-700); }
+  #inventory-procurement-body .pr-pager { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-left: auto; min-width: 0; max-width: 100%; }
+  #inventory-procurement-body .pr-pager[hidden] { display: none; }
+  #inventory-procurement-body .pr-pager .btn[disabled] { opacity: .45; cursor: not-allowed; box-shadow: none; pointer-events: none; }
+  #inventory-procurement-body .pr-pages { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px; min-width: 0; }
+  #inventory-procurement-body .pr-page { min-width: 32px; padding-left: 6px; padding-right: 6px; font-variant-numeric: tabular-nums; }
+  #inventory-procurement-body .pr-ellipsis { min-width: 20px; text-align: center; font-size: 12.5px; font-weight: 700; color: var(--ink-soft); user-select: none; }
+
+  /* right panel */
+  #inventory-procurement-body .pr-detail { padding: 0; }
+  #inventory-procurement-body .pr-detail-empty { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 4px; padding: 30px 12px 34px; }
+  #inventory-procurement-body .pr-empty-icon { width: 36px; height: 36px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: var(--pr-sunken); border: 1px solid var(--pr-border); color: var(--pr-faint); font-size: 14px; margin-bottom: 8px; }
+  #inventory-procurement-body .pr-empty-title { font-size: 14px; font-weight: 800; color: var(--pr-ink); }
+  #inventory-procurement-body .pr-empty-text { font-size: 12.5px; color: var(--pr-soft); line-height: 1.5; max-width: 260px; }
+  #inventory-procurement-body .pr-po-name { margin: 0; font-size: 17px; font-weight: 800; color: var(--pr-ink); }
+  #inventory-procurement-body .pr-flash { margin: 0 0 12px; padding: 9px 12px; font-size: 12.5px; font-weight: 600; line-height: 1.4; color: var(--sage-700, #3f6b55); background: var(--sage-100, #e4f0e6); border-radius: 9px; }
+  #inventory-procurement-body .pr-info { margin: 10px 0 0; padding: 2px 14px; background: var(--surface-bg); border: 1px solid var(--line); border-radius: var(--r-md); box-shadow: inset 0 1px 2px rgba(31, 42, 46, 0.05); }
+  #inventory-procurement-body .pr-info > div { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+  #inventory-procurement-body .pr-info > div:last-child { border-bottom: none; }
+  #inventory-procurement-body .pr-info dt { margin: 0; font-size: 12.3px; font-weight: 700; color: var(--ink-700); }
+  #inventory-procurement-body .pr-info dd { margin: 0; font-size: 13px; font-weight: 700; color: var(--pr-ink); text-align: right; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+  #inventory-procurement-body .pr-totals { margin-top: 12px; }
+  #inventory-procurement-body .pr-sec-head, #pr-modal-overlay .pr-sec-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin: 18px 0 6px; }
+  #pr-modal-overlay .pr-sec-gap { margin-top: 20px; }
+  .pr-sec-title { margin: 0; font-size: 11.5px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-faint, #97a3a6); }
+  #inventory-procurement-body .pr-oi-list { list-style: none; margin: 0; padding: 0; }
+  #inventory-procurement-body .pr-oi { padding: 10px 0; border-bottom: 1px solid var(--pr-border); }
+  #inventory-procurement-body .pr-oi:last-child { border-bottom: none; }
+  #inventory-procurement-body .pr-oi-top { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+  #inventory-procurement-body .pr-oi-name { font-size: 13.3px; font-weight: 700; color: var(--pr-ink); overflow-wrap: anywhere; }
+  #inventory-procurement-body .pr-oi-total { font-size: 13px; font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  #inventory-procurement-body .pr-oi-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 6px; }
+  #inventory-procurement-body .pr-oi-grid span { display: block; font-size: 10.8px; font-weight: 700; color: var(--pr-faint); text-transform: uppercase; letter-spacing: .03em; }
+  #inventory-procurement-body .pr-oi-grid b { display: block; font-size: 12.5px; font-weight: 700; color: var(--pr-ink); overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+  #inventory-procurement-body .pr-oi-grid b.full { color: var(--sage-600, #4f8f68); }
+  #inventory-procurement-body .pr-oi-grid b.part { color: var(--amber-800, #6d4a09); }
+  #inventory-procurement-body .pr-removed { display: inline-block; margin-left: 6px; font-size: 10.5px; font-weight: 700; color: var(--pr-faint); text-transform: uppercase; letter-spacing: .03em; }
+  #inventory-procurement-body .pr-notes { margin: 0; font-size: 12.8px; line-height: 1.5; color: var(--pr-soft); overflow-wrap: anywhere; white-space: pre-wrap; }
+  #inventory-procurement-body .pr-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--pr-border); }
+  #inventory-procurement-body .pr-actions .btn { flex: 1 1 auto; }
+
+  /* receive form */
+  #inventory-procurement-body .pr-recv { padding: 12px 0; border-bottom: 1px solid var(--pr-border); }
+  #inventory-procurement-body .pr-recv:last-child { border-bottom: none; }
+  #inventory-procurement-body .pr-recv-meta { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 3px; font-size: 12px; color: var(--pr-soft); }
+  #inventory-procurement-body .pr-recv-meta b { color: var(--pr-ink); font-variant-numeric: tabular-nums; }
+  #inventory-procurement-body .pr-recv-warn { margin-top: 4px; font-size: 12px; font-weight: 600; color: var(--red-800, #7a372d); }
+  #inventory-procurement-body .pr-recv-done { margin-top: 4px; font-size: 12px; font-weight: 700; color: var(--sage-600, #4f8f68); }
+  #inventory-procurement-body .pr-recv-input { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+  #inventory-procurement-body .pr-recv-input label { font-size: 12.2px; font-weight: 700; color: var(--pr-soft); }
+  #inventory-procurement-body .pr-recv-input input { width: 84px; height: 36px; box-sizing: border-box; padding: 0 10px; border: 1px solid var(--line-soft); border-radius: 10px; background-color: var(--surface-sunken); color: var(--ink-900); font: inherit; font-weight: 700; font-variant-numeric: tabular-nums; }
+  #inventory-procurement-body .pr-recv-input input:focus { outline: none; border-color: var(--teal-400); background-color: var(--surface-card-raised, #fff); box-shadow: 0 0 0 3px var(--teal-100, rgba(15,118,110,.12)); }
+  #inventory-procurement-body .pr-recv-input input.invalid { border-color: var(--red-600, #b3261e); }
+  #inventory-procurement-body .pr-recv-input input:disabled { opacity: .55; cursor: not-allowed; }
+  #inventory-procurement-body .pr-recv-left { font-size: 12px; color: var(--pr-faint); font-weight: 600; }
+  .pr-error { display: none; margin-top: 12px; color: var(--red-800, #b3261e); font-size: 12.5px; line-height: 1.4; }
+
+  /* modals */
+  #pr-modal-overlay .pr-modal { display: flex; flex-direction: column; box-sizing: border-box; width: min(610px, calc(100vw - 40px)); max-width: 100%; padding: 0; overflow: hidden; max-height: min(88vh, calc(100dvh - 40px)); background: var(--surface-card-raised, #fff); border-radius: var(--r-lg, 18px); box-shadow: var(--clay-pop); }
+  #pr-modal-overlay .pr-modal.wide { width: min(780px, calc(100vw - 40px)); }
+  #pr-modal-overlay .pr-modal.narrow { width: min(440px, calc(100vw - 40px)); }
+  #pr-modal-overlay .modal-head { flex: none; margin: 0; padding: 22px 26px 16px; border-bottom: 1px solid var(--line-soft); }
+  #pr-modal-overlay .modal-footer { flex: none; flex-wrap: wrap; margin: 0; padding: 16px 26px 20px; border-top: 1px solid var(--line-soft); }
+  #pr-modal-overlay form { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
+  #pr-modal-overlay .pr-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; padding: 18px 26px; }
+  #pr-modal-overlay .pr-body p { margin: 0; font-size: 13.5px; line-height: 1.5; color: var(--ink-soft); }
+  #pr-modal-overlay .pr-body p strong { color: var(--ink-900); }
+  #pr-modal-overlay .pr-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  #pr-modal-overlay .pr-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; margin: 0; }
+  #pr-modal-overlay .pr-field.full { grid-column: 1 / -1; }
+  #pr-modal-overlay .pr-field label, #pr-modal-overlay .pr-rf label { margin: 0; font-size: 12.2px; font-weight: 700; color: var(--ink-soft); }
+  #pr-modal-overlay input, #pr-modal-overlay select { width: 100%; box-sizing: border-box; height: 38px; padding: 0 12px; border: 1px solid var(--line-soft); border-radius: var(--r-sm, 10px); background-color: var(--surface-sunken); box-shadow: var(--clay-pressed); color: var(--ink-800); font-family: inherit; font-size: 13.5px; font-weight: 500; transition: border-color .15s ease, background-color .15s ease, box-shadow .15s ease; }
+  #pr-modal-overlay textarea { width: 100%; box-sizing: border-box; min-height: 64px; padding: 9px 12px; border: 1px solid var(--line-soft); border-radius: var(--r-sm, 10px); background-color: var(--surface-sunken); box-shadow: var(--clay-pressed); color: var(--ink-800); font-family: inherit; font-size: 13.5px; font-weight: 500; resize: vertical; }
+  #pr-modal-overlay input:focus, #pr-modal-overlay select:focus, #pr-modal-overlay textarea:focus { outline: none; border-color: var(--teal-400); background-color: var(--surface-card-raised, #fff); box-shadow: 0 0 0 3px var(--teal-100, rgba(15,118,110,.12)); }
+  #pr-modal-overlay select { -webkit-appearance: none; -moz-appearance: none; appearance: none; padding-right: 30px; background-image: linear-gradient(45deg, transparent 50%, var(--ink-faint) 50%), linear-gradient(135deg, var(--ink-faint) 50%, transparent 50%); background-repeat: no-repeat; background-position: calc(100% - 18px) center, calc(100% - 13px) center; background-size: 5px 5px, 5px 5px; }
+  #pr-modal-overlay input[readonly] { background-color: var(--surface-card, #fbf9f4); color: var(--ink-soft); box-shadow: none; cursor: default; }
+  #pr-modal-overlay .pr-modal-error { flex: none; margin: 0; padding: 0 26px 10px; }
+  #pr-modal-overlay .pr-rows-head, #pr-modal-overlay .pr-row { display: grid; grid-template-columns: minmax(0, 2.2fr) 78px 74px 100px 100px 34px; gap: 8px; align-items: center; }
+  #pr-modal-overlay .pr-rows-head { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; color: var(--ink-faint); padding-bottom: 4px; }
+  #pr-modal-overlay .pr-row { margin-bottom: 8px; }
+  #pr-modal-overlay .pr-rf { min-width: 0; }
+  #pr-modal-overlay .pr-rf label { display: none; margin-bottom: 4px; }
+  #pr-modal-overlay .pr-add-row { margin-top: 2px; }
+  #pr-modal-overlay .r-remove { min-width: 34px; width: 34px; height: 34px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: var(--r-sm); border: 1px solid var(--line-soft); background: var(--surface-card-raised); color: var(--ink-soft); cursor: pointer; }
+  #pr-modal-overlay .r-remove:hover:not(:disabled) { border-color: var(--teal-400); color: var(--teal-700); }
+  #pr-modal-overlay .r-remove:disabled { opacity: .4; cursor: not-allowed; }
+  #pr-modal-overlay .pr-order-total { display: flex; justify-content: flex-end; align-items: baseline; gap: 12px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line-soft); font-size: 13px; color: var(--ink-soft); font-weight: 700; }
+  #pr-modal-overlay .pr-order-total strong { font-size: 17px; color: var(--ink-900); font-variant-numeric: tabular-nums; }
+  #pr-modal-overlay .pr-sup-bar { display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; margin-bottom: 12px; }
+  #pr-modal-overlay .pr-sup-search { flex: 1 1 220px; min-width: 0; height: 38px; }
+  #pr-modal-overlay .pr-sup-search input { flex: 1 1 auto; width: 100%; height: auto; border: none; background: transparent; box-shadow: none; outline: none; padding: 0; font: inherit; }
+  #pr-modal-overlay .pr-sup-name { font-weight: 700; }
+  #pr-modal-overlay .pr-soft-line { font-size: 12px; color: var(--ink-soft); }
+  @media (max-width: 620px) {
+    #pr-modal-overlay .modal-head, #pr-modal-overlay .pr-body, #pr-modal-overlay .modal-footer, #pr-modal-overlay .pr-modal-error { padding-left: 18px; padding-right: 18px; }
+    #pr-modal-overlay .modal-footer .btn { flex: 1 1 auto; }
+    #pr-modal-overlay .pr-grid { grid-template-columns: 1fr; }
+    #pr-modal-overlay .pr-rows-head { display: none; }
+    #pr-modal-overlay .pr-row { grid-template-columns: 1fr 1fr; padding: 12px; margin-bottom: 10px; border: 1px solid var(--line-soft); border-radius: 10px; background: var(--surface-sunken); position: relative; }
+    #pr-modal-overlay .pr-rf-item { grid-column: 1 / -1; padding-right: 40px; }
+    #pr-modal-overlay .pr-rf label { display: block; }
+    #pr-modal-overlay .r-remove { position: absolute; top: 12px; right: 12px; }
+  }
+
+  /* narrow screens: filters full width; table rows become compact cards */
+  @media (max-width: 640px) {
+    #inventory-procurement-body .pr-head-actions { width: 100%; }
+    #inventory-procurement-body .pr-head-actions .btn { flex: 1 1 auto; min-height: 40px; }
+    #inventory-procurement-body .pr-panel { padding: 14px 14px 16px; }
+    #inventory-procurement-body .pr-filters .search-field, #inventory-procurement-body .pr-filters .pr-select { flex: 1 1 100%; max-width: none; }
+    #inventory-procurement-body .pr-footer { flex-direction: column; align-items: stretch; text-align: center; }
+    #inventory-procurement-body .pr-pager { margin-left: 0; justify-content: center; }
+    #inventory-procurement-body .pr-pager #pr-prev, #inventory-procurement-body .pr-pager #pr-next { flex: 1 1 0; }
+    #inventory-procurement-body .pr-pager #pr-prev { order: 1; }
+    #inventory-procurement-body .pr-pager #pr-next { order: 2; }
+    #inventory-procurement-body .pr-pager .pr-pages { order: 3; flex: 1 1 100%; }
+    #inventory-procurement-body .pr-panel > .pr-scroll { padding: 2px 0; }
+    #inventory-procurement-body .pr-table tbody tr { padding: 14px 12px 12px; border-top: 1px solid var(--line); }
+    #inventory-procurement-body .pr-table tbody tr:first-child { border-top: none; }
+    #inventory-procurement-body .pr-table tbody td, #inventory-procurement-body .pr-table td:first-child, #inventory-procurement-body .pr-table td:last-child { padding: 4px 0; }
+    
+    .pr-table thead { display: none; }
+    .pr-table, .pr-table tbody, .pr-table tr, .pr-table td { display: block; width: 100%; box-sizing: border-box; }
+    .pr-table tbody tr { display: flex; flex-direction: column; padding: 14px 14px 12px; border-top: 1px solid var(--line-soft, #eae3d3); }
+    #inventory-procurement-body .pr-table tbody tr:hover { background: transparent; }
+    #inventory-procurement-body .pr-table tbody tr.is-selected, #inventory-procurement-body .pr-table tbody tr.is-selected:hover { background: var(--teal-50, #eef7f3); box-shadow: inset 3px 0 0 var(--teal-700, #0f766e); }
+    #inventory-procurement-body .pr-table tbody tr.is-selected td:first-child { box-shadow: none; }
+    .pr-table tbody td, .pr-table td:first-child, .pr-table td:last-child { border-bottom: none; padding: 4px 0; }
+    .pr-table td[data-label] { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; text-align: right; }
+    .pr-table td[data-label]::before { content: attr(data-label) ':'; flex: none; font-size: 12px; font-weight: 700; color: var(--ink-faint, #97a3a6); text-align: left; }
+    .pr-table td.pr-c-po { order: -1; padding-bottom: 6px; font-size: 14.5px; }
+    .pr-table td.pr-c-items .pr-lines { text-align: right; min-width: 0; }
+    .pr-table td.pr-c-act { margin-top: 8px; padding-top: 12px; border-top: 1px solid var(--line-soft, #eae3d3); }
+    .pr-table td.pr-c-act .btn { width: 100%; }
+    .pr-table td.pr-c-sup2 { padding-bottom: 6px; }
+    .pr-nowrap { white-space: normal; }
+    .pr-table .pr-empty td { display: block; text-align: center; }
+  }
+</style>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-mark"><i class="fa-solid fa-paw"></i></div>
+        <div class="brand-text">
+          <div class="brand-name">Pawsitive Care</div>
+          <div class="brand-role">Administrator</div>
+        </div>
+      </div>
+      <div class="sidebar-divider"></div>
+      <nav class="sidebar-nav">
+      <div class="nav-group">
+        <div class="nav-group-label">MAIN</div>
+        <a href="dashboard.html" class="nav-item" data-page="dashboard.html">
+          <span class="nav-icon"><i class="fa-solid fa-house"></i></span>
+          <span class="nav-label">Dashboard</span>
+        </a>
+        <a href="appointments.html" class="nav-item" data-page="appointments.html">
+          <span class="nav-icon"><i class="fa-solid fa-calendar-days"></i></span>
+          <span class="nav-label">Appointments</span>
+        </a>
+        <a href="queue.html" class="nav-item" data-page="queue.html">
+          <span class="nav-icon"><i class="fa-solid fa-hourglass-half"></i></span>
+          <span class="nav-label">Queue</span>
+        </a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">PATIENT MANAGEMENT</div>
+        <a href="patients.html" class="nav-item" data-page="patients.html">
+          <span class="nav-icon"><i class="fa-solid fa-paw"></i></span>
+          <span class="nav-label">Patients</span>
+        </a>
+        <a href="clients.html" class="nav-item" data-page="clients.html">
+          <span class="nav-icon"><i class="fa-solid fa-user"></i></span>
+          <span class="nav-label">Clients</span>
+        </a>
+        <a href="medical-records.html" class="nav-item" data-page="medical-records.html">
+          <span class="nav-icon"><i class="fa-solid fa-notes-medical"></i></span>
+          <span class="nav-label">Medical Records</span>
+        </a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">CLINIC</div>
+        <a href="services.html" class="nav-item" data-page="services.html">
+          <span class="nav-icon"><i class="fa-solid fa-hospital"></i></span>
+          <span class="nav-label">Services</span>
+        </a>
+        <a href="inventory.html" class="nav-item" data-page="inventory.html">
+          <span class="nav-icon"><i class="fa-solid fa-boxes-stacked"></i></span>
+          <span class="nav-label">Inventory</span>
+        </a>
+        <a href="billing.html" class="nav-item" data-page="billing.html">
+          <span class="nav-icon"><i class="fa-solid fa-credit-card"></i></span>
+          <span class="nav-label">Billing</span>
+        </a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">INSIGHTS</div>
+        <a href="predictive-analytics.html" class="nav-item" data-page="predictive-analytics.html">
+          <span class="nav-icon"><i class="fa-solid fa-chart-line"></i></span>
+          <span class="nav-label">Predictive Analytics</span>
+        </a>
+        <a href="reports.html" class="nav-item" data-page="reports.html">
+          <span class="nav-icon"><i class="fa-solid fa-chart-column"></i></span>
+          <span class="nav-label">Reports</span>
+        </a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">SYSTEM</div>
+        <a href="notifications.html" class="nav-item" data-page="notifications.html">
+          <span class="nav-icon"><i class="fa-solid fa-bell"></i></span>
+          <span class="nav-label">Notifications</span>
+        </a>
+        <a href="staff-users.html" class="nav-item" data-page="staff-users.html">
+          <span class="nav-icon"><i class="fa-solid fa-users"></i></span>
+          <span class="nav-label">Staff & Users</span>
+        </a>
+        <a href="settings.html" class="nav-item" data-page="settings.html">
+          <span class="nav-icon"><i class="fa-solid fa-gear"></i></span>
+          <span class="nav-label">Settings</span>
+        </a>
+      </div>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="footer-avatar">A</div>
+        <div>
+          <div class="footer-name">Admin</div>
+          <div class="footer-role">Administrator</div>
+        </div>
+      </div>
+    </aside>
+
+    <div class="main-content">
+      <header class="topbar">
+        <div class="topbar-left">
+          <button class="menu-toggle" aria-label="Toggle navigation"><i class="fa-solid fa-bars"></i></button>
+        </div>
+      </header>
+
+      <main class="page-body" id="inventory-procurement-body">
+        <div id="inventory-procurement-root"></div>
+      </main>
+    </div>
+  </div>
+
+  <script src="data-store.js"></script>
+  <script src="sidebar.js"></script>
+  <script src="inventory-procurement.js"></script>
+</body>
+</html>

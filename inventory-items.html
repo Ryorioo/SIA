@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Inventory Items · Pawsitive Care</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+<link rel="stylesheet" href="style.css">
+<style>
+  /* ---- Inventory Items page (scoped to #inventory-items-body) ----
+     Same layout language as the finished Inventory Overview / Predictive
+     Analytics: page header with the primary action, one bordered module
+     (heading + count, filters, table on an inner page-bg surface).
+     Reuses shared .btn / .btn-sm / .btn-primary / .filter-bar / .search-field.
+     New classes use the .ii- prefix. */
+  #inventory-items-body .ii-header { align-items: center; margin-bottom: 24px; }
+  #inventory-items-body .ii-header-text { min-width: 0; flex: 1 1 auto; }
+  #inventory-items-body .ii-title { margin: 0 0 2px; font-size: 20px; font-weight: 800; line-height: inherit; letter-spacing: normal; color: var(--ink-900); }
+  #inventory-items-body .ii-header-actions { flex: 0 0 auto; }
+  #inventory-items-body .ii-header-actions .btn { white-space: nowrap; }
+  .topbar { border-bottom: none; }
+  .page-toolbar { margin-bottom: 14px; }
+  @media (min-width: 981px) { .topbar { display: none; } }
+
+  /* Module */
+  #inventory-items-body .ii-panel { box-sizing: border-box; min-width: 0; padding: 16px 18px 18px; background: var(--surface-card); border: 1px solid var(--line); border-radius: var(--r-md); box-shadow: var(--clay-flat); margin-bottom: 24px; }
+  #inventory-items-body .ii-count { margin: 0; font-size: 12.5px; font-weight: 600; line-height: 1.45; color: var(--ink-700); }
+
+  /* Filters: shared .filter-bar, flattened so it sits directly in the module */
+  #inventory-items-body .filter-bar.ii-filters { margin: 0 0 14px; padding: 0; background: transparent; border: none; border-radius: 0; box-shadow: none; }
+  #inventory-items-body .ii-filters .search-field { flex: 2 1 260px; min-width: 0; height: 38px; }
+  #ii-search { flex: 1 1 auto; width: 100%; box-sizing: border-box; padding: 0; background: transparent; border: none; outline: none; box-shadow: none; font: inherit; color: var(--ink-900); }
+  #inventory-items-body .search-field:focus-within { border-color: var(--teal-400); }
+  #inventory-items-body .ii-filters .ii-select { flex: 0 0 170px; min-width: 0; }
+  .ii-select {
+    -webkit-appearance: none; -moz-appearance: none; appearance: none; box-sizing: border-box;
+    height: 38px; background-color: var(--surface-sunken); border: 1px solid var(--line-soft); border-radius: 10px;
+    color: var(--ink-900); font: inherit; font-weight: 600; max-width: 100%; padding: 0 34px 0 12px; cursor: pointer;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: border-color .15s ease;
+  }
+  .ii-select, .ii-select:focus {
+    background-image: linear-gradient(45deg, transparent 50%, var(--ink-faint) 50%), linear-gradient(135deg, var(--ink-faint) 50%, transparent 50%);
+    background-position: calc(100% - 18px) center, calc(100% - 13px) center;
+    background-size: 5px 5px, 5px 5px; background-repeat: no-repeat;
+  }
+  .ii-select:hover { border-color: var(--line-strong); }
+  .ii-select:focus { outline: none; border-color: var(--teal-400); }
+
+  /* Table on the inner page-bg surface */
+  #inventory-items-body .ii-scroll { padding: 6px 10px 4px; background: var(--surface-bg); border: 1px solid var(--line); border-radius: var(--r-md); box-shadow: inset 0 1px 2px rgba(31, 42, 46, 0.05); overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  #inventory-items-body table.ii-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  #inventory-items-body .ii-table thead th { text-align: left; padding: 10px 12px; font-size: 10.6px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; color: var(--ink-700); background: var(--surface-sunken); border-bottom: 1px solid transparent; white-space: nowrap; }
+  #inventory-items-body .ii-table thead th:first-child { border-top-left-radius: var(--r-xs); border-bottom-left-radius: var(--r-xs); }
+  #inventory-items-body .ii-table thead th:last-child { border-top-right-radius: var(--r-xs); border-bottom-right-radius: var(--r-xs); }
+  #inventory-items-body .ii-table tbody td { padding: 11px 12px; border-bottom: 1px solid var(--line); vertical-align: middle; color: var(--ink-900); line-height: 1.3; }
+  #inventory-items-body .ii-table tbody tr:last-child td { border-bottom: none; }
+  #inventory-items-body .ii-table tbody tr:hover { background: var(--surface-card); }
+  #inventory-items-body .ii-name { font-weight: 700; font-size: 13.5px; overflow-wrap: break-word; word-break: normal; }
+  #inventory-items-body .ii-inactive { display: inline-block; margin-left: 6px; font-size: 10.5px; font-weight: 700; color: var(--ink-soft); text-transform: uppercase; letter-spacing: .03em; white-space: nowrap; }
+  #inventory-items-body .ii-soft { color: var(--ink-700); font-weight: 600; }
+  #inventory-items-body .ii-num { font-variant-numeric: tabular-nums; }
+  #inventory-items-body .ii-qty { font-weight: 800; font-size: 14px; }
+  #inventory-items-body .ii-nowrap { white-space: nowrap; }
+  #inventory-items-body .ii-empty td { padding: 44px 20px; text-align: center; color: var(--ink-700); font-size: 13.5px; font-weight: 600; }
+
+  #inventory-items-body .ii-pill { display: inline-flex; align-items: center; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; padding: 3px 9px; border-radius: 999px; white-space: nowrap; line-height: 1.4; }
+  #inventory-items-body .ii-pill.in { background: var(--sage-100, #e4f0e6); color: var(--sage-600, #4f8f68); }
+  #inventory-items-body .ii-pill.low { background: var(--amber-100, #f7ecd6); color: var(--amber-800, #6d4a09); }
+  #inventory-items-body .ii-pill.out { background: var(--red-100, #f5e5e1); color: var(--red-800, #7a372d); }
+  #inventory-items-body .ii-pill.expired { background: var(--surface-sunken); color: var(--red-800, #7a372d); border: 1px solid var(--red-600, #b3261e); }
+
+  #inventory-items-body .ii-actions { display: flex; gap: 6px; align-items: center; white-space: nowrap; }
+  #inventory-items-body .icon-btn {
+    min-width: 30px; height: 30px; padding: 0; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    border-radius: var(--r-sm); border: 1px solid var(--line-soft); background: var(--surface-card-raised);
+    color: var(--ink-soft); cursor: pointer; box-shadow: var(--clay-flat); font: inherit; font-size: 12px;
+    transition: border-color .15s ease, color .15s ease;
+  }
+  #inventory-items-body .icon-btn:hover { border-color: var(--teal-400); color: var(--teal-700); }
+  #inventory-items-body .icon-btn.danger:hover { border-color: var(--red-600, #b3261e); color: var(--red-600, #b3261e); }
+  #inventory-items-body .icon-btn:focus-visible, #inventory-items-body .btn:focus-visible { outline: 2px solid var(--teal-400); outline-offset: 2px; }
+  #inventory-items-body .act-txt { display: none; font-weight: 700; font-size: 12.3px; }
+
+  #inventory-items-body .ii-footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; padding-top: 14px; }
+  #inventory-items-body .ii-pager { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-left: auto; min-width: 0; max-width: 100%; }
+  #inventory-items-body .ii-pager[hidden] { display: none; }
+  #inventory-items-body .ii-pager .btn[disabled] { opacity: .45; cursor: not-allowed; box-shadow: none; pointer-events: none; }
+  #inventory-items-body .ii-pages { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px; min-width: 0; }
+  #inventory-items-body .ii-page { min-width: 32px; padding-left: 6px; padding-right: 6px; font-variant-numeric: tabular-nums; }
+  #inventory-items-body .ii-ellipsis { min-width: 20px; text-align: center; font-size: 12.5px; font-weight: 700; color: var(--ink-soft); user-select: none; }
+
+  @media (max-width: 1100px) {
+    #inventory-items-body .ii-table thead th, #inventory-items-body .ii-table tbody td { padding-left: 8px; padding-right: 8px; }
+    #inventory-items-body .ii-table td.ii-c-item { min-width: 104px; }
+    #inventory-items-body .ii-actions { gap: 4px; }
+  }
+  @media (max-width: 900px) {
+    #inventory-items-body .ii-header { flex-direction: row; }
+  }
+
+  @media (max-width: 640px) {
+    #inventory-items-body .ii-header-actions .btn { min-height: 40px; }
+    #inventory-items-body .ii-panel { padding: 14px 14px 16px; }
+    #inventory-items-body .ii-footer { flex-direction: column; align-items: stretch; text-align: center; }
+    #inventory-items-body .ii-pager { margin-left: 0; justify-content: center; }
+    #inventory-items-body .ii-pager #ii-prev, #inventory-items-body .ii-pager #ii-next { flex: 1 1 0; }
+    #inventory-items-body .ii-pager #ii-prev { order: 1; }
+    #inventory-items-body .ii-pager #ii-next { order: 2; }
+    #inventory-items-body .ii-pager .ii-pages { order: 3; flex: 1 1 100%; }
+    #inventory-items-body .ii-filters .search-field { flex: 1 1 100%; }
+    #inventory-items-body .ii-filters .ii-select { flex: 1 1 calc(50% - 5px); }
+    #inventory-items-body .ii-scroll { padding: 2px 12px; }
+    #inventory-items-body .ii-table thead { display: none; }
+    #inventory-items-body .ii-table, #inventory-items-body .ii-table tbody, #inventory-items-body .ii-table tr, #inventory-items-body .ii-table td { display: block; width: 100%; box-sizing: border-box; }
+    #inventory-items-body .ii-table tbody tr { padding: 14px 0 12px; border-top: 1px solid var(--line); }
+    #inventory-items-body .ii-table tbody tr:first-child { border-top: none; }
+    #inventory-items-body .ii-table tbody tr:hover { background: transparent; }
+    #inventory-items-body .ii-table tbody td { border-bottom: none; padding: 4px 0; }
+    #inventory-items-body .ii-table td[data-label] { display: flex; justify-content: space-between; align-items: center; gap: 12px; text-align: right; }
+    #inventory-items-body .ii-table td[data-label]::before { content: attr(data-label) ':'; flex: none; font-size: 12px; font-weight: 700; color: var(--ink-700); text-align: left; }
+    #inventory-items-body .ii-table td.ii-c-item { padding-bottom: 0; }
+    #inventory-items-body .ii-table td.ii-c-item .ii-name { font-size: 14.5px; }
+    #inventory-items-body .ii-table td.ii-c-cat { padding: 0 0 10px; color: var(--ink-700); font-weight: 600; font-size: 12.5px; }
+    #inventory-items-body .ii-table td.ii-c-act { margin-top: 8px; padding-top: 12px; border-top: 1px solid var(--line); }
+    #inventory-items-body .ii-actions { flex-wrap: wrap; }
+    #inventory-items-body .ii-actions .icon-btn { height: 34px; padding: 0 12px; }
+    #inventory-items-body .act-txt { display: inline; }
+    #inventory-items-body .ii-table .ii-empty td { display: block; text-align: center; }
+    #inventory-items-body .ii-nowrap { white-space: normal; }
+  }
+
+  #ii-modal-overlay .ii-modal { display: flex; flex-direction: column; box-sizing: border-box; width: min(610px, calc(100vw - 40px)); max-width: 100%; padding: 0; overflow: hidden; max-height: min(88vh, calc(100dvh - 40px)); background: var(--surface-card-raised, #fff); border-radius: var(--r-lg, 18px); box-shadow: var(--clay-pop); }
+  #ii-modal-overlay .ii-modal.narrow { width: min(460px, calc(100vw - 40px)); }
+  #ii-modal-overlay .modal-head { flex: none; margin: 0; padding: 22px 26px 16px; border-bottom: 1px solid var(--line-soft); }
+  #ii-modal-overlay .modal-footer { flex: none; flex-wrap: wrap; margin: 0; padding: 16px 26px 20px; border-top: 1px solid var(--line-soft); }
+  #ii-modal-overlay form { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
+  #ii-modal-overlay .ii-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; padding: 18px 26px; }
+  #ii-modal-overlay .ii-body p { margin: 0; font-size: 13.5px; line-height: 1.5; color: var(--ink-soft); }
+  #ii-modal-overlay .ii-body p strong { color: var(--ink-900); }
+  #ii-modal-overlay .ii-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; margin: 0; }
+  #ii-modal-overlay .ii-field.full { grid-column: 1 / -1; }
+  #ii-modal-overlay .ii-field label { margin: 0; font-size: 12.2px; font-weight: 700; color: var(--ink-soft); }
+  #ii-modal-overlay .ii-help { font-size: 11.5px; line-height: 1.4; color: var(--ink-faint); }
+  #ii-modal-overlay input, #ii-modal-overlay select { width: 100%; box-sizing: border-box; height: 38px; padding: 0 12px; border: 1px solid var(--line-soft); border-radius: var(--r-sm, 10px); background-color: var(--surface-sunken); box-shadow: var(--clay-pressed); color: var(--ink-800); font-family: inherit; font-size: 13.5px; font-weight: 500; transition: border-color .15s ease, background-color .15s ease, box-shadow .15s ease; }
+  #ii-modal-overlay input:focus, #ii-modal-overlay select:focus { outline: none; border-color: var(--teal-400); background-color: var(--surface-card-raised, #fff); box-shadow: 0 0 0 3px var(--teal-100, rgba(15,118,110,.12)); }
+  #ii-modal-overlay select { -webkit-appearance: none; -moz-appearance: none; appearance: none; padding-right: 30px; background-image: linear-gradient(45deg, transparent 50%, var(--ink-faint) 50%), linear-gradient(135deg, var(--ink-faint) 50%, transparent 50%); background-repeat: no-repeat; background-position: calc(100% - 18px) center, calc(100% - 13px) center; background-size: 5px 5px, 5px 5px; }
+  #ii-modal-overlay .ii-error { flex: none; display: none; margin: 0; padding: 0 26px 10px; color: var(--red-800, #b3261e); font-size: 12.5px; }
+  #ii-modal-overlay .btn:focus-visible, #ii-modal-overlay .modal-close:focus-visible { outline: 2px solid var(--teal-400); outline-offset: 2px; }
+  @media (max-width: 620px) {
+    #ii-modal-overlay .modal-head, #ii-modal-overlay .ii-body, #ii-modal-overlay .modal-footer, #ii-modal-overlay .ii-error { padding-left: 18px; padding-right: 18px; }
+    #ii-modal-overlay .modal-footer .btn { flex: 1 1 auto; }
+  }
+</style>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-mark"><i class="fa-solid fa-paw"></i></div>
+        <div class="brand-text">
+          <div class="brand-name">Pawsitive Care</div>
+          <div class="brand-role">Administrator</div>
+        </div>
+      </div>
+      <div class="sidebar-divider"></div>
+      <nav class="sidebar-nav">
+      <div class="nav-group">
+        <div class="nav-group-label">MAIN</div>
+        <a href="dashboard.html" class="nav-item" data-page="dashboard.html">
+          <span class="nav-icon"><i class="fa-solid fa-house"></i></span>
+          <span class="nav-label">Dashboard</span>
+        </a>
+        <a href="appointments.html" class="nav-item" data-page="appointments.html">
+          <span class="nav-icon"><i class="fa-solid fa-calendar-days"></i></span>
+          <span class="nav-label">Appointments</span>
+        </a>
+        <a href="queue.html" class="nav-item" data-page="queue.html">
+          <span class="nav-icon"><i class="fa-solid fa-hourglass-half"></i></span>
+          <span class="nav-label">Queue</span>
+        </a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">PATIENT MANAGEMENT</div>
+        <a href="patients.html" class="nav-item" data-page="patients.html">
+          <span class="nav-icon"><i class="fa-solid fa-paw"></i></span>
+          <span class="nav-label">Patients</span>
+        </a>
+        <a href="clients.html" class="nav-item" data-page="clients.html">
+          <span class="nav-icon"><i class="fa-solid fa-user"></i></span>
+          <span class="nav-label">Clients</span>
+        </a>
+        <a href="medical-records.html" class="nav-item" data-page="medical-records.html">
+          <span class="nav-icon"><i class="fa-solid fa-notes-medical"></i></span>
+          <span class="nav-label">Medical Records</span>
+        </a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">CLINIC</div>
+        <a href="services.html" class="nav-item" data-page="services.html">
+          <span class="nav-icon"><i class="fa-solid fa-hospital"></i></span>
+          <span class="nav-label">Services</span>
+        </a>
+        <a href="inventory.html" class="nav-item" data-page="inventory.html">
+          <span class="nav-icon"><i class="fa-solid fa-boxes-stacked"></i></span>
+          <span class="nav-label">Inventory</span>
+        </a>
+        <a href="billing.html" class="nav-item" data-page="billing.html">
+          <span class="nav-icon"><i class="fa-solid fa-credit-card"></i></span>
+          <span class="nav-label">Billing</span>
+        </a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">INSIGHTS</div>
+        <a href="predictive-analytics.html" class="nav-item" data-page="predictive-analytics.html">
+          <span class="nav-icon"><i class="fa-solid fa-chart-line"></i></span>
+          <span class="nav-label">Predictive Analytics</span>
+        </a>
+        <a href="reports.html" class="nav-item" data-page="reports.html">
+          <span class="nav-icon"><i class="fa-solid fa-chart-column"></i></span>
+          <span class="nav-label">Reports</span>
+        </a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-label">SYSTEM</div>
+        <a href="notifications.html" class="nav-item" data-page="notifications.html">
+          <span class="nav-icon"><i class="fa-solid fa-bell"></i></span>
+          <span class="nav-label">Notifications</span>
+        </a>
+        <a href="staff-users.html" class="nav-item" data-page="staff-users.html">
+          <span class="nav-icon"><i class="fa-solid fa-users"></i></span>
+          <span class="nav-label">Staff & Users</span>
+        </a>
+        <a href="settings.html" class="nav-item" data-page="settings.html">
+          <span class="nav-icon"><i class="fa-solid fa-gear"></i></span>
+          <span class="nav-label">Settings</span>
+        </a>
+      </div>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="footer-avatar">A</div>
+        <div>
+          <div class="footer-name">Admin</div>
+          <div class="footer-role">Administrator</div>
+        </div>
+      </div>
+    </aside>
+
+    <div class="main-content">
+      <header class="topbar">
+        <div class="topbar-left">
+          <button class="menu-toggle" aria-label="Toggle navigation"><i class="fa-solid fa-bars"></i></button>
+        </div>
+      </header>
+
+      <main class="page-body" id="inventory-items-body">
+        <div id="inventory-items-root"></div>
+      </main>
+    </div>
+  </div>
+
+  <script src="data-store.js"></script>
+  <script src="sidebar.js"></script>
+  <script src="inventory-items.js"></script>
+</body>
+</html>

@@ -1,256 +1,409 @@
 // ============================================================
-// PAWSITIVE CARE — Client (Pet Owner) Profile
-//
-// Every field shown here comes from the single Client record
-// returned by PCClientAuth.requireClientLogin() (real, session-
-// authenticated — never resolved by typing/matching a name or
-// email), plus that client's own linked Account record from the
-// EXISTING PCData.getAccounts() and its own pets from the EXISTING
-// PCData.getPatientsForClient(). No new data structure is created;
-// editing goes through the EXISTING PCData.updateClient(id, patch)
-// and only ever touches this client's own id and a fixed, safe set
-// of fields (name/phone/address/emergencyContact) — never clientId,
-// status, or anything on the Account record (login/password/role
-// are never editable or displayed in full here).
+// PAWSITIVE CARE — Client Profile page (frontend prototype)
+// Reads the selected client from ?id=CL-002 (clinic display ID)
+// or a raw client id, using the existing PCData frontend store.
+// Read-only: this page never writes to any store.
+// Medical Records / Billing rows are demo content only — to be
+// replaced by real data in the React rebuild.
 // ============================================================
 
 (function () {
+  var D = window.PCData;
+  var root = document.getElementById('pp-content');
+  var PETS_PER_PAGE = 4;
+  var state = { clientId: null, tab: 'appointments', petPage: 0 };
+
+  // ------------------------------------------------------------------
+  // helpers
+  // ------------------------------------------------------------------
+
   function esc(str) {
     return String(str == null ? '' : str)
-      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 
-  // Read-only display fields may legitimately be blank — show an em
-  // dash instead of an empty box, same convention client-pets.js uses.
-  function orDash(v) {
-    var s = String(v == null ? '' : v).trim();
-    return s ? esc(s) : '\u2014';
+  var MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  var MONTHS_LONG = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+  function parseIso(iso) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || '');
+    return m ? { y: +m[1], m: +m[2] - 1, d: +m[3] } : null;
+  }
+  function fmtShort(iso) { var p = parseIso(iso); return p ? MONTHS[p.m] + ' ' + p.d + ', ' + p.y : '—'; }
+  function fmtLong(iso) { var p = parseIso(iso); return p ? MONTHS_LONG[p.m] + ' ' + p.d + ', ' + p.y : '—'; }
+
+  function isoFromMs(ms) {
+    if (!ms) return '';
+    var d = new Date(ms);
+    if (isNaN(d.getTime())) return '';
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
   }
 
-  function initials(name) {
-    var parts = (name || '').trim().split(/\s+/).filter(Boolean);
-    if (!parts.length) return '?';
-    var first = parts[0][0] || '';
-    var last = parts.length > 1 ? (parts[parts.length - 1][0] || '') : '';
-    return (first + last).toUpperCase();
+  function isNone(v) { return /^\s*(none|none known|none recorded|n\/a|—|-)?\s*$/i.test(v || ''); }
+
+  // Clinic display IDs: CL-001, CL-002… = position in the client list
+  // (the same stable order the Clients page uses to number cards).
+  function clientDisplayId(c) {
+    var raw = String(c.id || '');
+    if (/^CL-\d+$/i.test(raw)) return raw.toUpperCase();
+    var idx = D.getClients().findIndex(function (x) { return x.id === c.id; });
+    return 'CL-' + String(idx + 1).padStart(3, '0');
   }
 
-  // Client.createdAt / Account.createdAt are epoch ms (Date.now()),
-  // not the 'YYYY-MM-DD' strings D.formatDateLabel expects — format
-  // those separately rather than passing a timestamp into that helper.
-  function fmtTimestamp(ts) {
-    if (!ts) return '\u2014';
-    var d = new Date(ts);
-    return isNaN(d) ? '\u2014' : d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+  function findClient(param) {
+    if (!param) return null;
+    var all = D.getClients();
+    var byRaw = all.find(function (c) { return c.id === param; });
+    if (byRaw) return byRaw;
+    var m = /^CL-(\d+)$/i.exec(param.trim());
+    if (m) return all[parseInt(m[1], 10) - 1] || null;
+    return null;
   }
 
-  function showToast(msg) {
-    var toast = document.getElementById('toast');
-    toast.textContent = msg;
-    toast.classList.add('show');
-    clearTimeout(showToast._t);
-    showToast._t = setTimeout(function () { toast.classList.remove('show'); }, 2200);
+  // Patient display ID (PT-###) — same numbering Patients/Patient Profile use.
+  function patientDisplayId(p) {
+    var raw = String(p.id || '');
+    if (/^PT-\d+$/i.test(raw)) return raw.toUpperCase();
+    var idx = D.getPatients().findIndex(function (x) { return x.id === p.id; });
+    return 'PT-' + String(idx + 1).padStart(3, '0');
   }
 
-  function renderSidebarFooter(client) {
-    document.getElementById('footer-avatar').textContent = initials(client.name);
-    document.getElementById('footer-name').textContent = client.name;
+  function vaxBadgeClass(status) {
+    return status === 'Up to date' ? 'status-confirmed'
+      : status === 'Overdue' ? 'status-cancelled'
+      : status === 'Due soon' ? 'status-pending'
+      : 'status-completed';
   }
 
-  // ------------------------------------------------------------------
-  // account resolution — the one Account record (role: 'client') that
-  // belongs to this authenticated client, found by the real clientId
-  // link (never by matching login/email text).
-  // ------------------------------------------------------------------
-
-  function getAccountForClient(D, client) {
-    return D.getAccounts().find(function (a) {
-      return a.role === 'client' && a.clientId === client.id;
-    }) || null;
+  function petPhotoStyle(p) {
+    var url = p.photo || p.photoUrl || '';
+    return url ? ' style="background-image:url(\'' + esc(url) + '\')"' : '';
   }
-
-  // ------------------------------------------------------------------
-  // render — Personal Information
-  // ------------------------------------------------------------------
-
-  function field(label, value) {
-    return '<div class="pf-field"><div class="pf-field-label">' + esc(label) + '</div><div class="pf-field-value">' + value + '</div></div>';
-  }
-
-  function renderPersonal(client) {
-    document.getElementById('pf-avatar').textContent = initials(client.name);
-    document.getElementById('pf-name').textContent = client.name || '\u2014';
-    document.getElementById('pf-since').textContent = client.createdAt ? 'Client since ' + fmtTimestamp(client.createdAt) : 'Pet Owner';
-
-    document.getElementById('pf-personal-fields').innerHTML =
-      field('Email', orDash(client.email)) +
-      field('Phone', orDash(client.phone)) +
-      field('Address', orDash(client.address));
+  function petIcon(p) {
+    return (p.photo || p.photoUrl) ? '' : ((D.SPECIES_ICON && D.SPECIES_ICON[p.species]) || '<i class="fa-solid fa-paw"></i>');
   }
 
   // ------------------------------------------------------------------
-  // render — Account Information (never shows the password)
+  // data for this client
   // ------------------------------------------------------------------
 
-  function renderAccount(account, client) {
-    var box = document.getElementById('pf-account-fields');
-    if (!account) {
-      box.innerHTML = '<div class="empty-note">No linked login account found.</div>';
-      return;
-    }
-    box.innerHTML =
-      field('Login Email / Number', orDash(account.login)) +
-      field('Role', 'Pet Owner') +
-      field('Client Status', '<span class="status-badge status-' + esc(client.status) + '">' + (client.status === 'active' ? 'Active' : 'Inactive') + '</span>') +
-      field('Account Created', fmtTimestamp(account.createdAt));
+  function petsOf(c) { return D.getPatientsForClient(c); }
+
+  // Demo medical history, generated from the client's real pets.
+  function demoMedical(pets) {
+    var dateSets = [['2026-09-03', '2026-07-12'], ['2026-08-20', '2026-06-05'], ['2026-08-02', '2026-05-18']];
+    var vets = ['Dr. Santos', 'Dr. Reyes'];
+    var rows = [];
+    pets.forEach(function (p, i) {
+      var dates = dateSets[i % dateSets.length];
+      rows.push({ date: dates[0], pet: p, dx: 'Annual Vaccination', tx: 'Vaccination', vet: vets[i % 2], kind: 'vaccination', amount: 650 });
+      rows.push({
+        date: dates[1], pet: p, dx: isNone(p.conditions) ? 'General Check-up' : p.conditions,
+        tx: isNone(p.conditions) ? 'Consultation' : 'Treatment', vet: vets[(i + 1) % 2],
+        kind: isNone(p.conditions) ? 'consultation' : 'treatment', amount: isNone(p.conditions) ? 500 : 1250
+      });
+    });
+    return rows.sort(function (a, b) { return b.date.localeCompare(a.date); });
   }
 
-  // ------------------------------------------------------------------
-  // render — Emergency Contact
-  // ------------------------------------------------------------------
-
-  function renderEmergency(client) {
-    document.getElementById('pf-emergency-fields').innerHTML =
-      field('Emergency Contact', orDash(client.emergencyContact));
+  function demoBilling(pets) {
+    var rows = demoMedical(pets);
+    return rows.map(function (r, i) {
+      return {
+        date: r.date, ref: 'INV-' + (1042 - i * 23), pet: r.pet, desc: r.dx,
+        amount: r.amount, status: (i === rows.length - 1 && rows.length > 2) ? 'Pending' : 'Paid'
+      };
+    });
   }
 
+  function peso(n) { return '₱' + Number(n).toLocaleString('en-PH'); }
+
   // ------------------------------------------------------------------
-  // render — Pet Summary
+  // render: sections
   // ------------------------------------------------------------------
 
-  function renderPetsSummary(D, client) {
-    var pets = D.getPatientsForClient(client);
-    document.getElementById('pf-pets-summary').innerHTML =
-      '<div class="pf-field" style="border-bottom:none;padding-top:0;">' +
-        '<div class="pf-field-label">Registered Pets</div>' +
-        '<div class="pf-field-value">' + pets.length + '</div>' +
-      '</div>';
+  function field(icon, label, value) {
+    return '<div class="pp-field"><i class="fa-solid ' + icon + '"></i><div>' +
+      '<div class="pp-flabel">' + label + '</div><div class="pp-fvalue">' + esc(value || '—') + '</div></div></div>';
+  }
 
-    var box = document.getElementById('pf-pets-list');
-    if (!pets.length) {
-      box.innerHTML = '<div class="empty-note">No pets registered yet. Visit the clinic front desk to register your pet.</div>';
-      return;
-    }
-    box.innerHTML = pets.map(function (p) {
-      var icon = D.SPECIES_ICON[p.species] || '<i class="fa-solid fa-paw"></i>';
-      return (
-        '<div class="pet-list-row">' +
-          '<div class="pet-list-main">' +
-            '<div class="pet-list-avatar">' + icon + '</div>' +
-            '<div><div class="pet-list-name">' + esc(p.pet) + '</div>' +
-            '<div class="pet-list-meta">' + esc(p.species || '') + (p.breed ? ' \u00b7 ' + esc(p.breed) : '') + '</div></div>' +
-          '</div>' +
-          '<div class="pet-list-cols">' +
-            '<div class="pet-list-col"><div class="pet-list-col-label">Status</div><div class="pet-list-col-value"><span class="status-badge status-' + p.status + '">' + (p.status === 'active' ? 'Active' : 'Inactive') + '</span></div></div>' +
-          '</div>' +
-          '<a class="btn btn-sm" href="client-pets.html">View Profile</a>' +
+  function headerHtml(c) {
+    var active = c.status === 'active';
+    return '<section class="pp-panel pp-header">' +
+      '<div class="pp-identity">' +
+        '<div class="pp-photo" aria-hidden="true"><i class="fa-solid fa-user"></i></div>' +
+        '<div class="pp-id-text">' +
+          '<div class="pp-name-row"><span class="pp-name">' + esc(c.name) + '</span></div>' +
+          '<div class="pp-badges"><span class="pp-pid">' + esc(clientDisplayId(c)) + '</span>' +
+          '<span class="status-badge status-' + (active ? 'active' : 'inactive') + '">' + (active ? 'Active' : 'Inactive') + '</span></div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="pp-actions">' +
+        '<button class="btn btn-primary btn-sm" data-act="book"><i class="fa-solid fa-calendar-plus"></i> Book Appointment</button>' +
+        '<button class="btn btn-primary btn-sm" data-act="add-pet"><i class="fa-solid fa-plus"></i> Add Pet</button>' +
+      '</div>' +
+    '</section>';
+  }
+
+  function detailsHtml(c) {
+    return '<section class="pp-panel"><div class="pp-panel-title"><i class="fa-solid fa-address-card"></i> Client Details</div>' +
+      '<div class="cl-details">' +
+        '<div class="cl-col">' + field('fa-user', 'Full Name', c.name) + field('fa-phone', 'Contact Number', c.phone) + '</div>' +
+        '<div class="cl-col">' + field('fa-envelope', 'Email Address', c.email) + field('fa-house', 'Home Address', c.address) + '</div>' +
+        '<div class="cl-col">' + field('fa-calendar', 'Registration Date', fmtLong(isoFromMs(c.createdAt))) +
+          field('fa-phone-volume', 'Emergency Contact', c.emergencyContact) + '</div>' +
+      '</div>' +
+    '</section>';
+  }
+
+  function petsHtml(c) {
+    var pets = petsOf(c);
+    var pages = Math.max(1, Math.ceil(pets.length / PETS_PER_PAGE));
+    state.petPage = Math.min(Math.max(state.petPage, 0), pages - 1);
+    var shown = pets.slice(state.petPage * PETS_PER_PAGE, (state.petPage + 1) * PETS_PER_PAGE);
+    var cards = !pets.length
+      ? '<div class="cl-pets-empty">No pets registered under this client yet.</div>'
+      : shown.map(function (p) {
+          return '<div class="cl-pet">' +
+            '<div class="cl-pet-photo"' + petPhotoStyle(p) + ' aria-hidden="true">' + petIcon(p) + '</div>' +
+            '<div class="cl-pet-body">' +
+              '<div class="cl-pet-head">' +
+                '<div class="cl-pet-name">' + esc(p.pet) + '</div>' +
+                '<span class="cl-pet-tag">' + esc(p.species) + '</span>' +
+              '</div>' +
+              '<div class="cl-pet-line">Breed: <b>' + esc(p.breed || '—') + '</b></div>' +
+              '<div class="cl-pet-line">Age: <b>' + esc(D.calcAge(p.dob)) + '</b></div>' +
+              '<div class="cl-pet-line cl-pet-gender">' +
+                '<span>Gender: <b>' + esc(p.sex || '—') + '</b></span>' +
+                '<a class="btn btn-primary btn-sm cl-pet-btn" href="patient-profile.html?id=' + encodeURIComponent(patientDisplayId(p)) + '"><i class="fa-solid fa-id-card"></i> View Pet Profile</a>' +
+              '</div>' +
+            '</div>' +
+          '</div>';
+        }).join('');
+    var pager = pages > 1
+      ? '<div class="cl-pager" role="navigation" aria-label="Registered pets pages">' +
+          '<button type="button" class="btn btn-sm btn-plain" data-pet-page="-1"' + (state.petPage === 0 ? ' disabled' : '') + '><i class="fa-solid fa-chevron-left"></i> Previous</button>' +
+          '<span class="cl-pager-info" aria-live="polite">' + (state.petPage + 1) + ' / ' + pages + '</span>' +
+          '<button type="button" class="btn btn-sm btn-plain" data-pet-page="1"' + (state.petPage >= pages - 1 ? ' disabled' : '') + '>Next <i class="fa-solid fa-chevron-right"></i></button>' +
         '</div>'
-      );
+      : '';
+    return '<div class="pp-section-title">REGISTERED PETS</div><div class="cl-pets">' + cards + '</div>' + pager;
+  }
+
+  var TABS = [
+    { id: 'appointments', label: 'Appointments', icon: 'fa-calendar-days' },
+    { id: 'medical', label: 'Medical Records', icon: 'fa-file-medical' },
+    { id: 'vaccinations', label: 'Vaccinations', icon: 'fa-shield-halved' },
+    { id: 'billing', label: 'Billing History', icon: 'fa-receipt' }
+  ];
+
+  function tabsHtml() {
+    return '<div class="pp-tabs" role="tablist" aria-label="Client history">' + TABS.map(function (t) {
+      return '<button class="pp-tab' + (t.id === state.tab ? ' active' : '') + '" role="tab" aria-selected="' + (t.id === state.tab) + '" data-tab="' + t.id + '">' +
+        '<i class="fa-solid ' + t.icon + '"></i>' + t.label + '</button>';
+    }).join('') + '</div>';
+  }
+
+  function table(headers, rowsHtml) {
+    return '<div class="pp-table-wrap"><table class="pp-table stackable"><thead><tr>' +
+      headers.map(function (h) { return '<th>' + h + '</th>'; }).join('') + '</tr></thead><tbody>' + rowsHtml + '</tbody></table></div>';
+  }
+  function cell(label, html) { return '<td data-label="' + label + '">' + html + '</td>'; }
+
+  function petCell(p) {
+    return '<span class="cl-petcell"><span class="cl-petdot"' + petPhotoStyle(p) + '>' + petIcon(p) + '</span>' + esc(p.pet) + '</span>';
+  }
+
+  function petByName(pets, name) {
+    var n = (name || '').trim().toLowerCase();
+    return pets.filter(function (p) { return (p.pet || '').trim().toLowerCase() === n; })[0] || { pet: name || '—', species: 'Other' };
+  }
+
+  function appointmentsHtml(c) {
+    var pets = petsOf(c);
+    var history = D.getAppointmentsForClient(c).slice(0, 10);
+    if (!history.length) return '<div class="pp-empty">No appointment history yet.</div>';
+    var rows = history.map(function (a) {
+      var label = (D.STATUS_LABELS && D.STATUS_LABELS[a.status]) || a.status;
+      return '<tr>' + cell('Date', fmtShort(a.date)) + cell('Pet', petCell(petByName(pets, a.pet))) +
+        cell('Service', esc(a.reason || 'General visit')) +
+        cell('Status', '<span class="status-badge status-' + esc(a.status) + '">' + esc(label) + '</span>') + '</tr>';
     }).join('');
+    return table(['Date', 'Pet', 'Service', 'Status'], rows);
+  }
+
+  function medicalHtml(c) {
+    var recs = demoMedical(petsOf(c));
+    if (!recs.length) return '<div class="pp-empty">No medical records yet.</div>';
+    var rows = recs.map(function (r) {
+      return '<tr>' + cell('Date', fmtShort(r.date)) + cell('Pet', petCell(r.pet)) + cell('Diagnosis', esc(r.dx)) +
+        cell('Treatment', esc(r.tx)) + cell('Veterinarian', esc(r.vet)) + '</tr>';
+    }).join('');
+    return table(['Date', 'Pet', 'Diagnosis', 'Treatment', 'Veterinarian'], rows);
+  }
+
+  function vaccinationsHtml(c) {
+    var pets = petsOf(c);
+    if (!pets.length) return '<div class="pp-empty">No vaccination records yet.</div>';
+    var rows = '';
+    pets.forEach(function (p) {
+      var recs = D.getVaccinationsForPatientId(p.id);
+      if (recs.length) {
+        recs.forEach(function (v) {
+          var st = D.computeVaccinationStatus(v.nextDue);
+          rows += '<tr>' + cell('Pet', petCell(p)) + cell('Vaccine', esc(v.vaccineName || 'Vaccine')) + cell('Date Given', fmtShort(v.dateGiven)) +
+            cell('Next Due', fmtShort(v.nextDue)) + cell('Status', '<span class="status-badge ' + vaxBadgeClass(st) + '">' + esc(st) + '</span>') + '</tr>';
+        });
+      } else {
+        var gs = p.vaccinationStatus || 'Unknown';
+        rows += '<tr>' + cell('Pet', petCell(p)) + cell('Vaccine', 'General status on file') + cell('Date Given', '—') +
+          cell('Next Due', '—') + cell('Status', '<span class="status-badge ' + vaxBadgeClass(gs) + '">' + esc(gs) + '</span>') + '</tr>';
+      }
+    });
+    return table(['Pet', 'Vaccine', 'Date Given', 'Next Due', 'Status'], rows);
+  }
+
+  function billingHtml(c) {
+    var bills = demoBilling(petsOf(c));
+    if (!bills.length) return '<div class="pp-empty">No billing history yet.</div>';
+    var rows = bills.map(function (b) {
+      var cls = b.status === 'Paid' ? 'status-confirmed' : 'status-pending';
+      return '<tr>' + cell('Date', fmtShort(b.date)) + cell('Invoice', esc(b.ref)) + cell('Pet', petCell(b.pet)) +
+        cell('Description', esc(b.desc)) + cell('Amount', peso(b.amount)) +
+        cell('Status', '<span class="status-badge ' + cls + '">' + b.status + '</span>') + '</tr>';
+    }).join('');
+    return table(['Date', 'Invoice', 'Pet', 'Description', 'Amount', 'Status'], rows);
+  }
+
+  function sectionContent(c) {
+    switch (state.tab) {
+      case 'medical': return medicalHtml(c);
+      case 'vaccinations': return vaccinationsHtml(c);
+      case 'billing': return billingHtml(c);
+      default: return appointmentsHtml(c);
+    }
+  }
+
+  // Recent Activity: real completed appointments + the demo clinical /
+  // billing events, newest first.
+  function toneFor(text) {
+    return /vaccin/i.test(text) ? 'vaccination'
+      : /treat|ear|skin|infect|limp|dental/i.test(text) ? 'treatment'
+      : /consult|check/i.test(text) ? 'consultation' : 'other';
+  }
+  var TAGS = { vaccination: 'Vaccination', treatment: 'Treatment', consultation: 'Consultation', other: 'Billing' };
+
+  function activityItems(c) {
+    var pets = petsOf(c);
+    var items = [];
+    D.getAppointmentsForClient(c).filter(function (a) { return a.status === 'completed'; }).slice(0, 4).forEach(function (a) {
+      var reason = a.reason || 'General visit';
+      var tone = toneFor(reason);
+      items.push({ date: a.date, text: a.pet + ' — ' + reason + ' completed', tone: tone, tag: TAGS[tone] === 'Billing' ? 'Visit' : TAGS[tone] });
+    });
+    demoMedical(pets).slice(0, 4).forEach(function (r, i) {
+      if (r.kind === 'vaccination') {
+        items.push({ date: r.date, text: r.pet.pet + ' received ' + r.dx, tone: 'vaccination', tag: 'Vaccination' });
+        items.push({ date: r.date, text: 'Invoice paid for ' + r.pet.pet + ' — ' + r.dx, tone: 'other', tag: 'Invoice Paid' });
+      } else {
+        items.push({ date: r.date, text: r.pet.pet + ' ' + r.dx.toLowerCase() + ' completed', tone: r.kind, tag: TAGS[r.kind] });
+      }
+    });
+    items.sort(function (a, b) { return b.date.localeCompare(a.date); });
+    return items.slice(0, 4);
+  }
+
+  function activityHtml(c) {
+    var items = activityItems(c);
+    var body = items.length ? items.map(function (r) {
+      return '<div class="pp-tl-item tone-' + r.tone + '-dot"><span class="pp-tl-dot"></span>' +
+        '<div class="pp-tl-date">' + fmtLong(r.date) + '</div>' +
+        '<div class="pp-tl-text">' + esc(r.text) + '</div>' +
+        '<span class="pp-tag tone-' + r.tone + '">' + esc(r.tag) + '</span></div>';
+    }).join('') : '<div class="pp-empty">No recent activity yet.</div>';
+    return '<aside class="pp-panel"><div class="pp-panel-title"><i class="fa-solid fa-clock-rotate-left"></i> Recent Activity</div>' +
+      '<div class="pp-timeline">' + body + '</div></aside>';
+  }
+
+  function mainHtml(c) {
+    var cur = TABS.filter(function (t) { return t.id === state.tab; })[0];
+    return '<section class="pp-panel"><div class="pp-panel-title"><i class="fa-solid ' + cur.icon + '"></i> ' + cur.label + '</div>' +
+      sectionContent(c) + '</section>' + activityHtml(c);
   }
 
   // ------------------------------------------------------------------
-  // Edit Profile — writes only through the EXISTING PCData.updateClient()
+  // render: page
   // ------------------------------------------------------------------
 
-  function openEdit(client) {
-    document.getElementById('e-name').value = client.name || '';
-    document.getElementById('e-phone').value = client.phone || '';
-    document.getElementById('e-address').value = client.address || '';
-    document.getElementById('e-emergency').value = client.emergencyContact || '';
-    document.getElementById('edit-overlay').classList.add('open');
+  function renderMissing() {
+    root.innerHTML = '<div class="pp-panel pp-missing"><h2>Client not found</h2>' +
+      '<p>We couldn\'t find a client for this link.</p>' +
+      '<a class="btn btn-primary" href="clients.html"><i class="fa-solid fa-arrow-left"></i> Back to Clients</a></div>';
   }
 
-  function closeEdit() {
-    document.getElementById('edit-overlay').classList.remove('open');
+  function renderMain() {
+    var c = D.getClientById(state.clientId);
+    if (!c) return;
+    document.getElementById('pp-main').innerHTML = mainHtml(c);
+    document.getElementById('pp-tabs-host').innerHTML = tabsHtml();
+    wireTabs();
   }
 
-  // Re-verifies against a freshly-resolved client (never a stale
-  // closure variable alone) right before writing, and only ever
-  // patches this client's own safe fields — never id/clientId/status/
-  // role, and never anything on the Account record.
-  function saveEdit(D, getClient, onSaved) {
-    var client = getClient();
-    if (!client) { showToast('Your session has expired. Please log in again.'); return; }
+  function render() {
+    var c = D.getClientById(state.clientId);
+    if (!c) { renderMissing(); return; }
+    document.title = c.name + ' · Client Profile · Pawsitive Care';
+    root.innerHTML =
+      headerHtml(c) + detailsHtml(c) + '<div id="cl-pets-host">' + petsHtml(c) + '</div>' +
+      '<div id="pp-tabs-host">' + tabsHtml() + '</div>' +
+      '<div class="pp-main" id="pp-main">' + mainHtml(c) + '</div>';
+    wire(c);
+  }
 
-    var name = document.getElementById('e-name').value.trim();
-    if (!name) { showToast('Full name is required'); return; }
+  function wireTabs() {
+    root.querySelectorAll('[data-tab]').forEach(function (btn) {
+      btn.addEventListener('click', function () { state.tab = btn.getAttribute('data-tab'); renderMain(); });
+    });
+  }
 
-    var patch = {
-      name: name,
-      phone: document.getElementById('e-phone').value.trim(),
-      address: document.getElementById('e-address').value.trim(),
-      emergencyContact: document.getElementById('e-emergency').value.trim()
-    };
+  function wirePets(c) {
+    root.querySelectorAll('[data-pet-page]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        state.petPage += parseInt(btn.getAttribute('data-pet-page'), 10);
+        document.getElementById('cl-pets-host').innerHTML = petsHtml(c);
+        wirePets(c);
+      });
+    });
+  }
 
-    D.updateClient(client.id, patch);
-    closeEdit();
-    showToast('Profile updated');
-    onSaved();
+  function wire(c) {
+    wireTabs();
+    wirePets(c);
+    root.querySelectorAll('[data-act]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var act = btn.getAttribute('data-act');
+        if (act === 'add-pet') {
+          window.location.href = 'patients.html';
+        } else if (act === 'book') {
+          window.location.href = 'appointments.html?q=' + encodeURIComponent(c.name);
+        }
+      });
+    });
   }
 
   // ------------------------------------------------------------------
-  // wiring
+  // init
   // ------------------------------------------------------------------
 
   document.addEventListener('DOMContentLoaded', function () {
-    // Bounces to client-login.html automatically if there's no valid
-    // session — everything below only runs for an authenticated Client.
-    var client = window.PCClientAuth.requireClientLogin();
-    if (!client) return;
+    var c = findClient(new URLSearchParams(window.location.search).get('id'));
+    state.clientId = c ? c.id : null;
 
-    var D = window.PCData;
+    // Keep the Clients item highlighted in the shared sidebar.
+    var nav = document.querySelector('.nav-item[data-page="clients.html"]');
+    if (nav) nav.classList.add('active');
 
-    // Always re-resolves the client fresh from the live session (re-
-    // validated against current Accounts by getCurrentClient()) rather
-    // than trusting a possibly-stale local variable, especially before
-    // any write.
-    function currentClient() {
-      return window.PCClientAuth.getCurrentClient();
-    }
-
-    function renderDynamic() {
-      var live = currentClient();
-      if (!live) return; // session ended (e.g. logged out in another tab)
-      var account = getAccountForClient(D, live);
-      renderPersonal(live);
-      renderAccount(account, live);
-      renderEmergency(live);
-      renderPetsSummary(D, live);
-    }
-
-    renderSidebarFooter(client);
-    renderDynamic();
-
-    document.getElementById('edit-profile-btn').addEventListener('click', function () {
-      var live = currentClient();
-      if (!live) { showToast('Your session has expired. Please log in again.'); return; }
-      openEdit(live);
-    });
-    document.getElementById('edit-close').addEventListener('click', closeEdit);
-    document.getElementById('edit-cancel').addEventListener('click', closeEdit);
-    document.getElementById('edit-overlay').addEventListener('click', function (e) {
-      if (e.target === document.getElementById('edit-overlay')) closeEdit();
-    });
-    document.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape' && document.getElementById('edit-overlay').classList.contains('open')) closeEdit();
-    });
-    document.getElementById('edit-save').addEventListener('click', function () {
-      saveEdit(D, currentClient, function () {
-        renderDynamic();
-        renderSidebarFooter(currentClient() || client);
-      });
-    });
-
-    document.getElementById('logout-btn').addEventListener('click', function (e) {
-      e.preventDefault();
-      window.PCClientAuth.logoutClient();
-    });
-
-    // Keep the profile live if data changes elsewhere — e.g. the front
-    // desk updates this client's phone/address on the Clients page in
-    // another tab — exactly like every other Client page's D.onChange()
-    // wiring. No separate polling is set up here beyond that.
-    D.onChange(renderDynamic);
+    if (D.onChange) D.onChange(function () { if (state.clientId) render(); });
+    render();
   });
 })();

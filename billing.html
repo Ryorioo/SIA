@@ -36,68 +36,46 @@
      this was dead CSS carrying the same broken-token bug). Nothing
      in this section changes structure, behavior, or the Subtotal/
      Discount/Total math — tokens and reused global classes only. */
-  /* Phase 3I: page header now follows the same convention as the
-     finalized Inventory page — no breadcrumb/title in the global
-     topbar, no redundant subtitle, and the heading block uses the
-     shared .page-toolbar (style.css) instead of a page-only
-     duplicate of the same flex/spacing rules. */
+  /* ---- Billing page (scoped to #billing-page-body) ----
+     Redesign pass: layout, spacing, cards, module, table, badges, footer
+     and responsive behaviour follow the Procurement page. Presentation
+     only; billing.js data, selectors and handlers are unchanged. */
   .topbar { border-bottom: none; }
-  .page-toolbar { margin-top: 22px; }
-  .bl-page-title { font-size:20px; font-weight:800; color:var(--ink-900); margin-bottom:2px; }
-  .bl-toolbar-actions { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  @media (min-width: 981px) { .topbar { display: none; } }
 
-  /* Summary cards — Phase 3: four payment-status cards (Pending
-     Payments / Today's Collections / Completed Transactions /
-     Refunded Payments). Pending Payments is the lead card (dark-teal
-     treatment, same as Appointments' "Today's Appointments" lead
-     card) because it is the one that needs action; the other three
-     use the neutral secondary treatment. Values come from the
-     billing-data-store.js selectors, never calculated in the UI. */
-  .bl-summary-grid { display:grid; grid-template-columns:1.3fr repeat(3,1fr); gap:12px; margin-bottom:20px; }
-  @media (max-width:900px){
-    .bl-summary-grid{ grid-template-columns:repeat(2,1fr); }
-    .bl-metric-primary{ grid-column:1 / -1; }
-  }
-  @media (max-width:480px){
-    .bl-summary-grid{ grid-template-columns:1fr; }
-    .bl-metric-primary{ grid-column:auto; }
-  }
-  .bl-metric {
-    box-sizing:border-box; min-width:0; height:100%;
-    padding:16px 18px;
-    display:flex; flex-direction:column; gap:10px;
-    background:var(--surface-sunken);
-    border:1px solid var(--line-soft);
-    border-radius:var(--r-md);
-    box-shadow:var(--clay-flat);
-  }
-  .bl-metric-head { display:flex; align-items:center; justify-content:space-between; gap:8px; }
-  .bl-metric-label { font-size:11px; font-weight:600; color:var(--ink-faint); line-height:1.3; }
-  .bl-metric-icon { flex:none; font-size:12px; color:var(--ink-faint); }
-  .bl-metric-value { font-size:26px; font-weight:800; color:var(--ink-900); line-height:1.15; overflow-wrap:anywhere; }
-  .bl-metric-desc { font-size:11px; font-weight:500; color:var(--ink-faint); line-height:1.4; }
-  /* Pending Payments — primary/lead card, same treatment as
-     Appointments' "Today's Appointments" (.summary-metric-primary):
-     dark teal surface, on-brand text/icon. */
-  .bl-metric-primary { background:var(--teal-700); border-color:var(--teal-700); }
-  .bl-metric-primary .bl-metric-icon { color:rgba(244,249,247,.78); }
-  .bl-metric-primary .bl-metric-label { color:rgba(244,249,247,.72); }
-  .bl-metric-primary .bl-metric-value { color:var(--ink-on-brand); }
-  .bl-metric-primary .bl-metric-desc { color:rgba(244,249,247,.72); }
+  /* page header */
+  #billing-page-body .bl-header { align-items: center; margin: 0 0 40px; }
+  #billing-page-body .bl-header-text { min-width: 0; flex: 1 1 auto; }
+  #billing-page-body .bl-title { margin: 0 0 2px; font-size: 20px; font-weight: 800; line-height: inherit; letter-spacing: normal; color: var(--ink-900); }
+  #billing-page-body .bl-toolbar-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; flex: 0 0 auto; }
+  #billing-page-body .bl-toolbar-actions .btn { white-space: nowrap; }
+  #billing-page-body .btn:focus-visible { outline: 2px solid var(--teal-400); outline-offset: 2px; }
 
+  /* summary cards: sunken cards, teal lead card (Pending Payments) */
+  #billing-page-body .bl-summary-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: 0 0 24px; }
+  #billing-page-body .bl-metric { box-sizing: border-box; min-width: 0; height: 100%; padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; background: var(--surface-sunken); border: 1px solid var(--line-soft); border-radius: var(--r-md); box-shadow: var(--clay-flat); }
+  #billing-page-body .bl-metric-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  #billing-page-body .bl-metric-label { font-size: 12px; font-weight: 700; color: var(--ink-700); line-height: 1.3; overflow-wrap: anywhere; }
+  #billing-page-body .bl-metric-icon { flex: none; font-size: 12px; color: var(--ink-soft); }
+  #billing-page-body .bl-metric-value { font-size: 26px; font-weight: 800; line-height: 1.15; color: var(--ink-900); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+  #billing-page-body .bl-metric-desc { font-size: 12px; font-weight: 500; line-height: 1.4; color: var(--ink-700); overflow-wrap: anywhere; }
+  #billing-page-body .bl-metric-primary { background: var(--teal-700); border-color: var(--teal-700); }
+  #billing-page-body .bl-metric-primary .bl-metric-icon { color: rgba(244, 249, 247, 0.85); }
+  #billing-page-body .bl-metric-primary .bl-metric-label,
+  #billing-page-body .bl-metric-primary .bl-metric-desc { color: rgba(244, 249, 247, 0.86); }
+  #billing-page-body .bl-metric-primary .bl-metric-value { color: var(--ink-on-brand); }
+  @media (max-width: 1100px) { #billing-page-body .bl-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 640px) { #billing-page-body .bl-summary-grid { grid-template-columns: minmax(0, 1fr); } }
 
-  /* Tabs — Phase 3F: restyled to match style.css's own .view-tabs/
-     .view-tab pill-tab control (same sunken pressed container,
-     raised active pill, teal-700 active text) instead of an
-     underline tab that depended on the non-existent --accent token.
-     Same markup/click behavior — data-tab, .active toggling in
-     billing.js — untouched. */
-  .bl-tabs { display:inline-flex; gap:3px; max-width:100%; overflow-x:auto; -webkit-overflow-scrolling:touch; background:var(--surface-sunken); border:1px solid var(--line-soft); border-radius:var(--r-sm); padding:3px; box-shadow:var(--clay-pressed); margin-bottom:16px; }
+  /* main bordered module holding tabs, search, table and footer */
+  #billing-page-body .bl-module { box-sizing: border-box; min-width: 0; margin-bottom: 24px; padding: 16px 18px 18px; background: var(--surface-card); border: 1px solid var(--line); border-radius: var(--r-md); box-shadow: var(--clay-flat); }
+
+  /* Tabs: same pill-tab control as before (data-tab / .active are driven by billing.js) */
+  .bl-tabs { display:inline-flex; gap:3px; max-width:100%; overflow-x:auto; -webkit-overflow-scrolling:touch; background:var(--surface-sunken); border:1px solid var(--line-soft); border-radius:var(--r-sm); padding:3px; box-shadow:var(--clay-pressed); margin-bottom:14px; }
   .bl-tab { border:none; background:transparent; padding:7px 14px; border-radius:8px; font-weight:700; font-size:12.8px; color:var(--ink-soft); cursor:pointer; transition:background .15s ease, color .15s ease, box-shadow .15s ease; }
   .bl-tab:hover { color:var(--ink-800); }
   .bl-tab.active { background:var(--surface-card-raised); color:var(--teal-700); box-shadow:var(--clay-flat); }
-  /* Phase 3: the tablist scrolls (overflow-x:auto), which would clip a
-     normal outside focus ring, so the ring is drawn inside the tab. */
+  /* the tablist scrolls (overflow-x:auto), so the focus ring is drawn inside the tab */
   .bl-tab:focus-visible { outline:2px solid var(--teal-400); outline-offset:-2px; }
   .bl-tab-count { display:inline-block; min-width:18px; padding:0 5px; margin-left:6px; font-size:11px; font-weight:800; background:var(--amber-100); color:var(--amber-800); border-radius:9px; }
 
@@ -164,31 +142,43 @@
     background-repeat: no-repeat;
   }
 
-  /* Result count — same treatment/placement as Inventory's .inv-count. */
-  .bl-count { font-size: 11.4px; font-weight: 700; color: var(--ink-faint); margin: 0 2px 10px; }
+  /* Search: the shared .filter-bar flattened so it sits directly in the module
+     (same treatment as Procurement's filters). */
+  #billing-page-body .filter-bar.bl-filters { margin: 0 0 14px; padding: 0; background: transparent; border: none; border-radius: 0; box-shadow: none; }
+  #billing-page-body .bl-filters .search-field { flex: 2 1 220px; min-width: 0; height: 38px; }
 
-  /* Invoice table — Phase 3F: the wrapper's overflow:hidden was
-     clipping the table outright on narrow screens instead of
-     letting it scroll (the previously-flagged issue). Fixed the
-     same way appointments.html's own schedule pane handles a wide
-     inner grid: the OUTER wrap keeps overflow:hidden (so the
-     rounded corners/border still clip correctly) while a new INNER
-     .bl-table-scroll wrapper around just the <table> gets
-     overflow-x:auto, so the table scrolls horizontally inside its
-     border instead of the page doing so. Desktop appearance is
-     unchanged — the inner wrapper is invisible until content
-     actually needs to scroll. Header/row styling re-tokenized to
-     match the finalized queue-table (surface-sunken header, ink-
-     faint uppercase labels, line-soft dividers, surface-card body)
-     instead of the old plain-white/light-gray-header treatment. */
-  .bl-table-wrap { border:1px solid var(--line-soft); border-radius:var(--r-md); overflow:hidden; background:var(--surface-card); box-shadow:var(--clay-flat); }
-  .bl-table-scroll { overflow-x:auto; -webkit-overflow-scrolling:touch; }
-  .bl-table-scroll:focus-visible { outline-offset:-2px; }
-  .bl-table { width:100%; border-collapse:collapse; font-size:13px; }
-  .bl-table th { text-align:left; font-size:10.6px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; color:var(--ink-faint); background:var(--surface-sunken); padding:12px 16px; border-bottom:1px solid var(--line-soft); white-space:nowrap; }
-  .bl-table td { padding:12px 16px; color:var(--ink-900); border-bottom:1px solid var(--line-soft); vertical-align:middle; line-height:1.3; }
-  .bl-table tr:last-child td { border-bottom:none; }
-  .bl-table tbody tr:hover { background:var(--surface-sunken); }
+  /* Payments table: header band + rows on the inner page-bg surface */
+  #billing-page-body .bl-table-wrap { min-width: 0; }
+  #billing-page-body .bl-table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; padding: 6px 10px 4px; background: var(--surface-bg); border: 1px solid var(--line); border-radius: var(--r-md); box-shadow: inset 0 1px 2px rgba(31, 42, 46, 0.05); }
+  #billing-page-body .bl-table-scroll:focus-visible { outline: 2px solid var(--teal-400); outline-offset: -2px; }
+  #billing-page-body .bl-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  #billing-page-body .bl-table thead th { text-align: left; padding: 10px 8px; font-size: 10.6px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; color: var(--ink-700); background: var(--surface-sunken); border-top: none; border-bottom: 1px solid transparent; white-space: nowrap; }
+  #billing-page-body .bl-table thead th:first-child { padding-left: 10px; border-top-left-radius: var(--r-xs); border-bottom-left-radius: var(--r-xs); }
+  #billing-page-body .bl-table thead th:last-child { padding-right: 10px; border-top-right-radius: var(--r-xs); border-bottom-right-radius: var(--r-xs); }
+  #billing-page-body .bl-table tbody td { padding: 10px 8px; color: var(--ink-900); border-bottom: 1px solid var(--line); vertical-align: middle; line-height: 1.3; }
+  #billing-page-body .bl-table tbody td:first-child { padding-left: 10px; }
+  #billing-page-body .bl-table tbody td:last-child { padding-right: 10px; }
+  #billing-page-body .bl-table tbody tr:last-child td { border-bottom: none; }
+  #billing-page-body .bl-table tbody tr { transition: background-color .15s ease; }
+  #billing-page-body .bl-table tbody tr:hover { background: var(--surface-card); }
+  #billing-page-body .bl-table td.bl-c-inv { font-weight: 800; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  #billing-page-body .bl-table td.bl-c-client { font-weight: 600; }
+  #billing-page-body .bl-table td.bl-soft { color: var(--ink-700); font-weight: 600; }
+  #billing-page-body .bl-table tbody tr td.bl-empty { padding: 44px 20px; text-align: center; color: var(--ink-700); }
+  #billing-page-body .bl-empty-title { font-size: 13.5px; font-weight: 700; color: var(--ink-800); margin-bottom: 2px; }
+  #billing-page-body .bl-empty-note { font-size: 12.5px; font-weight: 600; color: var(--ink-700); }
+  #billing-page-body .bl-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+  #billing-page-body .bl-actions .btn { white-space: nowrap; }
+
+  /* footer: count left, numbered pagination right */
+  #billing-page-body .bl-footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; padding-top: 14px; }
+  #billing-page-body .bl-count { margin: 0; font-size: 12.5px; font-weight: 600; line-height: 1.45; color: var(--ink-700); }
+  #billing-page-body .bl-pager { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-left: auto; min-width: 0; max-width: 100%; }
+  #billing-page-body .bl-pager[hidden] { display: none; }
+  #billing-page-body .bl-pager .btn[disabled] { opacity: .45; cursor: not-allowed; box-shadow: none; pointer-events: none; }
+  #billing-page-body .bl-pages { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px; min-width: 0; }
+  #billing-page-body .bl-page { min-width: 32px; padding-left: 6px; padding-right: 6px; font-variant-numeric: tabular-nums; }
+  #billing-page-body .bl-ellipsis { min-width: 20px; text-align: center; font-size: 12.5px; font-weight: 700; color: var(--ink-soft); user-select: none; }
   .bl-mono { font-weight:700; font-variant-numeric:tabular-nums; }
   .bl-dim { color:var(--ink-faint); font-size:12px; }
   .bl-strong { font-weight:800; color:var(--ink-900); }
@@ -224,6 +214,40 @@
   .bl-badge--pay-pending-verification { background:var(--amber-100); color:var(--amber-800); }
   .bl-badge--pay-verified { background:var(--sage-100); color:var(--sage-600); }
   .bl-badge--pay-rejected { background:var(--red-100); color:var(--red-800); }
+
+  /* Page status badges: Procurement's compact pill shape. Scoped to the page
+     body so the badges inside the modals keep their existing look; colours
+     still come from the .bl-badge--* rules above. */
+  #billing-page-body .bl-badge { display: inline-flex; align-items: center; padding: 3px 8px; border-radius: 999px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .02em; line-height: 1.4; white-space: nowrap; }
+
+  /* narrow screens: full-width search, rows become compact cards */
+  @media (max-width: 640px) {
+    #billing-page-body .bl-header .bl-toolbar-actions { width: 100%; }
+    #billing-page-body .bl-header .bl-toolbar-actions .btn { flex: 1 1 auto; min-height: 40px; }
+    #billing-page-body .bl-module { padding: 14px 14px 16px; }
+    #billing-page-body .bl-filters .search-field { flex: 1 1 100%; max-width: none; }
+    #billing-page-body .bl-footer { flex-direction: column; align-items: stretch; text-align: center; }
+    #billing-page-body .bl-pager { margin-left: 0; justify-content: center; }
+    #billing-page-body .bl-pager #bl-prev, #billing-page-body .bl-pager #bl-next { flex: 1 1 0; }
+    #billing-page-body .bl-pager #bl-prev { order: 1; }
+    #billing-page-body .bl-pager #bl-next { order: 2; }
+    #billing-page-body .bl-pager .bl-pages { order: 3; flex: 1 1 100%; }
+    #billing-page-body .bl-table-scroll { padding: 2px 0; }
+    #billing-page-body .bl-table thead { display: none; }
+    #billing-page-body .bl-table, #billing-page-body .bl-table tbody, #billing-page-body .bl-table tr, #billing-page-body .bl-table td { display: block; width: 100%; box-sizing: border-box; }
+    #billing-page-body .bl-table tbody tr { display: flex; flex-direction: column; padding: 14px 14px 12px; border-top: 1px solid var(--line); }
+    #billing-page-body .bl-table tbody tr:first-child { border-top: none; }
+    #billing-page-body .bl-table tbody tr:hover { background: transparent; }
+    #billing-page-body .bl-table tbody td,
+    #billing-page-body .bl-table tbody td:first-child,
+    #billing-page-body .bl-table tbody td:last-child { padding: 4px 0; border-bottom: none; }
+    #billing-page-body .bl-table td[data-label] { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; text-align: right; }
+    #billing-page-body .bl-table td[data-label]::before { content: attr(data-label) ':'; flex: none; font-size: 12px; font-weight: 700; color: var(--ink-faint); text-align: left; }
+    #billing-page-body .bl-table td.bl-c-inv { order: -1; padding-bottom: 6px; font-size: 14.5px; }
+    #billing-page-body .bl-table td.bl-c-act { margin-top: 8px; padding-top: 12px; border-top: 1px solid var(--line); }
+    #billing-page-body .bl-table td.bl-c-act .bl-actions .btn { flex: 1 1 auto; }
+    #billing-page-body .bl-table tbody tr td.bl-empty { display: block; text-align: center; padding: 36px 14px; }
+  }
 
   /* Phase 3E: Review Payment modal — the payment amount gets its own
      emphasized line above the field grid, and section headers (reusing
@@ -941,12 +965,12 @@
 
       <main class="page-body" id="billing-page-body">
 
-        <div class="page-toolbar">
-          <div>
-            <div class="bl-page-title" role="heading" aria-level="1">BILLING</div>
+        <div class="page-toolbar bl-header">
+          <div class="bl-header-text">
+            <h1 class="bl-title">BILLING</h1>
           </div>
           <div class="bl-toolbar-actions">
-            <button type="button" class="btn btn-sm btn-primary" id="bl-new-invoice-btn"><i class="fa-solid fa-plus"></i> New Invoice</button>
+            <button type="button" class="btn btn-sm btn-primary" id="bl-new-invoice-btn"><i class="fa-solid fa-plus" aria-hidden="true"></i> New Invoice</button>
           </div>
         </div>
 
@@ -954,48 +978,57 @@
 
         <div class="bl-summary-grid" id="bl-summary-grid" role="group" aria-label="Billing summary"></div>
 
-        <div class="bl-tabs" role="tablist" aria-label="Payments by status" id="bl-tablist">
-          <button type="button" class="bl-tab active" id="bl-tab-pending" role="tab" aria-selected="true" aria-controls="bl-panel" tabindex="0" data-tab="pending">Pending<span class="bl-tab-count" id="bl-pending-count"></span></button>
-          <button type="button" class="bl-tab" id="bl-tab-completed" role="tab" aria-selected="false" aria-controls="bl-panel" tabindex="-1" data-tab="completed">Completed</button>
-          <button type="button" class="bl-tab" id="bl-tab-refunded" role="tab" aria-selected="false" aria-controls="bl-panel" tabindex="-1" data-tab="refunded">Refunded</button>
-        </div>
+        <!-- One bordered module (same as Procurement's list panel): the tabs
+             only change which payment list fills the shared table, so the
+             search, columns, count footer and pager are identical for all
+             three views. billing.js keeps aria-labelledby on the tabpanel
+             pointed at the active tab. -->
+        <section class="bl-module" aria-label="Payments">
+          <div class="bl-tabs" role="tablist" aria-label="Payments by status" id="bl-tablist">
+            <button type="button" class="bl-tab active" id="bl-tab-pending" role="tab" aria-selected="true" aria-controls="bl-panel" tabindex="0" data-tab="pending">Pending<span class="bl-tab-count" id="bl-pending-count"></span></button>
+            <button type="button" class="bl-tab" id="bl-tab-completed" role="tab" aria-selected="false" aria-controls="bl-panel" tabindex="-1" data-tab="completed">Completed</button>
+            <button type="button" class="bl-tab" id="bl-tab-refunded" role="tab" aria-selected="false" aria-controls="bl-panel" tabindex="-1" data-tab="refunded">Refunded</button>
+          </div>
 
-        <!-- One shared panel for the three payment views: the tabs only
-             change which payment list fills this table, so the columns,
-             search and scroll region are identical for all of them.
-             billing.js keeps aria-labelledby pointed at the active tab. -->
-        <div class="bl-panel" id="bl-panel" role="tabpanel" aria-labelledby="bl-tab-pending">
-          <div class="filter-bar">
-            <div class="search-field">
-              <span><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i></span>
-              <input type="text" id="bl-search" placeholder="Search invoice #, client, or patient" aria-label="Search invoice number, client, or patient">
+          <div class="bl-panel" id="bl-panel" role="tabpanel" aria-labelledby="bl-tab-pending">
+            <div class="filter-bar bl-filters">
+              <div class="search-field">
+                <span><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i></span>
+                <input type="text" id="bl-search" placeholder="Search invoice #, client, or patient" aria-label="Search invoice number, client, or patient" autocomplete="off">
+              </div>
+            </div>
+            <div class="bl-table-wrap">
+              <!-- The inner scroll wrapper keeps horizontal scrolling inside
+                   the table's own surface; tabindex lets keyboard users scroll it. -->
+              <div class="bl-table-scroll" tabindex="0" role="region" aria-label="Payments table, scrollable horizontally if needed">
+                <table class="bl-table">
+                  <caption class="bl-sr-only" id="bl-table-caption">Pending payments</caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">Invoice #</th>
+                      <th scope="col">Client</th>
+                      <th scope="col">Patient</th>
+                      <th scope="col">Amount</th>
+                      <th scope="col">Payment Method</th>
+                      <th scope="col">Payment Date</th>
+                      <th scope="col">Status</th>
+                      <th scope="col">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="bl-payment-tbody"></tbody>
+                </table>
+              </div>
+            </div>
+            <div class="bl-footer">
+              <p class="bl-count" id="bl-count" aria-live="polite"></p>
+              <div class="bl-pager" id="bl-pager" hidden>
+                <button type="button" class="btn btn-sm" id="bl-prev">Previous</button>
+                <div class="bl-pages" id="bl-pages" role="group" aria-label="Pagination"></div>
+                <button type="button" class="btn btn-sm" id="bl-next">Next</button>
+              </div>
             </div>
           </div>
-          <div id="bl-count" class="bl-count" aria-live="polite"></div>
-          <div class="bl-table-wrap">
-            <!-- The inner scroll wrapper keeps horizontal scrolling inside
-                 the table's own border (the outer wrap clips for the
-                 rounded corners); tabindex lets keyboard users scroll it. -->
-            <div class="bl-table-scroll" tabindex="0" role="region" aria-label="Payments table, scrollable horizontally if needed">
-              <table class="bl-table">
-                <caption class="bl-sr-only" id="bl-table-caption">Pending payments</caption>
-                <thead>
-                  <tr>
-                    <th scope="col">Invoice #</th>
-                    <th scope="col">Client</th>
-                    <th scope="col">Patient</th>
-                    <th scope="col">Amount</th>
-                    <th scope="col">Payment Method</th>
-                    <th scope="col">Payment Date</th>
-                    <th scope="col">Status</th>
-                    <th scope="col">Actions</th>
-                  </tr>
-                </thead>
-                <tbody id="bl-payment-tbody"></tbody>
-              </table>
-            </div>
-          </div>
-        </div>
+        </section>
 
       </main>
     </div>

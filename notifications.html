@@ -16,10 +16,19 @@
      custom property; the notification card markup/classes (rendered by
      notifications.js) are intentionally unchanged until a later phase. */
 
-  /* --- header: same treatment as Services / Reports --- */
+  /* --- header: same treatment as Inventory Items ---
+     The empty desktop topbar (it only holds the mobile menu toggle) is
+     hidden above 980px, so the old 22px top nudge is gone; the toolbar is
+     vertically centred with a 24px gap below, and the title uses
+     Inventory's 20px/800 --ink-900 heading. "Mark all as read" keeps its
+     markup/ID and gets Inventory's nowrap + 40px mobile height. */
   .topbar { border-bottom: none; }
-  .page-toolbar { margin-top: 22px; }
-  .notif-page-title { font-size: 20px; font-weight: 800; margin-bottom: 0; color: var(--ink-900); }
+  @media (min-width: 981px) { .topbar { display: none; } }
+  .page-toolbar.notif-header { align-items: center; margin-bottom: 24px; }
+  .notif-header > div:first-child { min-width: 0; flex: 1 1 auto; }
+  .notif-header #markAllReadBtn { flex: 0 0 auto; white-space: nowrap; }
+  .notif-page-title { margin: 0 0 2px; font-size: 20px; font-weight: 800; line-height: inherit; letter-spacing: normal; color: var(--ink-900); }
+  @media (max-width: 640px) { .notif-header #markAllReadBtn { min-height: 40px; } }
 
   /* --- Phase 1D: filter tabs, search and dropdowns ---
      Reuses the shared .sub-tabs / .sub-tab (+ .count) tabs and the
@@ -123,16 +132,22 @@
     display: flex;
     flex-wrap: wrap;
     align-items: flex-start;
-    gap: 22px;
+    gap: 24px;
   }
 
+  /* Phase 2: each section is its own surface, same treatment as the
+     Disease Risk page's analysis surfaces: --surface-card, --line border,
+     --r-md radius, --clay-flat, 16px 18px 18px padding. The rows sit on an
+     inner page-background-toned content surface (see .notif-group). */
   .notif-page .notif-section {
     flex: 1 1 360px;
     min-width: 0;
+    box-sizing: border-box;
+    padding: 16px 18px 18px;
     display: flex;
     flex-direction: column;
     background: var(--surface-card);
-    border: 1px solid var(--line-soft);
+    border: 1px solid var(--line);
     border-radius: var(--r-md);
     box-shadow: var(--clay-flat);
     overflow: hidden;
@@ -149,8 +164,7 @@
     align-items: center;
     gap: 9px;
     margin: 0;
-    padding: 12px 18px;
-    border-bottom: 1px solid var(--line-soft);
+    padding: 0 0 14px;
   }
   .notif-page .notif-section-title {
     margin: 0;
@@ -179,12 +193,19 @@
     line-height: 1;
   }
 
-  /* rows container: the card surface now lives on .notif-section */
+  /* rows container: inner content surface (Disease Risk's inner-surface
+     treatment: page-bg tone, hairline border, faint inset). The outer card
+     surface lives on .notif-section. */
   .notif-page .notif-group {
     display: flex;
     flex-direction: column;
     flex: 1 1 auto;
     min-width: 0;
+    background: var(--surface-bg);
+    border: 1px solid var(--line-soft);
+    border-radius: var(--r-xs);
+    box-shadow: inset 0 1px 2px rgba(31, 42, 46, 0.05);
+    overflow: hidden;
   }
 
   /* empty section (Phase 1K): header + 0 pill stay; the card holds a
@@ -207,7 +228,7 @@
     align-items: center;
     column-gap: 14px;
     padding: 14px 18px;
-    border-bottom: 1px solid var(--line-soft);
+    border-bottom: 1px solid var(--line-strong);
     background: transparent;
     transition: background 0.15s ease;
   }
@@ -322,17 +343,16 @@
     .notif-page .notif-item-tile { width: 36px; height: 36px; font-size: 14px; }
     .notif-page .notif-item-side { grid-column: 2; margin-top: 8px; justify-content: flex-start; }
     .notif-page .notif-list { gap: 18px; }
-    .notif-page .notif-section-head { padding: 10px 14px; }
+    .notif-page .notif-section { padding: 14px 14px 16px; }
   }
 
   /* Phase 1L: a half-width card on a mid-size screen is as narrow as a
      phone, so it uses the same compact row arrangement (icon + text, badge
      and mark-as-read underneath). Same markup, same row design. */
-  @container notifsec (max-width: 520px) {
+  @container notifsec (max-width: 560px) {
     .notif-page .notif-item { grid-template-columns: auto minmax(0, 1fr); padding: 12px 14px; column-gap: 12px; }
     .notif-page .notif-item-tile { width: 36px; height: 36px; font-size: 14px; }
     .notif-page .notif-item-side { grid-column: 2; margin-top: 8px; justify-content: flex-start; }
-    .notif-page .notif-section-head { padding: 10px 14px; }
     .notif-page .notif-section-empty { padding: 12px 14px; }
   }
 
@@ -398,6 +418,30 @@
     #notifModalOverlay .modal-footer { padding: 12px 18px 16px; }
     #notifModalOverlay .modal-footer .btn { flex: 1 1 auto; }
     .notif-modal-row dd { text-align: left; }
+  }
+
+  /* --- Phase 2: per-section pagination footer ---
+     Mirrors Inventory Items' .ii-footer / .ii-pager / .ii-page (same
+     spacing, 12.5px count, btn-sm controls, active page = btn-primary,
+     disabled = .45 opacity). It sits inside each section's surface, under
+     the rows, and is only rendered for a section with more than 10
+     notifications. No extra background or border. */
+  .notif-page .notif-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; padding-top: 14px; }
+  .notif-page .notif-foot-count { margin: 0; font-size: 12.5px; font-weight: 600; line-height: 1.45; color: var(--ink-700); }
+  .notif-page .notif-pager { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-left: auto; min-width: 0; max-width: 100%; }
+  .notif-page .notif-pager .btn[disabled] { opacity: .45; cursor: not-allowed; box-shadow: none; pointer-events: none; }
+  .notif-page .notif-pages { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px; min-width: 0; }
+  .notif-page .notif-pg { min-width: 32px; padding-left: 6px; padding-right: 6px; font-variant-numeric: tabular-nums; }
+  .notif-page .notif-ellipsis { min-width: 20px; text-align: center; font-size: 12.5px; font-weight: 700; color: var(--ink-soft); user-select: none; }
+  .notif-page .notif-pager .btn:focus-visible { outline: 2px solid var(--teal-400); outline-offset: 2px; }
+  /* narrow section (same stacked arrangement Inventory uses on phones) */
+  @container notifsec (max-width: 640px) {
+    .notif-page .notif-foot { flex-direction: column; align-items: stretch; text-align: center; }
+    .notif-page .notif-pager { margin-left: 0; justify-content: center; }
+    .notif-page .notif-pager .notif-prev, .notif-page .notif-pager .notif-next { flex: 1 1 0; }
+    .notif-page .notif-pager .notif-prev { order: 1; }
+    .notif-page .notif-pager .notif-next { order: 2; }
+    .notif-page .notif-pager .notif-pages { order: 3; flex: 1 1 100%; }
   }
 
   .notif-page .sr-only {
@@ -524,7 +568,7 @@
       </header>
 
       <main class="page-body notif-page">
-        <div class="page-toolbar">
+        <div class="page-toolbar notif-header">
           <div>
             <h1 class="notif-page-title">NOTIFICATIONS</h1>
           </div>

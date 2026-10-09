@@ -35,7 +35,8 @@
   // Phase 3: tab is session-only UI state (not persisted anywhere).
   var state = {
     search: '',
-    tab: 'pending'
+    tab: 'pending',
+    page: 1
   };
 
   // ------------------------------------------------------------------
@@ -252,6 +253,7 @@
   function setTab(name, moveFocus) {
     if (TABS.indexOf(name) === -1) return;
     state.tab = name;
+    state.page = 1;
     render();
     if (moveFocus) focusActiveTab();
   }
@@ -337,14 +339,14 @@
     var method = p ? methodLabel(p.method) : '\u2014';
     var date = p ? fmtDateFull(p.paymentDate) : '\u2014';
     return '<tr>' +
-      '<td class="bl-mono">' + esc(inv ? inv.invoiceNumber : '\u2014') + '</td>' +
-      '<td>' + esc(info ? info.owner : '\u2014') + '</td>' +
-      '<td>' + esc(info ? info.pet : '\u2014') + '</td>' +
-      '<td class="bl-amount">' + (amount == null ? '\u2014' : money(amount)) + '</td>' +
-      '<td>' + esc(method) + '</td>' +
-      '<td class="bl-nowrap">' + esc(date) + '</td>' +
-      '<td>' + paymentRowStatus(tab) + '</td>' +
-      '<td><div class="bl-actions">' + paymentRowActions(tab, row) + '</div></td>' +
+      '<td data-label="Invoice #" class="bl-mono bl-c-inv">' + esc(inv ? inv.invoiceNumber : '\u2014') + '</td>' +
+      '<td data-label="Client" class="bl-c-client">' + esc(info ? info.owner : '\u2014') + '</td>' +
+      '<td data-label="Patient">' + esc(info ? info.pet : '\u2014') + '</td>' +
+      '<td data-label="Amount" class="bl-amount">' + (amount == null ? '\u2014' : money(amount)) + '</td>' +
+      '<td data-label="Payment Method">' + esc(method) + '</td>' +
+      '<td data-label="Payment Date" class="bl-nowrap bl-soft">' + esc(date) + '</td>' +
+      '<td data-label="Status">' + paymentRowStatus(tab) + '</td>' +
+      '<td class="bl-c-act"><div class="bl-actions">' + paymentRowActions(tab, row) + '</div></td>' +
       '</tr>';
   }
 
@@ -354,20 +356,34 @@
     refunded: ['No refunded payments', 'Refunded transactions will show up here.']
   };
 
+  // Pagination is presentation only: the rows are exactly the ones the
+  // existing selectors + search already produced, just shown 10 at a time.
+  var PAGE_SIZE = 10;
+
   function renderPaymentTable() {
     var tbody = document.getElementById('bl-payment-tbody');
     var tab = state.tab;
     var rows = getTabRows(tab);
-    var shown = 0;
+    var matched = [];
 
-    var html = rows.map(function (row) {
+    rows.forEach(function (row) {
       // getInvoiceDisplayInfo resolves client/patient through the existing
       // lookups and falls back to the appointment's own text, then to a
       // dash, so an older invoice with no patientId never throws.
       var info = row.invoice ? D.getInvoiceDisplayInfo(row.invoice) : null;
-      if (!matchesFilters(row.invoice || {}, info || {})) return '';
-      shown++;
-      return buildPaymentRow(tab, row, info);
+      if (!matchesFilters(row.invoice || {}, info || {})) return;
+      matched.push({ row: row, info: info });
+    });
+
+    var total = matched.length;
+    var pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+    if (state.page > pages) state.page = pages;
+    if (state.page < 1) state.page = 1;
+    var start = (state.page - 1) * PAGE_SIZE;
+    var visible = matched.slice(start, start + PAGE_SIZE);
+
+    var html = visible.map(function (m) {
+      return buildPaymentRow(tab, m.row, m.info);
     }).join('');
 
     if (!html) {
@@ -379,10 +395,55 @@
     }
     tbody.innerHTML = html;
 
+    // "Showing 1\u201310 of 12 payments": current page range vs. everything
+    // matching the search.
     var countEl = document.getElementById('bl-count');
-    if (countEl) countEl.textContent = plural(shown, 'payment', 'payments');
+    if (countEl) {
+      countEl.textContent = !total ? 'No payments to show' :
+        'Showing ' + (visible.length === total ? total : (start + 1) + '\u2013' + (start + visible.length)) +
+        ' of ' + plural(total, 'payment', 'payments');
+    }
+    var pager = document.getElementById('bl-pager');
+    if (pager) {
+      pager.hidden = pages <= 1;
+      document.getElementById('bl-pages').innerHTML = pageButtons(state.page, pages);
+      document.getElementById('bl-prev').disabled = state.page <= 1;
+      document.getElementById('bl-next').disabled = state.page >= pages;
+    }
     var caption = document.getElementById('bl-table-caption');
     if (caption) caption.textContent = TAB_LABELS[tab];
+  }
+
+  // Page numbers: all up to 7 pages, otherwise first/last + current and
+  // neighbours with an ellipsis for the gaps (same rule as Procurement).
+  function pageList(cur, total) {
+    var n, all = [];
+    if (total <= 7) {
+      for (n = 1; n <= total; n++) all.push(n);
+      return all;
+    }
+    if (cur <= 4) return [1, 2, 3, 4, 5, '\u2026', total];
+    if (cur >= total - 3) return [1, '\u2026', total - 4, total - 3, total - 2, total - 1, total];
+    return [1, '\u2026', cur - 1, cur, cur + 1, '\u2026', total];
+  }
+
+  function pageButtons(cur, total) {
+    return pageList(cur, total).map(function (p) {
+      if (p === '\u2026') return '<span class="bl-ellipsis" aria-hidden="true">\u2026</span>';
+      var active = p === cur;
+      return '<button type="button" class="btn btn-sm bl-page' + (active ? ' btn-primary' : '') + '" data-page="' + p + '"' +
+        (active ? ' aria-current="page"' : '') + ' aria-label="Page ' + p + '">' + p + '</button>';
+    }).join('');
+  }
+
+  // The pager is rebuilt on every page change, so put keyboard focus back on
+  // the current page number if the clicked control was replaced or disabled.
+  function keepPagerFocus() {
+    var pager = document.getElementById('bl-pager');
+    if (!pager) return;
+    if (pager.contains(document.activeElement) && !document.activeElement.disabled) return;
+    var cur = document.getElementById('bl-pages').querySelector('[aria-current="page"]');
+    if (cur) cur.focus();
   }
 
   // ------------------------------------------------------------------
@@ -2092,7 +2153,20 @@
   function setupToolbar() {
     document.getElementById('bl-search').addEventListener('input', function (e) {
       state.search = e.target.value;
+      state.page = 1;
       renderPaymentTable();
+    });
+    document.getElementById('bl-prev').addEventListener('click', function () {
+      if (state.page > 1) { state.page--; renderPaymentTable(); keepPagerFocus(); }
+    });
+    document.getElementById('bl-next').addEventListener('click', function () {
+      state.page++; renderPaymentTable(); keepPagerFocus();
+    });
+    document.getElementById('bl-pages').addEventListener('click', function (e) {
+      var btn = e.target.closest ? e.target.closest('[data-page]') : null;
+      if (!btn) return;
+      var n = parseInt(btn.getAttribute('data-page'), 10);
+      if (n && n !== state.page) { state.page = n; renderPaymentTable(); keepPagerFocus(); }
     });
     document.getElementById('bl-new-invoice-btn').addEventListener('click', openNewInvoiceModal);
 

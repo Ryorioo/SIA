@@ -191,8 +191,11 @@
     // so Phase 2's dedicated pages can reuse them as-is — so there are
     // no medicine filter inputs or a full medicine table on this page
     // to preserve focus/scroll position for anymore.
+    var controlsSlot = document.getElementById('pa-controls-slot');
+    if (controlsSlot) controlsSlot.innerHTML = renderControls();
+
     root.innerHTML =
-      renderControls() +
+      (controlsSlot ? '' : renderControls()) +
       renderSummary(adjustedDisease, medicine, state.weather) +
       renderDiseaseSnapshot(adjustedDisease) +
       '<div class="pa-lower-grid">' +
@@ -265,7 +268,7 @@
 
     return (
       '<section class="pa-disease" aria-labelledby="pa-disease-heading">' +
-        previewHeader('pa-disease-heading', 'CURRENT RISK SNAPSHOT',
+        previewHeader('pa-disease-heading', 'DISEASE RISK',
           'disease-risk', 'View Disease Risk') +
         body +
       '</section>'
@@ -417,9 +420,9 @@
   // a real <select> that only preserves its chosen value across
   // re-renders for now (see the ANALYSIS_PERIOD_OPTIONS NOTE above) —
   // it does not affect PCData.Predictive's date-window logic yet.
-  // While refreshing, the "Last analyzed" line doubles as the
-  // aria-live status announcement so refresh state is announced
-  // without adding a second, separate loading indicator.
+  // Refresh progress is announced via a hidden
+  // aria-live status region; the visible
+  // Last analyzed line was removed from the UI.
   function renderControls() {
     var c = state.controls;
 
@@ -429,31 +432,22 @@
 
     var refreshContent = c.refreshing
       ? '<i class="fa-solid fa-arrows-rotate fa-spin" aria-hidden="true"></i> Refreshing\u2026'
-      : '<i class="fa-solid fa-arrows-rotate" aria-hidden="true"></i> Refresh Analysis';
+      : '<i class="fa-solid fa-arrows-rotate" aria-hidden="true"></i> Refresh';
 
-    var statusValue = c.refreshing
-      ? 'Refreshing analysis\u2026'
-      : (c.lastAnalyzed ? formatLastAnalyzed(c.lastAnalyzed) : 'Not yet analyzed');
-
+    // Header controls: period select + Refresh only. No visible label,
+    // "Last analyzed" or timestamp (state.controls.lastAnalyzed is still
+    // tracked). The select keeps an accessible name via aria-label, and a
+    // visually hidden live region still announces refresh progress.
     return (
-      '<section class="pa-controls" aria-labelledby="pa-controls-heading">' +
-        '<h2 class="pa-controls-heading" id="pa-controls-heading">ANALYSIS CONTROLS</h2>' +
+      '<section class="pa-controls" aria-label="Analysis controls">' +
         '<div class="pa-controls-panel">' +
-          '<div class="pa-controls-field">' +
-            '<label class="pa-controls-label" for="pa-period">Analysis Period</label>' +
-            '<select id="pa-period" class="pc-select pa-controls-select">' + periodOptions + '</select>' +
-          '</div>' +
-          '<div class="pa-controls-actions">' +
-            '<div class="pa-controls-status" role="status" aria-live="polite">' +
-              '<span class="pa-controls-label">Last analyzed</span>' +
-              '<span class="pa-controls-value">' + esc(statusValue) + '</span>' +
-            '</div>' +
-            '<button type="button" id="pa-refresh-btn" class="btn btn-primary pa-controls-refresh"' +
-              (c.refreshing ? ' disabled aria-disabled="true"' : '') +
-              ' aria-label="' + (c.refreshing ? 'Refreshing analysis' : 'Refresh analysis') + '">' +
-              refreshContent +
-            '</button>' +
-          '</div>' +
+          '<select id="pa-period" class="pc-select pa-controls-select" aria-label="Analysis period">' + periodOptions + '</select>' +
+          '<button type="button" id="pa-refresh-btn" class="btn btn-primary pa-controls-refresh"' +
+            (c.refreshing ? ' disabled aria-disabled="true"' : '') +
+            ' aria-label="' + (c.refreshing ? 'Refreshing analysis' : 'Refresh analysis') + '">' +
+            refreshContent +
+          '</button>' +
+          '<span class="pa-sr-only" role="status" aria-live="polite">' + (c.refreshing ? 'Refreshing analysis\u2026' : '') + '</span>' +
         '</div>' +
       '</section>'
     );
@@ -528,21 +522,21 @@
       '<section class="pa-overview" aria-labelledby="pa-overview-heading">' +
         '<h2 class="pa-overview-heading" id="pa-overview-heading">ANALYSIS OVERVIEW</h2>' +
         '<ul class="pa-overview-grid">' +
-          overviewCard('Conditions Monitored', cats.length, conditionsDesc, true) +
-          overviewCard('Increasing Risks', increasing, increasingDesc) +
-          overviewCard('Medicine Risks', attention, medicineDesc) +
-          overviewCard('Overall Data Confidence', confidence, confidenceDesc) +
+          overviewCard('Conditions Monitored', cats.length, conditionsDesc, true, 'fa-stethoscope') +
+          overviewCard('Increasing Risks', increasing, increasingDesc, false, 'fa-arrow-trend-up') +
+          overviewCard('Medicine Risks', attention, medicineDesc, false, 'fa-pills') +
+          overviewCard('Overall Data Confidence', confidence, confidenceDesc, false, 'fa-circle-check') +
         '</ul>' +
       '</section>'
     );
   }
 
-  function overviewCard(label, value, desc, primary) {
+  function overviewCard(label, value, desc, primary, icon) {
     return (
       '<li class="pa-overview-card' + (primary ? ' pa-overview-card-primary' : '') + '">' +
         '<div class="pa-overview-head">' +
           '<span class="pa-overview-label">' + esc(label) + '</span>' +
-          (primary ? '<i class="fa-solid fa-chart-line pa-overview-icon" aria-hidden="true"></i>' : '') +
+          (icon ? '<i class="fa-solid ' + icon + ' pa-overview-icon" aria-hidden="true"></i>' : '') +
         '</div>' +
         '<div class="pa-overview-value">' + esc(String(value)) + '</div>' +
         '<div class="pa-overview-desc">' + esc(desc) + '</div>' +
