@@ -12,7 +12,7 @@ document.addEventListener('DOMContentLoaded', function () {
   setupInventoryMenu();
   setupPredictiveMenu();
   setupMobileToggle();
-  setupProfileMenu(); // after setupMobileToggle on purpose: Log out is visual-only for now
+  setupProfileMenu(); // after setupMobileToggle on purpose (Log out ends the session via logoutAdministrator)
   setBrandSubtitle();
 });
 
@@ -267,8 +267,32 @@ function setupPredictiveMenu() {
 // The existing Admin profile section at the bottom of the sidebar
 // (.sidebar-footer: avatar, name, role) becomes the expandable parent, same
 // pattern as Inventory / Predictive Analytics. Its markup and text are reused
-// as-is; only a chevron is added. Frontend only: "Log out" is a visual submenu
-// item and intentionally does nothing yet.
+// as-is; only a chevron is added. The "Log out" submenu item ends the
+// Administrator session (see logoutAdministrator below).
+
+// Logout. Calls PCClientAuth.logoutClient() (client-session.js), which clears
+// the session and redirects to the login page. Fails safe: if that helper or
+// function is missing or throws, the session key is removed here directly and
+// the browser is sent to the login page anyway, so a broken/missing helper can
+// never leave a valid session behind. After the helper call the key is also
+// re-checked and removed if it somehow survived. No success message is shown;
+// the page simply navigates away once the session is gone.
+var LOGOUT_LOGIN_PAGE = 'client-login.html';
+var LOGOUT_SESSION_KEY = 'pcv1_client_session'; // same key client-session.js uses
+
+function logoutAdministrator() {
+  var auth = window.PCClientAuth;
+  if (auth && typeof auth.logoutClient === 'function') {
+    try { auth.logoutClient(LOGOUT_LOGIN_PAGE); } catch (err) { /* fall through to the safe path */ }
+  }
+  try {
+    if (window.sessionStorage.getItem(LOGOUT_SESSION_KEY) !== null) {
+      window.sessionStorage.removeItem(LOGOUT_SESSION_KEY);
+    }
+  } catch (err) { /* storage unavailable: no session could have been stored either */ }
+  window.location.href = LOGOUT_LOGIN_PAGE;
+}
+
 function setupProfileMenu() {
   var parent = document.querySelector('.sidebar .sidebar-footer');
   if (!parent || !parent.parentNode) return;
@@ -282,8 +306,10 @@ function setupProfileMenu() {
   logout.className = 'nav-subitem nav-subitem-danger';
   logout.href = '#';
   logout.textContent = 'Log out';
-  // Visual only: no action yet; just stop the "#" jump.
-  logout.addEventListener('click', function (e) { e.preventDefault(); });
+  logout.addEventListener('click', function (e) {
+    e.preventDefault(); // stop the "#" jump; navigation happens only via logoutAdministrator()
+    logoutAdministrator();
+  });
   submenu.appendChild(logout);
 
   var chevron = document.createElement('span');

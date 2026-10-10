@@ -47,6 +47,15 @@
     return (login || '').trim().toLowerCase();
   }
 
+  // Role comparison only: trims and lowercases so legacy values such as
+  // 'Administrator' or ' Client ' are treated like the canonical strings
+  // (same rule as staff-users-data-store.js). Stored role values are never
+  // rewritten, and the role handed back to callers/sessions is always the
+  // canonical lowercase string.
+  function normalizeRole(role) {
+    return role == null ? '' : String(role).trim().toLowerCase();
+  }
+
   // ------------------------------------------------------------------
   // authentication — pure functions, no DOM/session side effects, so
   // they're easy to call from client-login.js AND to unit test directly.
@@ -83,11 +92,16 @@
     // Client record itself may still be active. Checked before the
     // role branch below so a deactivated account of either role is
     // rejected the same way.
-    if (account.status === 'inactive') {
+    // Fail closed: only an explicitly 'active' account may sign in. (PCData
+    // already normalizes status to 'active' | 'inactive' on read; this keeps
+    // an unrecognized value from ever granting access if that changes.)
+    if (account.status !== 'active') {
       return { ok: false, errorCode: 'inactive', error: 'This account has been deactivated. Please contact the clinic.' };
     }
 
-    if (account.role === 'client') {
+    var accountRole = normalizeRole(account.role);
+
+    if (accountRole === 'client') {
       var client = global.PCData.getClientById(account.clientId);
       if (!client) {
         return { ok: false, errorCode: 'no_client', error: 'This account is not linked to a client record. Please contact the clinic.' };
@@ -95,7 +109,7 @@
       return { ok: true, role: 'client', account: account, client: client };
     }
 
-    if (account.role === 'administrator') {
+    if (accountRole === 'administrator') {
       return { ok: true, role: 'administrator', account: account, client: null };
     }
 
@@ -189,10 +203,12 @@
     var session = normalizeSession(readSessionRaw());
     if (!session || !session.accountId || !session.role) return null;
 
-    if (session.role === 'client') {
+    var sessionRole = normalizeRole(session.role);
+
+    if (sessionRole === 'client') {
       if (!session.clientId) return null;
       var clientAccount = global.PCData.getAccounts().find(function (a) {
-        return a.id === session.accountId && a.role === 'client' && a.clientId === session.clientId && a.status !== 'inactive';
+        return a.id === session.accountId && normalizeRole(a.role) === 'client' && a.clientId === session.clientId && a.status === 'active';
       });
       if (!clientAccount) {
         clearSession();
@@ -206,9 +222,9 @@
       return { account: clientAccount, role: 'client', client: client };
     }
 
-    if (session.role === 'administrator') {
+    if (sessionRole === 'administrator') {
       var adminAccount = global.PCData.getAccounts().find(function (a) {
-        return a.id === session.accountId && a.role === 'administrator' && a.status !== 'inactive';
+        return a.id === session.accountId && normalizeRole(a.role) === 'administrator' && a.status === 'active';
       });
       if (!adminAccount) {
         clearSession();

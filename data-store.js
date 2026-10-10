@@ -862,8 +862,20 @@
   // other legacy fields already get defensive fallbacks elsewhere in
   // this file (e.g. getQueueDisplayInfo), rather than treating a missing
   // status as falsy/inactive wherever it's checked.
+  //
+  // Status is trimmed and lowercased before validation, so ' Active ' and
+  // 'INACTIVE' mean active / inactive. Only a MISSING status (undefined/null,
+  // i.e. a genuine legacy account) defaults to 'active'. A status that is
+  // present but unrecognized (e.g. 'disabled', '', a non-string) fails
+  // CLOSED to 'inactive' rather than silently granting access; an
+  // Administrator can reactivate it from Staff & Users.
   function normalizeAccount(a) {
-    if (a.status !== 'active' && a.status !== 'inactive') a.status = 'active';
+    if (a.status == null) {
+      a.status = 'active';
+    } else {
+      var status = typeof a.status === 'string' ? a.status.trim().toLowerCase() : '';
+      a.status = (status === 'active' || status === 'inactive') ? status : 'inactive';
+    }
     if (typeof a.name !== 'string') a.name = '';
     return a;
   }

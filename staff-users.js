@@ -8,8 +8,10 @@
 // functions in data-store.js. This file never talks to PCData
 // directly and never reimplements business rules.
 //
-// Phase 4A: the Add User modal is FRONTEND ONLY. It validates and
-// shows a toast but never writes to PCData / localStorage.
+// Add User modal: the Staff branch creates real accounts through
+// PCStaffUsers.createStaffAccount() (Phase 5C). The Client branch is
+// still FRONTEND ONLY — it validates and shows a toast but never
+// writes to PCData / localStorage.
 // ============================================================
 
 (function () {
@@ -157,7 +159,7 @@
 
     tbody.innerHTML = rows.map(function (row) {
       var a = row.account;
-      var isClient = a.role === 'client';
+      var isClient = window.PCStaffUsers.isClientRole(a.role);
       var isActive = a.status === 'active';
       var roleLabel = window.PCStaffUsers.ROLE_LABELS[a.role] || a.role;
       var statusLabel = window.PCStaffUsers.ACCOUNT_STATUS_LABELS[a.status] || a.status;
@@ -384,8 +386,6 @@
         '<div class="form-grid">' +
           textField('su-s-name', 'Full Name', { full: true }) +
           textField('su-s-email', 'Email', { inputmode: 'email' }) +
-          textField('su-s-phone', 'Phone', { inputmode: 'tel' }) +
-          textField('su-s-staffid', 'Staff ID') +
           roleField('su-s-role') +
         '</div>' +
         '<div class="su-sec-title">Account</div>' +
@@ -412,6 +412,7 @@
           '</div>' +
           staffPanel + clientPanel +
         '</div>' +
+        '<div id="su-add-form-error" class="su-form-error" role="alert" style="flex-shrink:0;margin:12px 0 0;" hidden></div>' +
         '<div class="modal-footer">' +
           '<button type="button" class="btn" data-action="close">Cancel</button>' +
           '<button type="submit" class="btn btn-primary">Create User</button>' +
@@ -463,7 +464,7 @@
     var U = window.PCStaffUsers;
     var a = row.account;
     var client = row.client;
-    var isClient = a.role === 'client';
+    var isClient = U.isClientRole(a.role);
     var isActive = a.status === 'active';
     var dash = '\u2014';
     var roleLabel = U.ROLE_LABELS[a.role] || a.role || dash;
@@ -597,9 +598,17 @@
   function editModalHtml(accountId) {
     var a = window.PCStaffUsers.getAccount(accountId);
     if (!a) return modalHead('Account Details') + '<div>Account not found.</div>' + '<div class="modal-footer"><button class="btn" data-action="close">Close</button></div>';
+    // Client accounts are never edited here (the store rejects them too).
+    if (!window.PCStaffUsers.canEditStaffAccount(a)) return modalHead('Account Details') + '<div>Client accounts can\u2019t be edited here.</div>' + '<div class="modal-footer"><button class="btn" data-action="close">Close</button></div>';
     var roleOpts = window.PCStaffUsers.STAFF_ROLES.map(function (r) {
       return '<option value="' + r + '"' + (r === a.role ? ' selected' : '') + '>' + window.PCStaffUsers.ROLE_LABELS[r] + '</option>';
     }).join('');
+    // An existing role that isn't a staff role (legacy/unknown) gets its own
+    // selected option so the select can't silently fall back to Administrator.
+    var legacyRole = window.PCStaffUsers.STAFF_ROLES.indexOf(a.role) === -1;
+    if (legacyRole) {
+      roleOpts = '<option value="' + escapeHtml(a.role || '') + '" selected>Unrecognized role: ' + escapeHtml(a.role || 'none set') + ' (kept)</option>' + roleOpts;
+    }
 
     return (
       modalHead('Edit Staff User') +
@@ -608,6 +617,7 @@
         '<div class="form-field full"><label for="su-edit-name">Full Name</label><input type="text" id="su-edit-name" value="' + escapeHtml(a.name || '') + '"></div>' +
         '<div class="form-field full"><label for="su-edit-login">Email or Login</label><input type="text" id="su-edit-login" value="' + escapeHtml(a.login || '') + '"></div>' +
         '<div class="form-field full"><label for="su-edit-role">Role</label><select id="su-edit-role">' + roleOpts + '</select></div>' +
+        (legacyRole ? '<p class="su-modal-note full" style="grid-column:1/-1;">This account has an unrecognized role. It will be kept as-is unless you choose a new one.</p>' : '') +
         '<p class="su-modal-note full" style="grid-column:1/-1;">Passwords aren\u2019t shown or editable here.</p>' +
       '</div>' +
       '<div class="modal-footer">' +
@@ -731,7 +741,7 @@
   function fieldIdsFor(type) {
     return type === 'client'
       ? ['su-c-client', 'su-c-status', 'su-c-password', 'su-c-confirm']
-      : ['su-s-name', 'su-s-email', 'su-s-phone', 'su-s-staffid', 'su-s-role', 'su-s-status', 'su-s-password', 'su-s-confirm'];
+      : ['su-s-name', 'su-s-email', 'su-s-role', 'su-s-status', 'su-s-password', 'su-s-confirm'];
   }
 
   function showToast(msg) {
@@ -821,6 +831,60 @@
     if (type !== 'client') closeCombo();
   }
 
+  // Form-level (not tied to one field) error for the Add User modal.
+  function setAddFormError(msg) {
+    var box = $('#su-add-form-error');
+    if (!box) return;
+    box.textContent = msg || '';
+    box.hidden = !msg;
+  }
+
+  // Store error `field` -> Add User (Staff) input id.
+  var STAFF_ERROR_FIELDS = {
+    name: 'su-s-name',
+    login: 'su-s-email',
+    role: 'su-s-role',
+    password: 'su-s-password',
+    status: 'su-s-status'
+  };
+
+  // Staff branch: creates a real account via PCStaffUsers.createStaffAccount().
+  // On any failure the modal stays open and `submitting` is reset.
+  function submitStaffAdd() {
+    submitting = true;
+    setAddFormError('');
+    var result;
+    try {
+      result = window.PCStaffUsers.createStaffAccount({
+        name: $('#su-s-name').value,
+        login: $('#su-s-email').value,
+        role: $('#su-s-role').value,
+        password: $('#su-s-password').value,
+        status: $('#su-s-status').value
+      });
+    } catch (err) {
+      submitting = false;
+      setAddFormError('Something went wrong while creating the account. Please try again.');
+      return;
+    }
+
+    if (!result || !result.ok) {
+      submitting = false;
+      var msg = (result && result.error) || 'Could not create the account. Please try again.';
+      var fieldId = STAFF_ERROR_FIELDS[result && result.field];
+      if (fieldId && $('#' + fieldId)) {
+        setMsg(fieldId, msg, 'error');
+        $('#' + fieldId).focus();
+      } else {
+        setAddFormError(msg);
+      }
+      return;
+    }
+
+    closeModal(); // clears add state (incl. `submitting`) and re-renders the directory
+    showToast('Staff account created.');
+  }
+
   function wireAddUserModal() {
     wireCloseOnly();
     var form = $('#su-add-form');
@@ -830,7 +894,13 @@
       if (submitting) return;
       var firstBad = validateAddUserForm(form);
       if (firstBad) { firstBad.focus(); return; }
-      // Frontend-only: nothing is created or stored in this phase.
+
+      if (addState.type === 'staff') {
+        submitStaffAdd();
+        return;
+      }
+
+      // Client branch: unchanged — frontend-only, nothing is created or stored.
       submitting = true;
       closeModal(); // resets all Add User state (also clears `submitting`)
       showToast('Form validated. Account creation will be connected later.');
@@ -948,13 +1018,21 @@
 
   function wireEditModal(accountId) {
     wireCloseOnly();
-    $('[data-action="submit-edit"]').addEventListener('click', function () {
-      var result = window.PCStaffUsers.updateStaffAccount(accountId, {
-        name: $('#su-edit-name').value,
-        login: $('#su-edit-login').value,
-        role: $('#su-edit-role').value
-      });
-      if (!result.ok) return showFormError(result.error);
+    var submitBtn = $('[data-action="submit-edit"]');
+    if (!submitBtn) return; // account missing / not editable: only Close is shown
+    submitBtn.addEventListener('click', function () {
+      var result;
+      try {
+        result = window.PCStaffUsers.updateStaffAccount(accountId, {
+          name: $('#su-edit-name').value,
+          login: $('#su-edit-login').value,
+          role: $('#su-edit-role').value
+        });
+      } catch (err) {
+        result = null;
+      }
+      // Failed update: stay open with the error, no success path.
+      if (!result || !result.ok) return showFormError((result && result.error) || 'Could not save changes. Please try again.');
       closeModal();
     });
   }
@@ -983,9 +1061,16 @@
       : 'Reactivate this account?';
     if (!window.confirm(confirmMsg)) return;
 
-    var result = window.PCStaffUsers.toggleAccountStatus(id);
-    if (!result.ok) {
-      window.alert(result.error);
+    var result;
+    try {
+      result = window.PCStaffUsers.toggleAccountStatus(id);
+    } catch (err) {
+      result = null;
+    }
+    // Thrown error or failed result: show the error, no success path and
+    // no refresh as if the change had gone through.
+    if (!result || !result.ok) {
+      window.alert((result && result.error) || 'Could not update the account status. Please try again.');
       return;
     }
     render(); // refreshes the table behind and the open View modal
@@ -1000,6 +1085,25 @@
   // ------------------------------------------------------------------
 
   document.addEventListener('DOMContentLoaded', function () {
+    // Access guard — must stay the first thing that runs. Administrator
+    // session required (PCClientAuth.requireAdminLogin(), client-session.js).
+    // requireAdminLogin() redirects to the login page when there is no
+    // Administrator session but does NOT stop this script, so initialization
+    // stops here explicitly. If the helper itself is missing, fail closed:
+    // nothing is initialized or rendered.
+    var admin = null;
+    try {
+      admin = (window.PCClientAuth && typeof window.PCClientAuth.requireAdminLogin === 'function')
+        ? window.PCClientAuth.requireAdminLogin()
+        : null;
+    } catch (err) {
+      admin = null;
+    }
+    if (!admin) {
+      document.body.style.visibility = 'hidden'; // no empty admin shell while redirecting
+      return;
+    }
+
     $('#su-search-input').addEventListener('input', function (e) {
       state.search = e.target.value;
       refreshTable();

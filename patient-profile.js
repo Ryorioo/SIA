@@ -510,7 +510,34 @@
   // init
   // ------------------------------------------------------------------
 
+  // ------------------------------------------------------------------
+  // Administrator guard (Phase 5Q). Runs FIRST in the init handler below.
+  // Fails closed: a missing helper, a throw, or a falsy result all count
+  // as "not signed in as an active Administrator". On failure the browser
+  // is sent to the login page and the caller returns before any profile
+  // data is read or rendered and before any data listener is registered.
+  // ------------------------------------------------------------------
+  var LOGIN_PAGE = 'client-login.html';
+
+  function adminGuardPasses() {
+    var admin = null;
+    try {
+      var auth = window.PCClientAuth;
+      if (!auth || typeof auth.requireAdminLogin !== 'function') {
+        throw new Error('PCClientAuth.requireAdminLogin is not available');
+      }
+      admin = auth.requireAdminLogin(LOGIN_PAGE);
+    } catch (err) {
+      admin = null;
+    }
+    if (admin) return true;
+    try { window.location.href = LOGIN_PAGE; } catch (err) { /* nothing more to do */ }
+    return false;
+  }
+
   document.addEventListener('DOMContentLoaded', function () {
+    if (!adminGuardPasses()) return; // must stay the first operation
+
     var param = new URLSearchParams(window.location.search).get('id');
     var p = findPatient(param);
     state.patientId = p ? p.id : null;

@@ -521,28 +521,5 @@
   <script src="sidebar.js"></script>
   <script src="dashboard-data-store.js"></script>
   <script src="dashboard.js"></script>
-  <script>
-    // AUTHENTICATION TEMPORARILY DISABLED
-    // This frontend prototype does not have a backend yet.
-    // Administrator/Client authentication will be implemented later
-    // after the PHP + MySQL backend is completed.
-    //
-    // Original guarded logic (restore once the backend exists):
-    //
-    // document.addEventListener('DOMContentLoaded', function () {
-    //   var admin = window.PCClientAuth.requireAdminLogin('client-login.html');
-    //   if (!admin) return;
-    //
-    //   var logoutBtn = document.getElementById('logout-btn');
-    //   if (logoutBtn) {
-    //     logoutBtn.addEventListener('click', function (e) {
-    //       e.preventDefault();
-    //       e.stopPropagation();
-    //       window.PCClientAuth.clearSession();
-    //       window.location.href = 'client-login.html';
-    //     });
-    //   }
-    // });
-  </script>
 </body>
 </html>

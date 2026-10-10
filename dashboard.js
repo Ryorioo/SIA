@@ -346,6 +346,27 @@
   }
 
   document.addEventListener('DOMContentLoaded', function () {
+    // ACCESS GUARD — must stay the first operation in this handler.
+    // Only a valid Administrator session may render the Dashboard.
+    // Fails closed: if PCClientAuth or requireAdminLogin is missing,
+    // throws, or returns a falsy result (logged out, Client session,
+    // deactivated/deleted account), the page body is hidden and
+    // nothing below runs — no renderDashboard(), no PCData.onChange()
+    // listener. requireAdminLogin() itself redirects to the login page
+    // when there is no Administrator session.
+    var admin = null;
+    try {
+      if (window.PCClientAuth && typeof window.PCClientAuth.requireAdminLogin === 'function') {
+        admin = window.PCClientAuth.requireAdminLogin('client-login.html');
+      }
+    } catch (err) {
+      admin = null;
+    }
+    if (!admin) {
+      if (document.body) document.body.style.display = 'none';
+      return;
+    }
+
     renderDashboard();
     if (window.PCData && typeof PCData.onChange === 'function') {
       PCData.onChange(renderDashboard);

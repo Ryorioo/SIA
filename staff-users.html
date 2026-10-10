@@ -649,10 +649,14 @@
     <div class="modal-box su-modal" id="su-modal" role="dialog" aria-modal="true" aria-labelledby="su-modal-title" tabindex="-1"></div>
   </div>
 
-  <!-- data-store.js first (owns PCData / Accounts / Clients), then the
-       Staff & Users domain layer built on top of PCData, then this page's
-       DOM/rendering logic, then sidebar.js. No page-level login guard. -->
+  <!-- data-store.js first (owns PCData / Accounts / Clients), then
+       client-session.js (PCClientAuth — Administrator session guard, needs
+       PCData), then the Staff & Users domain layer built on top of PCData,
+       then this page's DOM/rendering logic (which runs the
+       PCClientAuth.requireAdminLogin() guard before initializing), then
+       sidebar.js. -->
   <script src="data-store.js"></script>
+  <script src="client-session.js"></script>
   <script src="staff-users-data-store.js"></script>
   <script src="staff-users.js"></script>
   <script src="sidebar.js"></script>

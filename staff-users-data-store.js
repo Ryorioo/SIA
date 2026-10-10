@@ -61,6 +61,47 @@
     return (login || '').trim().toLowerCase();
   }
 
+  // Normalized role comparison for security-sensitive checks (Client-account
+  // protection, last-Administrator safeguard). Legacy values such as 'Client'
+  // or ' Administrator ' must be treated the same as the canonical strings.
+  // This is comparison-only: stored role values are never rewritten by it.
+  function normalizeRole(role) {
+    return role == null ? '' : String(role).trim().toLowerCase();
+  }
+  function isClientRole(role) { return normalizeRole(role) === 'client'; }
+  function isAdministratorRole(role) { return normalizeRole(role) === 'administrator'; }
+
+  // Authorization for the three mutations below. Uses the existing session
+  // helper (PCClientAuth.getCurrentAdmin(), client-session.js), which
+  // re-validates the session against live Accounts (role + active status).
+  // Fails CLOSED: a missing/incomplete PCClientAuth, a throw, or no valid
+  // Administrator session all mean "not allowed". Checked before anything
+  // is read or written, so a denied call never touches account storage.
+  function requireAdministrator() {
+    try {
+      var auth = global.PCClientAuth;
+      return !!(auth && typeof auth.getCurrentAdmin === 'function' && auth.getCurrentAdmin());
+    } catch (err) {
+      return false;
+    }
+  }
+  function permissionDenied() {
+    return { ok: false, error: 'You do not have permission to do that.' };
+  }
+
+  // Staff editing is only for staff-side accounts. An account is NOT
+  // editable here if its role is a Client role (any casing), or if it is
+  // linked to a Client record (non-null clientId) while holding a role that
+  // isn't a recognized staff role (i.e. a malformed/legacy role on what is
+  // really a Client-linked account). Recognized staff roles are unaffected.
+  function canEditStaffAccount(account) {
+    if (!account) return false;
+    if (isClientRole(account.role)) return false;
+    var linked = account.clientId != null && account.clientId !== '';
+    if (linked && STAFF_ROLES.indexOf(account.role) === -1) return false;
+    return true;
+  }
+
   // ------------------------------------------------------------------
   // rows — one view row per Account, with the display name and (for
   // Client accounts) the linked Client resolved via clientId.
@@ -68,8 +109,8 @@
   function getRows() {
     if (!hasPCData()) return [];
     return global.PCData.getAccounts().map(function (account) {
-      var client = account.role === 'client' ? global.PCData.getClientById(account.clientId) : null;
-      var displayName = account.role === 'client'
+      var client = isClientRole(account.role) ? global.PCData.getClientById(account.clientId) : null;
+      var displayName = isClientRole(account.role)
         ? (client ? client.name : '(linked client not found)')
         : (account.name || account.login);
       return { account: account, client: client, displayName: displayName };
@@ -89,7 +130,7 @@
 
     return rows.filter(function (row) {
       if (type !== 'all') {
-        var rowType = row.account.role === 'client' ? 'client' : 'staff';
+        var rowType = isClientRole(row.account.role) ? 'client' : 'staff';
         if (rowType !== type) return false;
       }
       if (role !== 'all' && row.account.role !== role) return false;
@@ -111,7 +152,7 @@
       total: rows.length,
       active: rows.filter(function (r) { return r.account.status === 'active'; }).length,
       staff: rows.filter(function (r) { return STAFF_ROLES.indexOf(r.account.role) !== -1; }).length,
-      clients: rows.filter(function (r) { return r.account.role === 'client'; }).length
+      clients: rows.filter(function (r) { return isClientRole(r.account.role); }).length
     };
   }
 
@@ -122,9 +163,24 @@
   // the system is never left without an Administrator.
   // ------------------------------------------------------------------
   function countOtherActiveAdmins(excludeId) {
-    return global.PCData.getAccounts().filter(function (a) {
-      return a.role === 'administrator' && a.status === 'active' && a.id !== excludeId;
+    var all = global.PCData.getAccounts();
+    return all.filter(function (a) {
+      return a.id !== excludeId && canSignInAsAdministrator(a, all);
     }).length;
+  }
+
+  // Mirrors what PCClientAuth.authenticate() (client-session.js) requires for
+  // an Administrator to actually sign in: an Administrator role (compared
+  // normalized), an active status, a non-blank login, and a login that isn't
+  // shadowed by an earlier account with the same normalized login (sign-in
+  // picks the FIRST match). Only accounts that can really sign in count
+  // toward the last-Administrator safeguard.
+  function canSignInAsAdministrator(account, all) {
+    if (!isAdministratorRole(account.role) || account.status !== 'active') return false;
+    var login = normalizeLogin(account.login);
+    if (!login) return false;
+    var first = all.filter(function (x) { return normalizeLogin(x.login) === login; })[0];
+    return !!first && first.id === account.id;
   }
 
   function getAccount(id) {
@@ -139,19 +195,34 @@
   // ------------------------------------------------------------------
 
   // Creates a STAFF-side account only (never a Client account — those
-  // stay owned by the Client workflow). Returns { ok: true, account }
-  // or { ok: false, error }.
+  // stay owned by the Client workflow). `fields.status` is optional and
+  // must be one of ACCOUNT_STATUSES; it defaults to 'active'. Returns
+  // { ok: true, account } or { ok: false, error, field } where `field`
+  // ('name' | 'login' | 'role' | 'password' | 'status') names the input
+  // the error belongs to.
   function createStaffAccount(fields) {
+    if (!requireAdministrator()) return permissionDenied();
+    fields = fields || {};
     var name = (fields.name || '').trim();
     var login = (fields.login || '').trim();
     var role = fields.role;
     var password = fields.password || '';
+    var status = (fields.status == null || fields.status === '') ? 'active' : fields.status;
 
-    if (!name) return { ok: false, error: 'Please enter a name.' };
-    if (!login) return { ok: false, error: 'Please enter an email or login.' };
-    if (STAFF_ROLES.indexOf(role) === -1) return { ok: false, error: 'Please choose a valid staff role.' };
-    if (!password) return { ok: false, error: 'Please set a temporary password.' };
-    if (global.PCData.accountExists(login)) return { ok: false, error: 'An account with that login already exists.' };
+    if (!name) return { ok: false, error: 'Please enter a name.', field: 'name' };
+    if (!login) return { ok: false, error: 'Please enter an email or login.', field: 'login' };
+    if (STAFF_ROLES.indexOf(role) === -1) return { ok: false, error: 'Please choose a valid staff role.', field: 'role' };
+    if (!password) return { ok: false, error: 'Please set a temporary password.', field: 'password' };
+    if (ACCOUNT_STATUSES.indexOf(status) === -1) return { ok: false, error: 'Please choose a valid account status.', field: 'status' };
+
+    // Case-insensitive duplicate check (same rule updateStaffAccount uses),
+    // in addition to PCData's own accountExists().
+    var loginTaken = global.PCData.getAccounts().some(function (a) {
+      return normalizeLogin(a.login) === normalizeLogin(login);
+    });
+    if (loginTaken || global.PCData.accountExists(login)) {
+      return { ok: false, error: 'An account with that login already exists.', field: 'login' };
+    }
 
     var account = global.PCData.addAccount({
       name: name,
@@ -159,55 +230,105 @@
       password: password,
       role: role,
       clientId: null,
-      status: 'active'
+      status: status
     });
     return { ok: true, account: account };
   }
 
   // Edits a STAFF-side account's name/login/role. Client accounts are
   // never edited through this function — Staff & Users only offers
-  // View/Activate-Deactivate for Client accounts. Returns
-  // { ok: true, account } or { ok: false, error }.
+  // View/Activate-Deactivate for Client accounts — so a missing account
+  // or an account whose role is 'client' is rejected before anything is
+  // validated or written (role and clientId are left untouched).
+  //
+  // An account that already holds an unrecognized/legacy role (not one
+  // of STAFF_ROLES) may be saved with that same role unchanged: the role
+  // is then left out of the update entirely so it is preserved exactly.
+  // Moving to any role other than STAFF_ROLES still requires a valid
+  // staff role. Returns { ok: true, account } or { ok: false, error }.
   function updateStaffAccount(id, fields) {
+    if (!requireAdministrator()) return permissionDenied();
+    fields = fields || {};
     var account = getAccount(id);
     if (!account) return { ok: false, error: 'Account not found.' };
+    if (!canEditStaffAccount(account)) {
+      return { ok: false, error: 'Client accounts can\u2019t be edited here.' };
+    }
 
     var name = (fields.name || '').trim();
     var login = (fields.login || '').trim();
     var role = fields.role;
 
+    var currentRole = account.role == null ? '' : String(account.role);
+    var keepsCurrentRole = STAFF_ROLES.indexOf(account.role) === -1 &&
+      (role == null ? '' : String(role)) === currentRole;
+
     if (!name) return { ok: false, error: 'Please enter a name.' };
     if (!login) return { ok: false, error: 'Please enter an email or login.' };
-    if (STAFF_ROLES.indexOf(role) === -1) return { ok: false, error: 'Please choose a valid staff role.' };
+    if (!keepsCurrentRole && STAFF_ROLES.indexOf(role) === -1) return { ok: false, error: 'Please choose a valid staff role.' };
 
     var loginTaken = global.PCData.getAccounts().some(function (a) {
       return a.id !== account.id && normalizeLogin(a.login) === normalizeLogin(login);
     });
     if (loginTaken) return { ok: false, error: 'Another account already uses that login.' };
 
-    var wasActiveAdmin = account.role === 'administrator' && account.status === 'active';
-    var willBeAdmin = role === 'administrator';
+    // The role the account will hold after this save (a kept legacy role
+    // stays exactly as stored). Compared normalized so 'Administrator' counts.
+    var finalRole = keepsCurrentRole ? account.role : role;
+    var wasActiveAdmin = isAdministratorRole(account.role) && account.status === 'active';
+    var willBeAdmin = isAdministratorRole(finalRole);
     if (wasActiveAdmin && !willBeAdmin && countOtherActiveAdmins(account.id) === 0) {
       return { ok: false, error: 'Cannot change role: at least one active Administrator is required.' };
     }
 
-    var updated = global.PCData.updateAccount(account.id, { name: name, login: login, role: role });
-    return { ok: true, account: updated };
+    var patch = { name: name, login: login };
+    if (!keepsCurrentRole) patch.role = role;
+
+    // Don't report success unless the change is actually in the store:
+    // write, then RE-READ the account fresh from storage and compare the
+    // persisted values to what was intended (never the in-memory object
+    // that updateAccount() returned). A throwing or silently ineffective
+    // write, or a vanished/mismatched account, is a failure.
+    var saveError = { ok: false, error: 'Could not save changes. Please try again.' };
+    var saved;
+    try {
+      global.PCData.updateAccount(account.id, patch);
+      saved = getAccount(account.id);
+    } catch (err) {
+      return saveError;
+    }
+    if (!saved || saved.id !== account.id || saved.name !== name || saved.login !== login || saved.role !== finalRole) {
+      return saveError;
+    }
+    return { ok: true, account: saved };
   }
 
   // Flips an account's status, enforcing the last-Administrator
   // safeguard. Returns { ok: true, account } or { ok: false, error }.
   function toggleAccountStatus(id) {
+    if (!requireAdministrator()) return permissionDenied();
     var account = getAccount(id);
     if (!account) return { ok: false, error: 'Account not found.' };
 
     var goingInactive = account.status === 'active';
-    if (account.role === 'administrator' && goingInactive && countOtherActiveAdmins(id) === 0) {
+    if (isAdministratorRole(account.role) && goingInactive && countOtherActiveAdmins(id) === 0) {
       return { ok: false, error: 'Cannot deactivate: at least one active Administrator is required.' };
     }
 
-    var updated = global.PCData.updateAccount(id, { status: goingInactive ? 'inactive' : 'active' });
-    return { ok: true, account: updated };
+    // Write, then re-read from storage and verify the new status actually
+    // persisted before reporting success (see updateStaffAccount).
+    var nextStatus = goingInactive ? 'inactive' : 'active';
+    var saved;
+    try {
+      global.PCData.updateAccount(id, { status: nextStatus });
+      saved = getAccount(id);
+    } catch (err) {
+      return { ok: false, error: 'Could not update the account status. Please try again.' };
+    }
+    if (!saved || saved.id !== id || saved.status !== nextStatus) {
+      return { ok: false, error: 'Could not update the account status. Please try again.' };
+    }
+    return { ok: true, account: saved };
   }
 
   function onChange(cb) {
@@ -225,6 +346,9 @@
     getSummary: getSummary,
     getAccount: getAccount,
     countOtherActiveAdmins: countOtherActiveAdmins,
+    isClientRole: isClientRole,
+    isAdministratorRole: isAdministratorRole,
+    canEditStaffAccount: canEditStaffAccount,
     createStaffAccount: createStaffAccount,
     updateStaffAccount: updateStaffAccount,
     toggleAccountStatus: toggleAccountStatus,

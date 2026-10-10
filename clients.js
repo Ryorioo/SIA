@@ -814,6 +814,27 @@
   }
 
   document.addEventListener('DOMContentLoaded', function () {
+    // ACCESS GUARD — must stay the first operation in this handler.
+    // Only a valid Administrator session may use this page. Fails closed:
+    // if PCClientAuth or requireAdminLogin is missing, throws, or returns
+    // a falsy result (logged out, Client session, inactive/deleted
+    // account), the page body is hidden and nothing below runs — no
+    // render, no data listeners, no interaction wiring.
+    // requireAdminLogin() redirects to the login page when there is no
+    // Administrator session.
+    var admin = null;
+    try {
+      if (window.PCClientAuth && typeof window.PCClientAuth.requireAdminLogin === 'function') {
+        admin = window.PCClientAuth.requireAdminLogin('client-login.html');
+      }
+    } catch (err) {
+      admin = null;
+    }
+    if (!admin) {
+      if (document.body) document.body.style.display = 'none';
+      return;
+    }
+
     document.getElementById('search-input').addEventListener('input', function (e) {
       state.search = e.target.value;
       state.page = 1;
